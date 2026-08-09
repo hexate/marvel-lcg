@@ -49,10 +49,16 @@ class FaceEffect:
             if type != None and not effect.IsType(type):
                 continue
             try:
-                # Fix "43007"
+                # Fix "43007". Some abilities declare a union `when`, for example
+                # Message.WhenUnitWouldAttack|Message.WhenUnitWouldThwart, and issubclass()
+                # raises TypeError on a union rather than returning False. Skip those.
+                #
+                # Only TypeError is tolerated. A bare except would also absorb genuine
+                # failures, and because the handler continues, the effect is dropped from the
+                # result with no crash and no log, so a card silently stops working.
                 if when != None and not issubclass(effect.ability.when, when):
                     continue
-            except:
+            except TypeError:
                 continue
             effects.append(effect)
         return effects
