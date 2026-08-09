@@ -8,3 +8,6 @@
 /crash.log
 /statistics.json
 /deck/*.json
+/launch-debug.json
+/replays/**/*.json
+/replays_*/
