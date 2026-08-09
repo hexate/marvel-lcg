@@ -430,7 +430,7 @@ web auth, save integrity. Ordered by how much they matter.
 
 | ID | Finding | Location | Severity | Status |
 | --- | --- | --- | --- | --- |
-| J1 | Bare `except:` silently drops card abilities | `game/card/face/effect/face_effect.py:55` | **High** | PROPOSED |
+| J1 | Bare `except:` can silently drop a card ability | `game/card/face/effect/face_effect.py:55` | Medium (see measurement) | **DONE** — `pr/narrow-effect-filter-except` |
 | J2 | Auth endpoint never verifies the password; no rate limiting | `engine/network/web_server.py:202` | Medium | PROPOSED |
 | J3 | Save checksums default to ignored, and load proceeds on mismatch | `engine/lib/json.py:179` | Medium | PROPOSED |
 | J4 | `JobManager.Simultaneous` is a sequential loop | `engine/job/manager.py:76` | Medium | PROPOSED |
@@ -456,12 +456,29 @@ workaround for one card. But a bare `except` catches everything, and the handler
 which **drops the effect from the returned list**.
 
 So any unexpected error while filtering makes a card ability quietly not exist for that query. No
-log, no crash, no failed test. The game keeps playing and one card just does not work. In a rules
-engine this is the worst available failure mode, and with 3,457 card scripts it is unfalsifiable
-by inspection.
+log, no crash, no failed test. The game keeps playing and one card just does not work.
 
-Narrowing it to `except TypeError:` and logging keeps the "43007" workaround while making
-everything else loud.
+**Severity correction.** An earlier revision of this entry rated it High and asserted that cards
+silently stop working. That overstated what was measured, and the claim is walked back here.
+
+What is confirmed:
+
+- The branch is live and runs often. The only caller passing `when=` is
+  `HasCost.CanPlayBy` (`game/card/face/attribute/has_cost.py:46`), which the engine hits whenever
+  it decides whether a card is playable. Instrumenting one Spider-Man hand showed **23 invocations
+  from 6 cards**.
+- Of those 23, **every one completed cleanly**. Zero `TypeError`, zero anything else.
+- `FaceEffect.FindAbility`, the other `when=` caller, is dead. Its only reference is a commented
+  assert at `game/card/factory.py:127`.
+
+So this is a real hazard sitting on a hot path, not an observed bug. No card is known to be broken
+by it. It is worth fixing because the failure mode is invisible if it ever does fire, and because
+the fix is three lines, not because anything is currently misbehaving.
+
+**Fixed** on `pr/narrow-effect-filter-except`. The handler is now `except TypeError:`, which keeps
+the 43007 union behaviour byte-for-byte and lets everything else propagate. Two tests in
+`unit_test/test_effect_filter.py`: one asserts a non-`TypeError` escapes, and fails without the
+change; the other pins the union case so the clause cannot be narrowed further by accident.
 
 ### J2 — the auth endpoint does not check the password
 
