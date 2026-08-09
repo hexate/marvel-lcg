@@ -11,3 +11,4 @@
 /launch-debug.json
 /replays/**/*.json
 /replays_*/
+/out/
