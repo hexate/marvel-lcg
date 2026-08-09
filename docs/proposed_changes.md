@@ -423,6 +423,111 @@ module names is not a security control. Decide which — the current state is th
 
 ---
 
+## J. Second-pass defect audit (2026-08-09)
+
+Deeper sweep after §F, targeting areas the first pass skipped: exception handling, concurrency,
+web auth, save integrity. Ordered by how much they matter.
+
+| ID | Finding | Location | Severity | Status |
+| --- | --- | --- | --- | --- |
+| J1 | Bare `except:` silently drops card abilities | `game/card/face/effect/face_effect.py:55` | **High** | PROPOSED |
+| J2 | Auth endpoint never verifies the password; no rate limiting | `engine/network/web_server.py:202` | Medium | PROPOSED |
+| J3 | Save checksums default to ignored, and load proceeds on mismatch | `engine/lib/json.py:179` | Medium | PROPOSED |
+| J4 | `JobManager.Simultaneous` is a sequential loop | `engine/job/manager.py:76` | Medium | PROPOSED |
+| J5 | `RemoveJob` check-then-act race from worker threads | `engine/job/manager.py:43` | Low | PROPOSED |
+| J6 | 519 `assert`s enforce game rules; `python -O` deletes them | engine-wide | Low, latent | PROPOSED |
+| J7 | Mutable default arguments (10 sites) | various | Low, latent | PROPOSED |
+
+### J1 — a bare `except` can silently disable a card
+
+In `FindGiven`, which filters the effects an ability can see:
+
+```python
+try:
+    # Fix "43007"
+    if when != None and not issubclass(effect.ability.when, when):
+        continue
+except:
+    continue
+```
+
+The `try` exists to absorb a `TypeError` from `issubclass` when `ability.when` is not a class, a
+workaround for one card. But a bare `except` catches everything, and the handler is `continue`,
+which **drops the effect from the returned list**.
+
+So any unexpected error while filtering makes a card ability quietly not exist for that query. No
+log, no crash, no failed test. The game keeps playing and one card just does not work. In a rules
+engine this is the worst available failure mode, and with 3,457 card scripts it is unfalsifiable
+by inspection.
+
+Narrowing it to `except TypeError:` and logging keeps the "43007" workaround while making
+everything else loud.
+
+### J2 — the auth endpoint does not check the password
+
+```python
+async def handle_authenticate(request):
+    data = await request.json()
+    password_attempt = data.get('password')
+    session_token = hashlib.md5(password_attempt.encode()).hexdigest()
+    response.set_cookie('session_token', session_token, max_age=31536000, httponly=True)
+```
+
+It hashes whatever the client sends and hands it straight back as a cookie. The real check happens
+later in `IsAuthenticate`, which compares that cookie to the server's hash, so access control does
+work. But the design has consequences:
+
+- No rate limiting anywhere, so guessing is unbounded.
+- Unsalted MD5, so one captured cookie is offline-brute-forceable back to the plaintext password.
+- `secure=True` and `samesite` are commented out (`web_server.py:214-215`) and the server is plain
+  HTTP, so the cookie travels in clear.
+- 1-year lifetime, and the token is the password hash, so it never rotates.
+- `password_attempt` is `None` if the key is absent, so `None.encode()` returns a 500 to an
+  unauthenticated caller.
+
+For LAN play with an optional password this is roughly proportionate. It is worth writing down
+because at least one community fork (`z00lus`, issue #3) is explicitly targeting self-hosted
+servers, and someone will eventually port-forward this.
+
+### J3 — checksums are computed, then ignored
+
+`Types.DictChecksum` is SHA-256 over sorted-key JSON, which is fine. The problem is the plumbing:
+
+- `Json.Load` and `Json.LoadAs` default to `check_sum="Ignore"` (`json.py:179`, `192`).
+- Even with checking on, a mismatch calls `Notify.Error(...)` and then **returns the object
+  anyway**. Nothing refuses to load.
+- The hash is unkeyed, so it detects corruption but not modification. Anyone editing a replay can
+  recompute it.
+
+Given that replays and puzzles are shared between players, "warn and load anyway" is the part
+worth revisiting.
+
+### J4 — `Simultaneous` runs sequentially
+
+```python
+@staticmethod
+def Simultaneous(process: Callable[[T], None], objects: List[T]):
+    for object in objects:
+        process(object)
+```
+
+Four call sites, all `process_player` over `const_players` (`world.py:326,331,385`,
+`event/manager.py:327`). Sequential is almost certainly correct here, since parallel player
+processing would destroy replay determinism. The defect is the name: it tells a reader that
+multiplayer work is already parallel, which is both wrong for anyone profiling B1 and an
+invitation for someone to "fix" it and silently break replay.
+
+Rename, or add a comment saying the serialism is deliberate.
+
+### J6 — the rules engine is enforced by `assert`
+
+519 `assert` statements across `core/`, `engine/`, and `game/`, many of them validating game rules
+rather than checking internal invariants. Python's `-O` flag removes every one. Nothing in the
+repo currently sets it, so this is latent rather than live, but a PyInstaller spec or a packaging
+tweak is all it would take to ship a build whose rule checks are absent.
+
+---
+
 ## E. Strategic direction: stay in Python, or port?
 
 **Recommendation as of 2026-08-09: stay in Python. Fix the algorithm, not the language.**
