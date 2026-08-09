@@ -92,6 +92,39 @@ another contributor (`z00lus`) is already maintaining a divergent fork with his 
 | --- | --- | --- |
 | U5 | **No `LICENSE` file exists.** Absent one, default copyright is "all rights reserved"; the issue-#3 comment is strong evidence of intent but is not a license grant with terms. Low risk for private/hobby work, real risk before any distribution or commercial use. He has already named Apache 2.0, so the ask is "please commit the file," not a new question — offer to send it. | PROPOSED |
 
+### Branch layout and how to package a contribution
+
+| Branch | Purpose | Upstream? |
+| --- | --- | --- |
+| `master` | tracks `upstream/master`, never committed to directly | — |
+| `work/engine-audit` | fork integration: docs, tooling, direction | never |
+| `pr/<topic>` | one contribution, cut fresh from `upstream/master` | yes |
+
+A `pr/*` branch must be based **directly on `upstream/master`**, never stacked on
+`work/engine-audit` — otherwise its diff carries unrelated fork commits and stops being readable.
+
+```sh
+git fetch upstream
+git checkout -B pr/<topic> upstream/master
+git cherry-pick -x <sha>            # commits on work/ are kept atomic for exactly this
+./tools/make-upstream-patch.sh pr/<topic>
+```
+
+That writes `out/patches/pr-<topic>.patch` (git-am-able) and `.diff` (paste into the issue).
+
+**Deliver the diff, not the PR.** PR #2 was closed with `mergedAt: null` while its content
+shipped as `ccb25a3` — he reads contributions and re-applies them himself. So the issue body
+carrying a readable diff is the actual deliverable; a PR is a convenience link, not the mechanism.
+Combined with his "split future questions into separate issues" request, the unit of contribution
+is **one issue + one small diff per topic**.
+
+Currently cut:
+
+| Branch | Contents | Size |
+| --- | --- | --- |
+| `pr/gitignore-dev-files` | ignore `launch-debug.json`, generated replays | 1 file, +3 |
+| `pr/test-harness` | I2 harness + first tests | 2 files, +278 |
+
 **Fork discipline** — keep changes cherry-pickable, since he applies diffs rather than merging PRs:
 
 - one topic branch per tracker item, small and self-contained
