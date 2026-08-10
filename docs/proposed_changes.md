@@ -165,8 +165,8 @@ we are, one layer deeper, by writing the contract down first.
 | U3 | Scene save/load defects (F5, F4). F5 is fixed on `pr/puzzle-save-mutation`, so this can carry a patch rather than just a report. | DRAFTED, needs re-aiming as a bug report |
 | U4 | `command_validation.py` (F6) | DRAFTED, needs re-aiming as a bug report |
 | U7 | Issue #5, unbounded retry in `ChooseEffects` (I7). Posted 2026-08-09 as `hexate`. Fix ready on `pr/cap-input-retries`. | **ANSWERED** 2026-08-10, **declined**, fork-only now |
-| U6 | Comment on #4 correcting 34× to 18.9× in situ, and noting F9. Text in `docs/pending/issue4-comment-rng-figure.md`. | **UNBLOCKED**, the hold condition is met |
-| U8 | Reply on #4: F1 patch as he asked for it, the `ChooseWithoutReplacement` gap in the implementation he recommended, and **F10**, which is the numpy-compatible pure-Python generator he said was intended but never built. | PROPOSED, highest-value next contact |
+| U6 | Comment on #4 correcting 34× to 18.9× in situ, and noting F9. Text in `docs/pending/issue4-comment-rng-figure.md`. | **SUPERSEDED** by U8, which folds the correction in. Do not post both. |
+| U8 | Reply on #4: F1 patch as he asked for it, the `ChooseWithoutReplacement` gap in the implementation he recommended, and **F10**, which is the numpy-compatible pure-Python generator he said was intended but never built. Folds U6 in. | **DRAFTED**, `docs/pending/issue4-comment-u8.md`, awaiting Q's review |
 
 **Pacing, revised 2026-08-10.** The hold is over. He replied to both issues in detail, so the
 question is no longer whether he is listening but what is worth sending.
