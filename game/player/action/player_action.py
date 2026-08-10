@@ -16,6 +16,13 @@ from game.effect.effect_target_cost import TargetCost
 
 CATEGORY_NAME = "PLAYER"
 
+# ChoiceOne returns the "cheat" flag when it cannot use the input it was handed, and ChooseEffects
+# retries. A person eventually stops; an automated input source does not, so an unbounded loop
+# spins silently and looks exactly like a deadlock. The limit is high enough that no human reaches
+# it and low enough that a broken client fails in under a second.
+from engine.config import ConfigVariables
+MAX_INPUT_RETRIES = ConfigVariables.Int('max_input_retries', 1000)
+
 CardFaceType: TypeAlias = 'CardFace'
 
 class PlayerAction:
@@ -164,6 +171,7 @@ class PlayerAction:
         from game.event.manager import EventManager
         # from game.object.object_manager import ObjectManager
         player = self.GetPlayer()
+        retries = 0
         while True:
             # Clean all resource effect
             # ~~Call this late for avoid being reset before process all the paying effect~~
@@ -176,6 +184,13 @@ class PlayerAction:
             Message.PlayerOnEvent_Text(player, message)
             effect, cheat = self.ChoiceAndSpellEffect(filtered_effects, message, priority, forced)
             if cheat:
+                retries += 1
+                assert retries < MAX_INPUT_RETRIES.value, (
+                    f"Input rejected {retries} times in a row for {message}. Giving up rather "
+                    f"than spinning. This normally means the controller is returning input the "
+                    f"engine cannot use. Raise 'max_input_retries' if the limit is genuinely "
+                    f"too low."
+                )
                 continue
             else:
                 break
