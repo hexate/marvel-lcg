@@ -3,7 +3,7 @@
 Running log of every proposed change to this codebase and its status. Add new items to the
 table; do not delete rows — move them to `Done` or `Rejected` and keep the rationale.
 
-**Last updated:** 2026-08-09
+**Last updated:** 2026-08-10
 
 ## Status legend
 
@@ -28,10 +28,21 @@ Claims in this doc are marked so we know what has actually been checked:
 
 ## 0. Upstream status
 
-Checked 2026-08-09. Local `HEAD` is `2ac194a`, identical to `irefrixs/marvel-lcg@master`.
+Checked 2026-08-10. Local `HEAD` is `2ac194a`, identical to `irefrixs/marvel-lcg@master`. No
+upstream commits since 2026-08-07.
 
-**The maintainer is active.** Despite the 2026-07-31 discontinuation post, irefrixs answered
-issues in detail on 2026-08-05 and pushed commits on 2026-08-07.
+**The maintainer is active but the project is formally sunset.** irefrixs replied to both of our
+issues on 2026-08-10, roughly 16 hours after they went up. He answers technical questions in
+detail and engages with the substance. He is not taking contributions:
+
+> Today we are treating the project as sunset – we're not accepting new feature updates or pull
+> requests. (If you have an urgent bugfix that needs attention, let us know and we'll consider it
+> on a case-by-case basis.)
+
+That contradicts the issue #1 answer from 2026-08-05, *"we would be happy to accept your PR."*
+The later statement wins, so the working assumption changes: **the door is one narrow exception
+wide, "urgent bugfix," and we have to argue a fix through it rather than simply offering it.**
+Everything queued below was written against the older, more open stance and needs re-aiming.
 
 ### Already answered upstream: do not re-ask
 
@@ -43,6 +54,75 @@ issues in detail on 2026-08-05 and pushed commits on 2026-08-07.
 | Test corpus | Cannot be shared, player-uploaded, >1 GB, kept off Git on a shared disk. | issue #1 |
 | `launch-debug.json` | Developer-local file, intentionally not committed. Copy `launch.json`. | issue #1 |
 | Issue etiquette | **"Split future questions into separate issues"**, an explicit request. Honor it. | issue #1 |
+| Contributions (superseded) | Sunset. No new features, no PRs. Urgent bugfixes case-by-case if asked. | issue #5, 2026-08-10 |
+| Why numpy is the default | Started on stdlib `random`, hit a bug in it, switched to numpy. **All existing save files carry numpy sequences.** | issue #4, 2026-08-10 |
+| Why the bundled backend exists | Shipping numpy in version 1 means bundling a ~10 MB DLL, *"that's just bad."* The pure-Python path was meant to reproduce numpy's sequence, *"but that never really happened; we actually never used it."* | issue #4, 2026-08-10 |
+| F1 state-capture cost | Accepted without argument: *"yes – we should release the state-capture cleanup. Thanks for flagging the performance issue."* | issue #4, 2026-08-10 |
+| `cheat` retry loop (I7) | Declined. *"In our design `cheat` should never be true during normal gameplay, so we don't add any protection around that path."* Their tests use real save files and never hit it. | issue #5, 2026-08-10 |
+
+### What his RNG answer changes (F3)
+
+His reply reframes F3 rather than confirming it. `pr/rng-backend-determinism` makes divergence
+*loud* by refusing to load a scene recorded under the other backend. The direction he actually
+wants is to make divergence *impossible*: numpy is the canonical sequence because every existing
+save encodes it, and the pure-Python backend was always intended to reproduce numpy exactly so
+version 1 could drop the 10 MB dependency. That was never built. The bundled
+`engine/lib/mt19937.py` is abandoned, not an alternative, which is why nothing forces a choice
+between the two backends.
+
+He then pointed at another fork's implementation as a candidate:
+
+> And I found that their code looks like it can generate the same sequences as NumPy does—without
+> pulling in the NumPy library itself:
+> <https://github.com/mggarofalo/marvel-lcg/blob/3c8743e/py_src/engine/lib/mt19937.py>
+
+**We tested that claim. It is very nearly right, with one specific exception.** ✓ VERIFIED against
+numpy 2.5.2 legacy `RandomState`, which is what `engine/lib/random.py` calls:
+
+| Operation | Matches numpy? | Coverage |
+| --- | --- | --- |
+| seeding (`init_genrand`) internal state | ✓ exact, all 624 words and the position | 300 seeds |
+| raw `uint32` stream | ✓ exact | 450,000 words |
+| `Shuffle` vs `numpy.random.shuffle` | ✓ exact | 5,400 cases, `n` from 2 to 1025, incl. `2^k+1` rejection-heavy sizes |
+| `Choice` vs `numpy.random.choice` | ✓ exact | 2,100 cases |
+| 64 interleaved shuffle/choice ops off one stream | ✓ stayed in lockstep | 19,200 ops across 300 seeds |
+| `ChooseWithoutReplacement` vs `choice(size=k, replace=False)` | ✗ **diverges** | first miss at seed 0, `n=10`, `k=3` |
+
+The divergence has a single cause, ✓ VERIFIED over 1,500 cases: numpy's `replace=False` is
+`permutation(n)[:k]`, a **full** shuffle truncated to `k`, consuming `n-1` draws. The fork does a
+partial Fisher-Yates consuming `k`. So the fix is to implement it as shuffle-then-take-`k`, which
+we confirmed reproduces numpy exactly. This matters more than one wrong result: the draw counts
+differ, so a single `RandomChoice2` call desynchronizes the whole stream after it.
+
+**The control run changed our picture of F3.** Running the same audit against our own
+`engine/lib/mt19937.py` (`--bundled`) shows its MT19937 core is already **byte-exact with numpy**:
+seeding lands on the same 624-word state for 300 seeds, and the raw stream matches for 450,000
+words. Every failure is in the layer above the core:
+
+- `randint` scales a float (`extract_number() / 2**32`) instead of numpy's masked rejection on the
+  raw words, so the same words map to different indices and consume a different number of draws.
+- `shuffle` performs `10 * len(X)` random transpositions rather than Fisher-Yates, spending `20n`
+  draws where numpy spends `n - 1`.
+
+So F3 is not "the bundled generator is wrong," it is "the bundled generator is right and its three
+consumption functions are wrong." Roughly 40 lines, not a rewrite. That is a materially smaller and
+safer fix than adopting an outside file, and it keeps the fork clear of code whose provenance and
+license we do not control, which matters while U5 is unresolved. Recommend fixing ours rather than
+vendoring.
+
+Two limits on that result. Only small integer seeds were tested, which is the real range since
+`Random.RandomSeed` uses `randrange(2**31-2)+1`; numpy routes seeds above 32 bits through
+`init_by_array`, and the fork's `Seed` implements only `init_genrand` (its docstring says the
+contract never uses `init_by_array`). And the file's stated purpose is a cross-engine contract
+shared with a C# rewrite, not numpy parity, so the parity may be incidental and free to drift.
+Its own docs (`docs/rng-contract.md`, `datasets/rng/vectors.json`) were not read.
+
+Reproduce either run, and gate any future change to the bundled backend, with:
+
+```sh
+.venv/bin/python tools/rng_parity_check.py            # the file he recommended
+.venv/bin/python tools/rng_parity_check.py --bundled  # ours, the control
+```
 
 He also restated the PVP position directly: *"this engine still has significant limitations…
 it is not capable of handling features such as PvP properly. We are sharing the project primarily
@@ -63,21 +143,54 @@ usable diffs; do not expect PR merges.
 | macOS/TS build steps in install guide | ✓ applied (`2ac194a`) |
 | **`Engine.SaveCrash` masks startup errors** | ✗ **not applied**, see A9 |
 
+`mggarofalo` is a third fork, last pushed 2026-08-10, and irefrixs is reading it. It is a deep
+rewrite rather than a patch set: source moved under `py_src/`, an RNG behaviour contract written
+down in `docs/rng-contract.md` with test vectors in `datasets/rng/vectors.json`, and a parallel C#
+engine. Its `mt19937.py` is the file irefrixs recommended, and per the audit above it does
+reproduce numpy for shuffle and choice. Worth watching: it is solving the same determinism problem
+we are, one layer deeper, by writing the contract down first.
+
 ### Our contributions
 
 | ID | Item | Status |
 | --- | --- | --- |
-| U1 | Issue #4, RNG divergence (F3) + state-capture cost (F1, F2). Posted 2026-08-09 as `hexate`. | **POSTED**, awaiting reply |
-| U2 | PVP feasibility issue (section H) | DRAFTED, hold until #4 gets a reply or ~1 week |
-| U3 | Scene save/load defects (F5, F4). F5 is fixed on `pr/puzzle-save-mutation`, so this can carry a patch rather than just a report. | DRAFTED, send a few days after U2 |
-| U4 | `command_validation.py` (F6) | DRAFTED, send with U3 |
-| U7 | Issue #5, unbounded retry in `ChooseEffects` (I7). Posted 2026-08-09 as `hexate`. Fix ready on `pr/cap-input-retries`. | **POSTED**, awaiting reply |
-| U6 | Comment on #4 correcting 34× to 18.9× in situ, and noting F9. Text in `docs/pending/issue4-comment-rng-figure.md`. | **HELD**, deliberately not sent, see below |
+| U1 | Issue #4, RNG divergence (F3) + state-capture cost (F1, F2). Posted 2026-08-09 as `hexate`. | **ANSWERED** 2026-08-10, both questions engaged, F1 cleanup invited |
+| U2 | PVP feasibility issue (section H) | DRAFTED, **reconsider**, see pacing |
+| U3 | Scene save/load defects (F5, F4). F5 is fixed on `pr/puzzle-save-mutation`, so this can carry a patch rather than just a report. | DRAFTED, needs re-aiming as a bug report |
+| U4 | `command_validation.py` (F6) | DRAFTED, needs re-aiming as a bug report |
+| U7 | Issue #5, unbounded retry in `ChooseEffects` (I7). Posted 2026-08-09 as `hexate`. Fix ready on `pr/cap-input-retries`. | **ANSWERED** 2026-08-10, **declined**, fork-only now |
+| U6 | Comment on #4 correcting 34× to 18.9× in situ, and noting F9. Text in `docs/pending/issue4-comment-rng-figure.md`. | **UNBLOCKED**, the hold condition is met |
+| U8 | Reply on #4: F1 patch as he asked for it, plus the `ChooseWithoutReplacement` gap in the implementation he recommended. | PROPOSED, highest-value next contact |
 
-**Pacing.** Two issues went up on 2026-08-09 and neither has a reply. Nothing further gets sent
-until he responds. U6 is a correction to our own number rather than a new ask, so it is safe to
-sit on, and it reads better attached to a live conversation than as a third unanswered post. If
-he never replies, U6 is not worth sending alone.
+**Pacing, revised 2026-08-10.** The hold is over. He replied to both issues in detail, so the
+question is no longer whether he is listening but what is worth sending.
+
+U6 was held until there was a live conversation to attach it to. There is one now, and the #4
+title still says 34×, so send the correction.
+
+U8 is the one contact with a standing invitation behind it. He asked for the state-capture cleanup
+in writing, so F1 is not an unsolicited patch. Pair it with the `ChooseWithoutReplacement` finding:
+he recommended a file that is one method away from numpy parity, and that is directly useful to the
+goal he stated. This is a reply to an open thread, not a new issue, so it does not spend the
+"split future questions into separate issues" budget.
+
+U7 is closed as an upstream matter. He declined it on design grounds and the fix lives on
+`pr/cap-input-retries` for the fork. Note his reason does not engage with the three hangs in the
+report that are reachable from a stock checkout and have nothing to do with `cheat` (the `KeyInput`
+path, `InTesting` skip mode, `ConsoleDevice.IsSyncReady`); he read it as a request to harden a
+cheat path. Not worth re-arguing. It **is** worth remembering that the three hangs are still real
+for anyone writing a non-replay test device, which is exactly what I2 does, so the value of the cap
+did not depend on his agreement.
+
+U2 needs a decision rather than a send date. It argues PVP is more feasible than he has twice
+stated publicly, and it lands as a 300-hour-refactor debate with someone who has just declared the
+project sunset and is pointing contributors at other forks. It costs goodwill on the one channel
+that is currently productive. Recommend holding it indefinitely and keeping section H as fork
+direction.
+
+U3 and U4 are still worth sending, but reframed. Under the sunset rule the only category he
+accepts is "urgent bugfix," so lead with the defect and its reproduction and let the patch follow,
+rather than presenting them as improvements.
 
 U6 is committed at `docs/pending/issue4-comment-rng-figure.md`. U2, U3 and U4 drafts are still
 only in the session scratchpad (`issues_draft.md`) and will be lost when it is cleaned up; move
@@ -99,7 +212,7 @@ another contributor (`z00lus`) is already maintaining a divergent fork with his 
 
 | ID | Item | Status |
 | --- | --- | --- |
-| U5 | **No `LICENSE` file exists.** Absent one, default copyright is "all rights reserved"; the issue-#3 comment is strong evidence of intent but is not a license grant with terms. Low risk for private/hobby work, real risk before any distribution or commercial use. He has already named Apache 2.0, so the ask is "please commit the file," not a new question, offer to send it. | PROPOSED |
+| U5 | **No `LICENSE` file exists.** Absent one, default copyright is "all rights reserved"; the issue-#3 comment is strong evidence of intent but is not a license grant with terms. Low risk for private/hobby work, real risk before any distribution or commercial use. He has already named Apache 2.0, so the ask is "please commit the file," not a new question, offer to send it. | PROPOSED, **more urgent after 2026-08-10**: a sunset project may never get one, and he is actively pointing people at forks he cannot license |
 
 ### Branch layout and how to package a contribution
 
@@ -407,6 +520,7 @@ no grep-only claims.
 | F9 | `AddCounter` logs on every draw; 0.54 µs of the 1.21 µs that remains after F1 | `engine/lib/random.py:55` | Low | PROPOSED |
 | F2 | `numpy.random.choice` on object lists is 39× slower than stdlib | `engine/lib/random.py:45-70` | Medium | PROPOSED |
 | F3 | Two RNG backends produce different sequences → replay incompatibility | `engine/lib/random.py` | **High** | **DONE**, `pr/rng-backend-determinism` |
+| F10 | Bundled RNG core is byte-exact with numpy; only `randint` and `shuffle` diverge. Fixing them ends the F3 divergence instead of reporting it | `engine/lib/mt19937.py:64,69` | **High** | PROPOSED |
 | F4 | `World.LoadFromJson` is dead *and* cannot execute | `game/world/world.py:121-144` | Medium | PROPOSED |
 | F5 | Saving a puzzle mutates the live replay log; second save raises | `game/scene/scene.py:113-117` | **High** | **DONE**, `pr/puzzle-save-mutation` |
 | F6 | Debug-console safety check is a bypassable blocklist | `engine/security/command_validation.py` | **High** | PROPOSED |
@@ -508,6 +622,46 @@ backends actually disagree, so the guard cannot quietly become pointless.
 
 Still open, tracked separately: nothing forces a choice between the two backends, and the numpy
 path remains process-global. This change makes divergence loud rather than eliminating it.
+
+**Upstream context, 2026-08-10.** irefrixs confirmed the bundled backend was always meant to
+reproduce numpy's sequence and never did, and that numpy is canonical because every existing save
+encodes it. Eliminating the divergence, rather than reporting it, is the direction he wants, and a
+candidate implementation exists that we measured as numpy-exact for shuffle and choice. See
+[§0](#what-his-rng-answer-changes-f3) for the audit and the one method that does not match.
+
+### F10: the bundled generator is right, its consumption layer is wrong
+
+✓ VERIFIED by execution, `tools/rng_parity_check.py --bundled`. `engine/lib/mt19937.py` produces
+**numpy's exact stream**: the same 624-word state after seeding for 300 seeds, and the same raw
+words for 450,000 draws. F3 read as "the two backends disagree," which is true, but the cause is
+not the Mersenne Twister. It is the two functions that turn words into game decisions.
+
+| Function | What it does | What numpy does |
+| --- | --- | --- |
+| `randint` (line 64) | `int(random()/(1/(b-a)) + a)`, scaling a float from one word | masked rejection on the raw words, so the draw count varies |
+| `shuffle` (line 69) | `10 * len(X)` random transpositions, `20n` draws | Fisher-Yates downward, `n - 1` draws |
+
+`choice` and `choice_one` inherit the error through `randint`. Fixing the three functions to match
+numpy is roughly 40 lines and closes the divergence rather than reporting it, which is the
+direction irefrixs asked for in issue #4. The parity harness already exists, so the fix is
+gated by a measurement rather than by inspection.
+
+Prefer this to vendoring the `mggarofalo` implementation. Ours needs a smaller change than that
+file does (its `ChooseWithoutReplacement` is wrong for our purposes too, see §0), and adopting
+third-party code while U5 is unresolved adds a licensing question to a fix that does not need one.
+
+**Second-order effect, and the reason this is not purely additive.** F3 stamps scenes with the
+backend that recorded them, so a scene carrying `rng: "mt19937"` currently asserts it can be
+replayed under the bundled path. Changing that path's sequence silently invalidates that promise:
+the stamp still matches, the game diverges anyway. Two ways out, and this needs a decision before
+implementing:
+
+1. Accept the break. irefrixs says every real save uses numpy, and the bundled path was "never
+   used," so the affected population is probably empty outside our own test scenes.
+2. Version the stamp, `mt19937-v2`, and refuse the old value. Honest, and cheap, since
+   `CheckSceneBackend` already refuses on mismatch.
+
+Option 2 costs one string and keeps F3's guarantee intact. Recommend it.
 
 ### F4: `World.LoadFromJson` is dead and non-functional
 
@@ -1050,4 +1204,5 @@ regression net that does not itself depend on replay.
 | 2026-08-09 | Q decided: **stay on Python.** E1 accepted in principle; G1 still worth running to size B1. |
 | 2026-08-09 | Added section F (design audit, F1–F8, RNG leak measured, dead code, puzzle-save corruption, bypassable blocklist verified by execution) and section H (PVP feasibility, revises B3 downward, multi-board isolation already exists and ships in the Kang scenario). |
 | 2026-08-09 | Added section 0 (upstream status): maintainer is active, license/contribution/test-corpus questions already answered publicly, prior work by kmelkon logged. Added A9 (kmelkon's `SaveCrash` fix never landed). Posted issue #4 upstream (U1). G3 **rejected**, corpus cannot be shared. G1 unblocked. |
+| 2026-08-10 | Upstream replied to both issues. Project declared **sunset**, no features or PRs, urgent bugfixes case-by-case, which supersedes the earlier "happy to accept your PR." F1 state-capture cleanup explicitly invited. I7 declined on design grounds, now fork-only. F3 reframed: numpy is canonical, the bundled backend was meant to reproduce it and never did. Audited the `mt19937.py` he recommended (`mggarofalo` fork) with `tools/rng_parity_check.py`: numpy-exact for seeding, raw stream, shuffle and choice, diverges only in `ChooseWithoutReplacement` because numpy truncates a full permutation. The control run also showed **our** bundled MT19937 core is byte-exact with numpy and only its `randint`/`shuffle` layer diverges, so F3 can be closed by fixing ~40 lines of ours instead of vendoring a third-party file, tracked as **F10**. U6 unblocked, U8 proposed, U2 recommended for indefinite hold. |
 | 2026-08-09 | Added section I (testing): harness verified working-but-empty; documented the circularity, the tests are replays, replays are version-pinned, and replay determinism is the very property F3 shows is broken. I2 (replay-independent unit-test layer) identified as the highest-value engineering work in this document. |
