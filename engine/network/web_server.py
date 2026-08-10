@@ -9,6 +9,7 @@ from engine.lib import MimeType, Json, Ver
 from engine.log import Log
 from engine.file import FileManager
 import hashlib
+import hmac
 import ipaddress
 
 CATEGORY_NAME = "WEB"
@@ -85,6 +86,21 @@ class WebServer:
         if app_password_cookie != self.hash_password:
             return False
         return True
+
+    @final
+    def IsPasswordCorrect(self, attempt: object) -> bool:
+        """Does this attempt match the configured password?
+
+        With no password configured there is nothing to be wrong about, and `IsAuthenticate`
+        already admits everyone, so refusing here would only confuse. Compared in constant time
+        because it is a comparison of secrets and doing it properly costs nothing.
+        """
+        if not self.hash_password:
+            return True
+        if not isinstance(attempt, str):
+            return False
+        attempted = hashlib.md5(attempt.encode()).hexdigest()
+        return hmac.compare_digest(attempted, self.hash_password)
 
     @final
     def IsLoopback(self, request: web.Request) -> bool:
@@ -253,8 +269,21 @@ class WebServer:
             return self.ReadFile(file_path)
 
         async def handle_authenticate(request: web.Request) -> web.Response:
-            data = await request.json()
-            password_attempt = data.get('password')
+            try:
+                data = await request.json()
+                password_attempt = data['password']
+            except Exception:
+                # Anything that is not a JSON body carrying a password. This used to raise on
+                # `None.encode()` and answer 500, which reads as a server fault rather than a
+                # malformed request.
+                return web.Response(status=400, text="expected a JSON body with a password")
+
+            if not self.IsPasswordCorrect(password_attempt):
+                # The check used to happen only on the next request, so every attempt was handed a
+                # cookie and a 200 and the client could not tell whether it had got in. No cookie
+                # is issued here, so a refusal cannot be mistaken for a session.
+                return web.Response(status=401, text="wrong password")
+
             session_token = hashlib.md5(password_attempt.encode()).hexdigest()
 
             response = web.Response()

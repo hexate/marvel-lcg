@@ -8,6 +8,9 @@ from engine.network.net_lib import NetLib
 
 IP                  = ConfigVariables.Str('ip', "")
 PORT                = ConfigVariables.Int('port', 2345)
+# Same variable the web server reads. Declared again rather than imported from
+# engine.network.web_server, which would pull the server package in at import time.
+PASSWORD            = ConfigVariables.Str('password', "")
 SERVER_ADDRESSES    = ConfigVariables.ListStr('server_addresses', [
     "127.0.0.1:2345"
 ])
@@ -15,6 +18,20 @@ SERVER_ADDRESSES    = ConfigVariables.ListStr('server_addresses', [
 CATEGORY_NAME = "WEB_DEVICE_MANAGER"
 
 class WebDeviceManager(DeviceManager):
+
+    @staticmethod
+    def IsLoopbackAddress(ip: str) -> bool:
+        """Is this address reachable only from this machine?
+
+        `0.0.0.0` and `::` are not loopback: they bind every interface, which is the widest case
+        rather than the narrowest. An address that will not parse counts as reachable, so an odd
+        config gets the warning rather than silence.
+        """
+        import ipaddress
+        try:
+            return ipaddress.ip_address(ip).is_loopback
+        except ValueError:
+            return False
 
     def __init__(self) -> None:
         from engine.device.web.server.server import GameServer
@@ -42,6 +59,13 @@ class WebDeviceManager(DeviceManager):
 
             ip, port = ip_port
             assert NetLib.IsPortAvailable(ip, port), f"{ip=}, {port=}"
+
+            if not PASSWORD.value and not WebDeviceManager.IsLoopbackAddress(ip):
+                Log.Warn(CATEGORY_NAME,
+                         f"Serving on {ip}:{port} with no password set. Anyone who can reach that "
+                         f"address can open your game. Set 'password' in the config to stop that. "
+                         f"Debug commands stay refused either way, since they need a local "
+                         f"request or a password.")
 
             self.httpds.append(GameServer(self))
             self.httpds[-1].Run(ip, port, "Server")
