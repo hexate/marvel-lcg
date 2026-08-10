@@ -3,6 +3,12 @@ from engine.lib.mt19937 import Random as R
 from engine.config import ConfigVariables
 
 DISABLE_NUMPY_RANDOM = ConfigVariables.Bool('disable_numpy_random', False)
+
+# Capturing generator state on every draw is what `Random.Undo` rewinds, and `Random.Undo` is
+# reached from one debug cheat. numpy.random.get_state() copies the 624-word Mersenne buffer each
+# time, measured at roughly 34x the cost of a shuffle, and the list was never trimmed. Opt in.
+ENABLE_RANDOM_UNDO = ConfigVariables.Bool('enable_random_undo', False)
+
 CATEGORY_NAME = "RANDOM"
 
 class Random:
@@ -52,10 +58,25 @@ class Random:
         Log.DebugSilent(CATEGORY_NAME, f"{Random.counter=}")
 
     @staticmethod
+    def PushState() -> None:
+        """Record the generator position so `Undo` can rewind to it.
+
+        Off unless `enable_random_undo` is set. Left on, this copies numpy's Mersenne buffer on
+        every draw and grows `Random.states` for the life of the process.
+        """
+        if not ENABLE_RANDOM_UNDO.value:
+            return
+        import numpy.random
+        Random.states.append(numpy.random.get_state())
+
+    @staticmethod
     def SetSeed(seed: int) -> None:
         from engine.log import Log
         Random.seed = seed
         Random.counter = 0
+        # Positions recorded against the old seed cannot be rewound to once it changes, and
+        # nothing else trimmed this list.
+        Random.states = []
         Log.DebugSilent(CATEGORY_NAME, f"Seed: {seed}")
         if DISABLE_NUMPY_RANDOM.value:
             Random.rand.seed(seed)
@@ -79,7 +100,7 @@ class Random:
             return Random.rand.choice_one(input_list)
         else:
             import numpy.random
-            Random.states.append(numpy.random.get_state())
+            Random.PushState()
             return numpy.random.choice(input_list) # type: ignore
 
     @staticmethod
@@ -98,7 +119,7 @@ class Random:
             return Random.rand.choice(list(input_list), size=x, replace=False)
         else:
             import numpy.random
-            Random.states.append(numpy.random.get_state())
+            Random.PushState()
             return list(numpy.random.choice(input_list, size=x, replace=False)) # type: ignore
 
     @staticmethod
@@ -108,7 +129,7 @@ class Random:
             Random.rand.shuffle(list)
         else:
             import numpy.random
-            Random.states.append(numpy.random.get_state())
+            Random.PushState()
             numpy.random.shuffle(list) # type: ignore
 
     @staticmethod
@@ -116,6 +137,11 @@ class Random:
         if DISABLE_NUMPY_RANDOM.value:
             pass
         else:
+            assert ENABLE_RANDOM_UNDO.value, (
+                "Random.Undo needs 'enable_random_undo' in the config. State capture is off by "
+                "default because it copies the generator buffer on every draw."
+            )
+            assert Random.states, "No recorded generator position to undo."
             import numpy.random
             numpy.random.set_state(Random.states.pop())
 
