@@ -109,12 +109,18 @@ class Scene:
         if self.time == "":
             self.SetMetadataStr("time", Time.Format())
 
-        data = self
         if self.is_puzzle:
-            for input in data.inputs:
-                delattr(input, 'step')
-                delattr(input, 'event')
-                delattr(input, 'crc')
+            # UpdateInputs assigned the replay's live list by reference, so these are the same
+            # objects the running game is still using. Copy before stripping, or the game loses
+            # step, event and crc mid-session. OperationDescriptor is a dataclass with plain
+            # defaults, so a stripped instance silently reports the class default instead, and a
+            # second save raises because the instance attribute is already gone.
+            import copy
+            self.inputs = [copy.copy(x) for x in self.inputs]
+            for input in self.inputs:
+                for attr in ('step', 'event', 'crc'):
+                    if attr in input.__dict__:
+                        delattr(input, attr)
 
         if playtime:
             self.SetMetadataFloat("playtime", playtime)
