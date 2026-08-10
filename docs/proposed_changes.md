@@ -219,6 +219,51 @@ mechanism above suggests the cost is algorithmic (replay-from-zero), not interpr
 snapshot/rollback would beat any language change. Treat "rewrite it in a faster language" as
 unproven until the profile says otherwise.
 
+### B1a — replay rebuilds the entire UI state on every message and discards it
+
+✓ VERIFIED by measurement, 2026-08-09. Found while investigating why the G1 driver appeared to
+hang. It was not hanging. It was rendering.
+
+`WorldRender.PresentInternal` builds a full descriptor of the world on **line 96**:
+
+```python
+self.descriptor = ToDescriptor.World(world, event_name, sound_name)
+```
+
+That line is unconditional. The `skip` flag, which is on throughout replay, undo and
+fast-forward, gates only two things in that method: the log line at line 88 and the `WaitSync`
+call at line 114. It does not gate the descriptor build.
+
+`ToDescriptor.World` walks every deck and calls `Card.Render()` on every card.
+
+Measured on a 10-input single-player game, 82 cards in play:
+
+| | |
+| --- | --- |
+| `ToDescriptor.World` calls | 127 |
+| time in those calls | 0.145 s of 0.233 s wall |
+| **share of runtime** | **62%** |
+| per call | 1.14 ms |
+
+That is roughly 12.7 descriptor builds per recorded input. During replay every one of them is
+thrown away: the descriptor has exactly one consumer, `engine/device/web/server/server_sync.py:79`,
+which serves it to a browser that is not watching.
+
+**Why this matters for B1 and E.** The devlog attributes slow UNDO to Python being slow at
+runtime. The dominant cost measured here is not interpreter speed and not the replay-from-zero
+algorithm. It is rebuilding a UI payload nobody reads, once per message, throughout the replay.
+Scaling the per-call figure by a 4-player card count and a few hundred inputs lands in the right
+order of magnitude for the "more than a minute" in the devlog.
+
+**Proposed fix.** Guard line 96 so the descriptor is only built when something will consume it.
+Needs care: a browser polling `server_sync` mid-skip would receive the last pre-skip descriptor
+instead of a current one. That is probably correct behaviour during a fast-forward, but it should
+be confirmed rather than assumed.
+
+| ID | Item | Status |
+| --- | --- | --- |
+| B1a | Skip suppresses display and waiting but not descriptor construction; 62% of measured runtime | PROPOSED — likely the largest single win available |
+
 Note `engine/task/manager.py` gates threading behind `enable_multiple_threads`, default `False`.
 ✗ UNVERIFIED — whether enabling it helps, or why it is off.
 
