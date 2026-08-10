@@ -95,9 +95,9 @@ class Random:
         different shapes, and restoring one into the other would corrupt the generator rather than
         fail, so the tag is what makes the mismatch loud.
 
-        The tag is the `disable_numpy_random` flag rather than `BackendName`, deliberately. Undo
-        only has to tell the two code paths apart, and reading the scene stamp here would tie a
-        debug affordance to the save format for no benefit.
+        The tag is the `disable_numpy_random` flag itself, deliberately. Undo only has to tell the
+        two code paths apart, and naming the generator here would tie a debug affordance to
+        whatever the save format happens to call it.
         """
         if not ENABLE_RANDOM_UNDO.value:
             return

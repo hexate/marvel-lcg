@@ -266,14 +266,22 @@ Currently cut, all one commit off `upstream/master` unless noted:
 | `pr/puzzle-save-mutation` | F5, puzzle save no longer mutates the live replay log | 2 files 99 + 5- |
 | `pr/test-harness` | I2, replay-independent harness + first tests | 2 files 278 + |
 | `pr/rng-numpy-parity` | F10, bundled generator reproduces numpy, stamp versioned. **Stacked on `pr/rng-backend-determinism`, not on `upstream/master`** | 4 files 304 + 38- |
+| `pr/rng-undo-bundled` | F12, `Random.Undo` works on the bundled backend instead of silently doing nothing. **Stacked on `pr/random-state-capture`** | 3 files 108 + 14- |
 
-**The one exception to the rule above**, decided 2026-08-10. F10 needs F3's scene stamp in order to
-retire the old backend name, so it cannot sit directly on `upstream/master`. It is cut from
-`pr/rng-backend-determinism` instead, and its patch has to be generated against that base:
+**Two exceptions to the rule above**, both 2026-08-10. F10 needs F3's scene stamp in order to
+retire the old backend name, and F12 needs F1's `enable_random_undo` flag and `states` list. Neither
+can sit directly on `upstream/master`, so each is cut from the branch it depends on and its patch
+generated against that base:
 
 ```sh
 ./tools/make-upstream-patch.sh pr/rng-numpy-parity pr/rng-backend-determinism
+./tools/make-upstream-patch.sh pr/rng-undo-bundled pr/random-state-capture
 ```
+
+A stacked branch is worth one extra check before it is offered: that it did not quietly absorb work
+from a sibling. Cutting F12 caught exactly that. Its `GetState`/`SetState` hunk sits next to F10's
+`randbelow` in the file, so the cherry-pick brought `randbelow` along and conflicted. Resolving it
+by hand kept the state methods and dropped the rest.
 
 Sent upstream, the two travel together or F10 goes second. Note the branch deliberately omits
 `unit_test/test_rng_same_game.py`, which needs the I2 harness; that test stays on the work branch
@@ -546,6 +554,7 @@ no grep-only claims.
 | F9 | `AddCounter` logs on every draw; 0.54 µs of the 1.21 µs that remains after F1 | `engine/lib/random.py:55` | Low | PROPOSED |
 | F2 | `numpy.random.choice` on object lists is 39× slower than stdlib | `engine/lib/random.py:45-70` | Medium | **DONE** by F11: that call is no longer on the default path, and the bundled `choice` is 4.4× faster than it |
 | F11 | Default `disable_numpy_random` to the bundled backend, now that F10 makes it produce numpy's sequence. Removes the numpy dependency and the process-global RNG exposure F3 left open | `engine/lib/random.py:5` | Medium | **DONE**, fork-only |
+| F12 | `Random.Undo` hits a bare `pass` on the bundled backend, so the `Unshuffle` cheat silently does nothing whenever `disable_numpy_random` is set. Reachable upstream today, not only after F11 | `engine/lib/random.py`, `engine/lib/mt19937.py` | Medium | **DONE**, `pr/rng-undo-bundled`, stacked on `pr/random-state-capture` |
 | F3 | Two RNG backends produce different sequences → replay incompatibility | `engine/lib/random.py` | **High** | **DONE**, `pr/rng-backend-determinism` |
 | F10 | Bundled RNG core is byte-exact with numpy; only `randint` and `shuffle` diverge. Fixing them ends the F3 divergence instead of reporting it | `engine/lib/mt19937.py:64,69` | **High** | **DONE**, `pr/rng-numpy-parity`, stacked on `pr/rng-backend-determinism` |
 | F4 | `World.LoadFromJson` is dead *and* cannot execute | `game/world/world.py:121-144` | Medium | PROPOSED |
@@ -770,7 +779,8 @@ numpy stays in `requirements.txt`. `unit_test/test_rng_numpy_parity.py` compares
 every run, which is exactly what would catch the bundled generator drifting. It is a test
 dependency now rather than a runtime one.
 
-**The flip needed a fix first, and this is the part worth remembering.** `Random.Undo` had a bare
+**The flip needed a fix first, tracked as F12, and this is the part worth remembering.**
+`Random.Undo` had a bare
 `pass` on the bundled branch, and `PushState` was only called inside the numpy branches. Switching
 the default would have turned the `Unshuffle` cheat at `cheat_cmd_helper.py:390` into a silent
 no-op. Not a crash, not an error, just a debug command that stopped doing anything. The bundled
