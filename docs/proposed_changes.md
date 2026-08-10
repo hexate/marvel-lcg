@@ -107,8 +107,14 @@ words. Every failure is in the layer above the core:
 So F3 is not "the bundled generator is wrong," it is "the bundled generator is right and its three
 consumption functions are wrong." Roughly 40 lines, not a rewrite. That is a materially smaller and
 safer fix than adopting an outside file, and it keeps the fork clear of code whose provenance and
-license we do not control, which matters while U5 is unresolved. Recommend fixing ours rather than
-vendoring.
+license we do not control, which matters while U5 is unresolved.
+
+**Done 2026-08-10**, tracked as [F10](#f10-the-bundled-generator-is-right-its-consumption-layer-is-wrong).
+The bundled backend now reproduces numpy on every check in the table above, the stamp is versioned
+`mt19937-v2`, and a scene recorded under either current backend loads under either. The
+consequence for upstream is the interesting part: this is the missing piece of the thing irefrixs
+said he wanted and never built, so **U8 now carries a working answer to his own problem rather than
+a bug report.** The 10 MB numpy dependency can be dropped without invalidating a single save file.
 
 Two limits on that result. Only small integer seeds were tested, which is the real range since
 `Random.RandomSeed` uses `randrange(2**31-2)+1`; numpy routes seeds above 32 bits through
@@ -160,7 +166,7 @@ we are, one layer deeper, by writing the contract down first.
 | U4 | `command_validation.py` (F6) | DRAFTED, needs re-aiming as a bug report |
 | U7 | Issue #5, unbounded retry in `ChooseEffects` (I7). Posted 2026-08-09 as `hexate`. Fix ready on `pr/cap-input-retries`. | **ANSWERED** 2026-08-10, **declined**, fork-only now |
 | U6 | Comment on #4 correcting 34× to 18.9× in situ, and noting F9. Text in `docs/pending/issue4-comment-rng-figure.md`. | **UNBLOCKED**, the hold condition is met |
-| U8 | Reply on #4: F1 patch as he asked for it, plus the `ChooseWithoutReplacement` gap in the implementation he recommended. | PROPOSED, highest-value next contact |
+| U8 | Reply on #4: F1 patch as he asked for it, the `ChooseWithoutReplacement` gap in the implementation he recommended, and **F10**, which is the numpy-compatible pure-Python generator he said was intended but never built. | PROPOSED, highest-value next contact |
 
 **Pacing, revised 2026-08-10.** The hold is over. He replied to both issues in detail, so the
 question is no longer whether he is listening but what is worth sending.
@@ -266,7 +272,7 @@ silent maintainer does not make the patches worthless.
 **Fork discipline** — keep changes cherry-pickable, since he applies diffs rather than merging PRs:
 
 - one topic branch per tracker item, small and self-contained
-- keep upstream-contributable fixes (F1–F6, A9, I1, I4, I7) separate from fork-only direction
+- keep upstream-contributable fixes (F1–F6, F10, A9, I1, I4, I7) separate from fork-only direction
   (docs, tooling, PVP). I2 turned out to be contributable too and is cut as `pr/test-harness`.
 - rebase on `upstream/master` periodically rather than letting the fork drift
 - `launch-debug.json` is deliberately untracked upstream — add it to `.gitignore` locally, do not
@@ -520,7 +526,7 @@ no grep-only claims.
 | F9 | `AddCounter` logs on every draw; 0.54 µs of the 1.21 µs that remains after F1 | `engine/lib/random.py:55` | Low | PROPOSED |
 | F2 | `numpy.random.choice` on object lists is 39× slower than stdlib | `engine/lib/random.py:45-70` | Medium | PROPOSED |
 | F3 | Two RNG backends produce different sequences → replay incompatibility | `engine/lib/random.py` | **High** | **DONE**, `pr/rng-backend-determinism` |
-| F10 | Bundled RNG core is byte-exact with numpy; only `randint` and `shuffle` diverge. Fixing them ends the F3 divergence instead of reporting it | `engine/lib/mt19937.py:64,69` | **High** | PROPOSED |
+| F10 | Bundled RNG core is byte-exact with numpy; only `randint` and `shuffle` diverge. Fixing them ends the F3 divergence instead of reporting it | `engine/lib/mt19937.py:64,69` | **High** | **DONE**, not yet cut as a `pr/` branch |
 | F4 | `World.LoadFromJson` is dead *and* cannot execute | `game/world/world.py:121-144` | Medium | PROPOSED |
 | F5 | Saving a puzzle mutates the live replay log; second save raises | `game/scene/scene.py:113-117` | **High** | **DONE**, `pr/puzzle-save-mutation` |
 | F6 | Debug-console safety check is a bypassable blocklist | `engine/security/command_validation.py` | **High** | PROPOSED |
@@ -609,6 +615,11 @@ naming the flag value needed to load the file. Verified end to end against a rea
 | scene claiming the other backend | `AssertionError`, refused |
 | scene with no recorded backend | loads, stays unstamped |
 
+**Superseded in part by F10.** The middle row no longer holds: the two current backends produce the
+same sequence, so a scene recorded under either loads under either. What gets refused now is the
+retired pre-F10 generator, and the check reads "can this build reproduce that sequence" rather than
+"does the name match". The stamp, the plumbing and the traps below are unchanged.
+
 Legacy scenes deliberately keep loading. There is no way to know which generator produced them,
 and guessing would bake a false claim into the next save, so they carry the same risk as before.
 
@@ -617,11 +628,13 @@ Two implementation traps worth remembering. `GameSetup` calls `state.ResetStartS
 on `seed == -1` is wrong, because a new game started with an explicit seed takes the other branch
 and never gets recorded.
 
-Seven tests in `unit_test/test_rng_backend.py`, including one pinning the premise that the two
-backends actually disagree, so the guard cannot quietly become pointless.
+Nine tests in `unit_test/test_rng_backend.py`. One of them used to pin the premise that the two
+backends disagree, so the guard could not quietly become pointless. F10 removed the premise
+instead, so that test now pins the opposite.
 
-Still open, tracked separately: nothing forces a choice between the two backends, and the numpy
-path remains process-global. This change makes divergence loud rather than eliminating it.
+Still open, tracked separately: the numpy path remains process-global, so any other code touching
+`numpy.random` still breaks replay determinism. F10 closed the other half by making the two
+backends produce the same sequence, so this change no longer has to make divergence loud.
 
 **Upstream context, 2026-08-10.** irefrixs confirmed the bundled backend was always meant to
 reproduce numpy's sequence and never did, and that numpy is canonical because every existing save
@@ -646,22 +659,56 @@ numpy is roughly 40 lines and closes the divergence rather than reporting it, wh
 direction irefrixs asked for in issue #4. The parity harness already exists, so the fix is
 gated by a measurement rather than by inspection.
 
-Prefer this to vendoring the `mggarofalo` implementation. Ours needs a smaller change than that
+Preferred to vendoring the `mggarofalo` implementation. Ours needed a smaller change than that
 file does (its `ChooseWithoutReplacement` is wrong for our purposes too, see §0), and adopting
-third-party code while U5 is unresolved adds a licensing question to a fix that does not need one.
+third-party code while U5 is unresolved would add a licensing question to a fix that does not need
+one.
 
-**Second-order effect, and the reason this is not purely additive.** F3 stamps scenes with the
-backend that recorded them, so a scene carrying `rng: "mt19937"` currently asserts it can be
-replayed under the bundled path. Changing that path's sequence silently invalidates that promise:
-the stamp still matches, the game diverges anyway. Two ways out, and this needs a decision before
-implementing:
+**Fixed 2026-08-10**, 3 files. `randbelow` does numpy's masked rejection on the raw words,
+`shuffle` is Fisher-Yates downward, and `choice(replace=False)` is a full shuffle truncated to `k`.
+`randint` now delegates to `randbelow`, which is what fixes `choice_one` for free. The float
+`random()` stays, unused, with a comment recording that scaling it was the original bug.
+
+**The stamp is versioned**, per option 2 below. `BACKEND_BUNDLED` is now `mt19937-v2` and the old
+`mt19937` is kept as `BACKEND_BUNDLED_RETIRED`.
+
+`CheckSceneBackend` changed shape as a result. It used to ask "does the recorded backend match the
+running one." That question is now meaningless, because the two current backends are
+interchangeable, so it asks "can this build reproduce the recorded sequence" instead:
+
+| Recorded value | Result |
+| --- | --- |
+| `numpy` or `mt19937-v2` | loads, either way, whichever backend is configured |
+| `mt19937` (retired) | refused, with a message saying no config flag brings that sequence back |
+| unknown value | refused |
+| empty (pre-F3 scene) | loads, unchanged |
+
+Verified four ways:
+
+- `tools/rng_parity_check.py --bundled` passes all six checks it previously failed five of.
+- 11 unit tests in `unit_test/test_rng_numpy_parity.py`, covering each operation the engine
+  dispatches, object lists rather than ints, and 54 interleaved operations off one stream, which is
+  what catches an operation consuming the wrong number of draws.
+- End to end through the engine, no replay file involved: `rhino` + `spider_man` at seed 42 deals
+  the identical six-card opening hand on both backends, and a different seed deals a different
+  hand, so the comparison is not vacuous.
+- Every scene in `replays/` is stamped `numpy`, so nothing on disk here is invalidated.
+
+**F3's premise test had to be inverted.** It pinned that the two backends disagree, so the guard
+could not quietly become pointless. That premise is what F10 removes, so the test now pins the
+opposite, and `TestBackendsDisagree` is `TestBackendsAgree`.
+
+**Second-order effect, and the reason this was not purely additive.** F3 stamps scenes with the
+backend that recorded them, so a scene carrying `rng: "mt19937"` asserted it could be replayed
+under the bundled path. Changing that path's sequence silently invalidates the promise: the stamp
+still matches, the game diverges anyway. Two ways out:
 
 1. Accept the break. irefrixs says every real save uses numpy, and the bundled path was "never
    used," so the affected population is probably empty outside our own test scenes.
 2. Version the stamp, `mt19937-v2`, and refuse the old value. Honest, and cheap, since
    `CheckSceneBackend` already refuses on mismatch.
 
-Option 2 costs one string and keeps F3's guarantee intact. Recommend it.
+Q chose option 2 on 2026-08-10. It costs one string and keeps F3's guarantee intact.
 
 ### F4: `World.LoadFromJson` is dead and non-functional
 
@@ -1204,5 +1251,6 @@ regression net that does not itself depend on replay.
 | 2026-08-09 | Q decided: **stay on Python.** E1 accepted in principle; G1 still worth running to size B1. |
 | 2026-08-09 | Added section F (design audit, F1–F8, RNG leak measured, dead code, puzzle-save corruption, bypassable blocklist verified by execution) and section H (PVP feasibility, revises B3 downward, multi-board isolation already exists and ships in the Kang scenario). |
 | 2026-08-09 | Added section 0 (upstream status): maintainer is active, license/contribution/test-corpus questions already answered publicly, prior work by kmelkon logged. Added A9 (kmelkon's `SaveCrash` fix never landed). Posted issue #4 upstream (U1). G3 **rejected**, corpus cannot be shared. G1 unblocked. |
+| 2026-08-10 | **F10 implemented.** The bundled generator now reproduces numpy operation for operation: masked rejection instead of float scaling, Fisher-Yates instead of `10n` swaps, and `replace=False` as a truncated full shuffle. Stamp versioned to `mt19937-v2` with the old value refused by name, and `CheckSceneBackend` re-framed from "does the backend match" to "can this build reproduce that sequence". 11 new tests including an end-to-end check that both backends deal the same opening hand at seed 42. Every local scene is stamped `numpy` so nothing on disk is invalidated. F3's premise test inverted as a consequence. Not yet cut as a `pr/` branch: it depends on F3's stamp, so it cannot sit directly on `upstream/master` the way the others do. |
 | 2026-08-10 | Upstream replied to both issues. Project declared **sunset**, no features or PRs, urgent bugfixes case-by-case, which supersedes the earlier "happy to accept your PR." F1 state-capture cleanup explicitly invited. I7 declined on design grounds, now fork-only. F3 reframed: numpy is canonical, the bundled backend was meant to reproduce it and never did. Audited the `mt19937.py` he recommended (`mggarofalo` fork) with `tools/rng_parity_check.py`: numpy-exact for seeding, raw stream, shuffle and choice, diverges only in `ChooseWithoutReplacement` because numpy truncates a full permutation. The control run also showed **our** bundled MT19937 core is byte-exact with numpy and only its `randint`/`shuffle` layer diverges, so F3 can be closed by fixing ~40 lines of ours instead of vendoring a third-party file, tracked as **F10**. U6 unblocked, U8 proposed, U2 recommended for indefinite hold. |
 | 2026-08-09 | Added section I (testing): harness verified working-but-empty; documented the circularity, the tests are replays, replays are version-pinned, and replay determinism is the very property F3 shows is broken. I2 (replay-independent unit-test layer) identified as the highest-value engineering work in this document. |

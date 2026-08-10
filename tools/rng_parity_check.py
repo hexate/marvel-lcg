@@ -74,9 +74,13 @@ def fetch_candidate():
 
 
 class BundledAdapter:
-    """`engine/lib/mt19937.py` behind the candidate interface, as a known-bad control.
+    """`engine/lib/mt19937.py` behind the candidate interface.
 
-    It has no `ChooseWithoutReplacement`; `choice(replace=False)` is the nearest thing.
+    It failed everything above the raw stream before F10, which is how the fix was scoped. Keeping
+    the adapter means the same wide check now gates our own backend against regressions.
+
+    Method names differ from the candidate interface: `choice(replace=False)` is the equivalent of
+    `ChooseWithoutReplacement`.
     """
 
     def __init__(self, seed):
@@ -112,7 +116,7 @@ def main():
     parser.add_argument("--candidate", help="path to the implementation under test")
     parser.add_argument("--class-name", default="Mt19937")
     parser.add_argument("--bundled", action="store_true",
-                        help="audit engine/lib/mt19937.py instead, the F3 control")
+                        help="audit engine/lib/mt19937.py, this repo's own backend")
     args = parser.parse_args()
 
     try:
@@ -122,7 +126,7 @@ def main():
 
     if args.bundled:
         Candidate = BundledAdapter
-        print("candidate: engine/lib/mt19937.py (bundled, expected to fail)")
+        print("candidate: engine/lib/mt19937.py (bundled)")
     else:
         path = args.candidate or fetch_candidate()
         Candidate = load_candidate(path, args.class_name)
