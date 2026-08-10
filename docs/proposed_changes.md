@@ -933,6 +933,7 @@ web auth, save integrity. Ordered by how much they matter.
 | J6 | 519 `assert`s enforce game rules; `python -O` deletes them | engine-wide | Low, latent | PROPOSED |
 | J7 | Mutable default arguments (10 sites) | various | Low, latent | PROPOSED |
 | J8 | **Clicking Cancel on the End Phase prompt raises.** Reproduced in a real browser game. | `engine/controller/controller.py:274` | Medium, user-reachable | PROPOSED |
+| J9 | **`-no_<flag>` on the command line is silently ignored for any already-declared variable.** `ParseArguments` writes the stripped name into `instance_command` but then calls `InitVariable(key)` with the `no_` prefix still attached, so the lookup misses `variable_dict` and nothing re-reads the value. The positive form works, because there the key matches. ✓ VERIFIED: `-no_disable_numpy_random` left the flag at its default, which is how the F10 tests nearly measured the wrong backend. Two-line fix, strip before the lookup | `engine/config.py:153-163` | Medium, silent | PROPOSED |
 
 ### J8: Cancel on a multi-option forced prompt asserts
 
@@ -1286,11 +1287,57 @@ version."*
 | ID | Item | Rationale | Status |
 | --- | --- | --- | --- |
 | I2 | **Build a unit-test layer that does not go through replay.** Construct a `World` directly, drive it with the existing debug commands (`gain`, `play`, `can`, `cannot`, documented in `public/js/marvel/debug/debug.ts`), assert on state. Independent of replay determinism, and survives behavior changes. | Breaks the circularity. Prerequisite for touching B2 or H5 safely. | **DONE**, `pr/test-harness`; see the I2 progress log below |
-| I3 | **Author a small replay corpus ourselves.** Play a few games; scenes auto-save to `./replays/`. Version-stamp them and accept they need regeneration on behavioral change. | Enough for G1 profiling and coarse smoke tests. Cheap. Do this first. | PROPOSED |
+| I3 | **Author a small replay corpus ourselves.** Play a few games; scenes auto-save to `./replays/`. Version-stamp them and accept they need regeneration on behavioral change. | Enough for G1 profiling and coarse smoke tests. Cheap. Do this first. | **STARTED**, three scenes recorded, one of them not usable as a fixture. See below |
 | I4 | Commit `launch-debug.json.example` and `.gitkeep` files for `replays/min_test/` and `replays/profiles/`, plus a short note in the docs. | Every newcomer hits the same wall; kmelkon and we both did. Good upstream contribution. | PROPOSED |
 
 **Sequence:** I3 (unblocks G1 today) → I1 + I4 (trivial, contributable) → I2 (the real fix, and a
 prerequisite for B2).
+
+### I3 findings (2026-08-10): a replay fixture has to end where nothing else is asked
+
+Investigated because `test_min` dies with `EOFError` and nothing on record explained it. All of the
+below is ✓ VERIFIED by execution.
+
+Three scenes exist on disk, none tracked by git (`.gitignore:12` covers `/replays/**/*.json`), which
+is why no history explains them. The `(N)` in each filename is the recorded input count:
+
+| Scene | Inputs | Recorded | Replays unattended? |
+| --- | --- | --- | --- |
+| `replays/…-(4)-(42).json` | 4 | 2026-08-09 21:38, 393 s | ✗ `EOFError` |
+| `replays/…-(6)-(1605461179).json` | 6 | 2026-08-10 08:46, 74 s | not tried |
+| `replays/…-(32)-(1605461179).json` | 32 | 2026-08-10 08:07, 189 s | ✓ `Test End (1/1)`, exit 0 |
+
+`replays/min_test/` holds a byte-identical copy of the 4-input scene, made a minute after it was
+recorded. So the corpus is one hand-picked save, and it happens to be the one that cannot replay.
+
+**Why that one fails.** It replays all four inputs, reaches `4 / 4`, and then the game asks a fifth
+question nobody recorded an answer to. The recording stops immediately after the player ends their
+turn, and the next thing the engine does is:
+
+```
+player_phase.py:82   EndPhase
+player_phase.py:23   MayDiscardHandCardsAndDrawUpToMax
+player_ask.py:314    AskDiscardFaces
+player_ask.py:214    AskChooseSelect      -> no recorded input -> keyboard device -> EOFError
+```
+
+Somebody quit the game one prompt before the end-of-turn discard. So this is not a broken corpus
+mechanism and not a broken harness: the 32-input scene from the same session replays perfectly
+through the same code path.
+
+**The criterion, which is the useful part.** A saved scene is only usable as an unattended fixture
+if the game asks nothing more after its last recorded input. Mid-turn saves are fine to load and
+keep playing, which is what a save is for, and useless as a test fixture. In practice that means
+recording until the game ends, or checking a candidate before adding it.
+
+This is the same family as I7 and issue #5: an input source that is not a person meets a prompt.
+The retry cap would have made this failure readable instead of an `EOFError` out of `input()`.
+
+**Not caused by F10 or F11.** Checked explicitly, because the scene is stamped `rng: "numpy"` and
+the default is now the bundled generator. It fails identically under both, at the same prompt.
+
+**Recommended:** swap the `min_test` corpus to the 32-input scene, which is verified replayable, and
+write the criterion above next to it. That alone makes `test_min` pass.
 
 ### G1 attempt log (2026-08-09): not answered
 
