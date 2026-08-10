@@ -645,8 +645,9 @@ algorithmic one.
 
 | ID | Item | Why it blocks | Status |
 | --- | --- | --- | --- |
-| G1 | **Profile a real session.** Play a game via the web UI; it auto-saves into `./replays/`. Then run `test_min` and read the harness's `Average Time` per input. Extrapolate undo cost. Path is now unblocked — see section I. | The single number that decides E1. Everything in B1 and E is inference until this exists. | **ACCEPTED — unblocked** |
+| G1 | **Profile a real session.** See the attempt log below. | The single number that decides E1. Everything in B1 and E is inference until this exists. | **BLOCKED** — driver cannot sustain a long game |
 | G2 | Determine when `DoNotCheckFastUndo()` disables the fast-undo pruning path in `engine/controller/module/undo.py`, and how much that path actually saves. | If fast-undo is silently off in normal multiplayer, the reported "over a minute" may be a bug, not a design limit. | PROPOSED |
+| G4 | Record a real game through the browser and save the replay, per irefrixs's instructions in issue #1. Unblocks G1. | The synthetic driver stalls; a human-played scene sidesteps that entirely. | PROPOSED |
 | G3 | ~~Ask upstream for a replay corpus.~~ | Asked and answered in issue #1: cannot be shared (player-uploaded, >1 GB, off-Git). Superseded by I3 — author our own. | **REJECTED** |
 
 ---
@@ -799,6 +800,38 @@ version."*
 
 **Sequence:** I3 (unblocks G1 today) → I1 + I4 (trivial, contributable) → I2 (the real fix, and a
 prerequisite for B2).
+
+### G1 attempt log (2026-08-09) — not answered
+
+Three approaches, all defeated by the same thing: a scripted policy cannot sustain a long game.
+
+| Approach | Result |
+| --- | --- |
+| Decline everything, drive `GameLoop` | Runs. Reaches round 3 in 0.13 s, but only 7 recorded inputs. Passing on everything is not a game. |
+| Take the first legal option instead | 300 policy calls produced 11 inputs in 1.21 s, then stalled. A 200-input target ran 10 minutes without finishing. |
+| Replay a captured scene at increasing depth | `LoadScene` + `GameSetup` under a scripted device hung at 7 minutes. |
+| Save a 40-input game as a fixture | Stalled at 4 minutes. |
+
+**What was measured and holds up:**
+
+- Game setup costs **~0.10 s**, repeatable across runs. That is the fixed part of any undo, and it
+  is nowhere near a minute.
+- A 3-round single-player game with 7–11 recorded inputs completes in 0.13–1.21 s.
+- The decision loop runs roughly **27 policy invocations per recorded input** (300 calls, 11
+  inputs). Most prompts never reach the replay log.
+
+**What was not measured:** replay cost at realistic depth, which is the actual undo number. A
+single-player game of 11 inputs cannot be extrapolated to the 4-player session irefrixs described,
+and doing so would be guessing dressed as data.
+
+**What the failure itself says.** The stall is indistinguishable from slowness from outside, which
+is exactly the complaint filed as issue #5 (I7, unbounded retry with no cap and no logging). The
+tooling built to investigate the performance problem was defeated by a separate defect that hides
+whether anything is progressing. Fixing I7 locally would likely turn these four dead ends into
+readable failures.
+
+**Unblocking path.** G4: record a real game through the browser and save the replay, which is what
+irefrixs described in issue #1. A human-played scene sidesteps the driver problem completely.
 
 ### I2 progress log (2026-08-09)
 
