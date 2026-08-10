@@ -24,6 +24,18 @@ class TestEntry:
         else:
             all_cases = TestEntry.GetFolderTestCase(folder)
 
+        # Without this the run finishes "--- Test End --- (0/0)" and then dies on `assert world`
+        # forty lines later, because no case ever built one. That reads as an engine fault rather
+        # than an empty folder, and it is the first thing a new contributor hits: the replays are
+        # player data, so they are not in the repository and nothing says so.
+        assert all_cases, (
+            f"No replay files found in {folder if folder else 'the configured test folders'}. "
+            f"The test corpus is recorded games, which are not shipped with the source, so this "
+            f"folder is empty on a fresh clone. Play a game and it saves to ./replays/, then copy "
+            f"one in. A scene only works here if the game asks nothing more after its last "
+            f"recorded input, so record until the game ends rather than saving mid-turn."
+        )
+
         Test.is_in_test = True # We do need this
 
         if do_profile:

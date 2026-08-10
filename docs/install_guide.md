@@ -42,3 +42,28 @@ You need to download the game to gain its `assets` folder from [itch.io](https:/
 ```
 py main.py
 ```
+
+## 8. Run the tests (optional)
+
+The test suite replays recorded games, and recorded games are player data, so none ship with the
+source. Two things are missing from a fresh clone:
+
+```
+cp launch.json launch-debug.json
+```
+
+`unit_test/test_all.py` reads `launch-debug.json`, which is a developer-local config and is not
+committed. A copy of `launch.json` is enough to run the tests.
+
+Then put at least one recorded game in `replays/min_test/`. Play a game and it saves into
+`replays/` on its own, then copy one across. A scene only works as a test case if the game asks
+nothing further after its last recorded input, so record until the game ends. A save made in the
+middle of a turn will replay to that point and then sit waiting for the next decision, which in a
+test means it fails with `EOFError` from `input()`.
+
+```
+py -m unittest unit_test.test_all.TestMain.test_min
+```
+
+Note that `unit_test/test_task.py` is not a test. Running the whole `unit_test` folder will execute
+it, which bumps the version in `build.py` and makes a git commit.
