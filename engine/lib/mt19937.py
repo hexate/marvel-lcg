@@ -64,6 +64,21 @@ class Random():
         # though the word stream was already identical. Bounded integers come off the raw words.
         return self.extract_number() / 4294967296  # which is 2**w
 
+    def GetState(self):
+        """A snapshot of the generator position, for the debug undo.
+
+        Mirrors `numpy.random.get_state()`, so `Random.PushState` can treat the two backends the
+        same way. The word list is copied, otherwise the snapshot moves as the generator runs.
+        """
+        return (self.MT[:], self.index)
+
+    def SetState(self, state) -> None:
+        words, index = state
+        assert len(words) == self.n, f"state needs {self.n} words, got {len(words)}"
+        assert 0 <= index <= self.n, f"state index out of range: {index}"
+        self.MT = words[:]
+        self.index = index
+
     def randbelow(self, n: int) -> int:
         """ return random int in [0,n) the way numpy does it
 

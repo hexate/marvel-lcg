@@ -82,13 +82,20 @@ class Random:
     def PushState() -> None:
         """Record the generator position so `Undo` can rewind to it.
 
-        Off unless `enable_random_undo` is set. Left on, this copies numpy's Mersenne buffer on
+        Off unless `enable_random_undo` is set. Left on, this copies a 624-word Mersenne buffer on
         every draw and grows `Random.states` for the life of the process.
+
+        The backend name is stored with the snapshot. The two backends keep their position in
+        different shapes, and restoring one into the other would corrupt the generator rather than
+        fail, so the name is what makes the mismatch loud.
         """
         if not ENABLE_RANDOM_UNDO.value:
             return
-        import numpy.random
-        Random.states.append(numpy.random.get_state())
+        if DISABLE_NUMPY_RANDOM.value:
+            Random.states.append((Random.BACKEND_BUNDLED, Random.rand.GetState()))
+        else:
+            import numpy.random
+            Random.states.append((Random.BACKEND_NUMPY, numpy.random.get_state()))
 
     @staticmethod
     def SetSeed(seed: int) -> None:
@@ -117,11 +124,11 @@ class Random:
     def RandomChoice(input_list: Sequence[T]) -> T:
         assert input_list != []
         Random.AddCounter()
+        Random.PushState()
         if DISABLE_NUMPY_RANDOM.value:
             return Random.rand.choice_one(input_list)
         else:
             import numpy.random
-            Random.PushState()
             return numpy.random.choice(input_list) # type: ignore
 
     @staticmethod
@@ -136,33 +143,47 @@ class Random:
             return list(input_list)
 
         Random.AddCounter()
+        Random.PushState()
         if DISABLE_NUMPY_RANDOM.value:
             return Random.rand.choice(list(input_list), size=x, replace=False)
         else:
             import numpy.random
-            Random.PushState()
             return list(numpy.random.choice(input_list, size=x, replace=False)) # type: ignore
 
     @staticmethod
     def Shuffle(list: List[Any]) -> None:
         Random.AddCounter()
+        Random.PushState()
         if DISABLE_NUMPY_RANDOM.value:
             Random.rand.shuffle(list)
         else:
             import numpy.random
-            Random.PushState()
             numpy.random.shuffle(list) # type: ignore
 
     @staticmethod
     def Undo():
+        """Rewind to the position recorded before the most recent draw.
+
+        Both backends support this. The bundled one used to fall through a bare `pass`, so the
+        `Unshuffle` cheat at `cheat_cmd_helper.py:390` quietly did nothing instead of rewinding,
+        which matters more now that it is the default.
+        """
+        assert ENABLE_RANDOM_UNDO.value, (
+            "Random.Undo needs 'enable_random_undo' in the config. State capture is off by "
+            "default because it copies the generator buffer on every draw."
+        )
+        assert Random.states, "No recorded generator position to undo."
+
+        recorded, state = Random.states.pop()
+        current = Random.BackendName()
+        assert recorded == current, (
+            f"Recorded generator position belongs to the '{recorded}' backend but this build is "
+            f"running '{current}'. Restoring it would corrupt the generator."
+        )
+
         if DISABLE_NUMPY_RANDOM.value:
-            pass
+            Random.rand.SetState(state)
         else:
-            assert ENABLE_RANDOM_UNDO.value, (
-                "Random.Undo needs 'enable_random_undo' in the config. State capture is off by "
-                "default because it copies the generator buffer on every draw."
-            )
-            assert Random.states, "No recorded generator position to undo."
             import numpy.random
-            numpy.random.set_state(Random.states.pop())
+            numpy.random.set_state(state)
 
