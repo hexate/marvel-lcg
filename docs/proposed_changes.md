@@ -387,7 +387,7 @@ no grep-only claims.
 | F2 | `numpy.random.choice` on object lists is 39× slower than stdlib | `engine/lib/random.py:45-70` | Medium | PROPOSED |
 | F3 | Two RNG backends produce different sequences → replay incompatibility | `engine/lib/random.py` | **High** | **DONE** — `pr/rng-backend-determinism` |
 | F4 | `World.LoadFromJson` is dead *and* cannot execute | `game/world/world.py:121-144` | Medium | PROPOSED |
-| F5 | Saving a puzzle mutates the live replay log; second save raises | `game/scene/scene.py:113-117` | **High** | PROPOSED |
+| F5 | Saving a puzzle mutates the live replay log; second save raises | `game/scene/scene.py:113-117` | **High** | **DONE** — `pr/puzzle-save-mutation` |
 | F6 | Debug-console safety check is a bypassable blocklist | `engine/security/command_validation.py` | **High** | PROPOSED |
 | F7 | Player count hardcoded as `(0,1,2,3)[:n]` | `game/world/world.py:94,127` | Low | PROPOSED |
 | F8 | Cross-area targeting isolation is opt-in, not enforced | `game/card/card_finder/checker.py:174` | Medium (blocks PVP) | PROPOSED |
@@ -516,7 +516,15 @@ That mutates the **live** replay log objects. `Scene.Save` guards with an early
 directly and bypasses that guard. Consequences: continuing to play after a puzzle save works on
 stripped inputs, and a **second** save raises `AttributeError` on the already-deleted attribute.
 
-**Proposed fix:** deep-copy the inputs before stripping.
+**Fixed** on `pr/puzzle-save-mutation`. The list is copied before stripping and already-absent
+attributes are skipped, so the strip is idempotent. Four tests: two that failed before the change
+(the live log reported `step == -1`, and a second save raised `AttributeError`), plus two pinning
+behaviour that had to survive, that the saved copy is still stripped and that a normal scene is
+untouched.
+
+Note for anyone cherry-picking: this conflicts with F3, which inserts the `rng` stamp immediately
+above the same block in `PrepareSave`. Both belong; keep the stamp and drop the now-unused
+`data = self`.
 
 ### F6 — The command blocklist blocks only the naive case
 
