@@ -168,6 +168,7 @@ we are, one layer deeper, by writing the contract down first.
 | U6 | Comment on #4 correcting 34× to 18.9× in situ, and noting F9. Text in `docs/pending/issue4-comment-rng-figure.md`. | **SUPERSEDED** by U8, which folds the correction in. Do not post both. |
 | U8 | Reply on #4: F1 patch as he asked for it, the `ChooseWithoutReplacement` gap in the implementation he recommended, and **F10**, which is the numpy-compatible pure-Python generator he said was intended but never built. Folds U6 in. | **POSTED** 2026-08-10 as `hexate`, [comment](https://github.com/irefrixs/marvel-lcg/issues/4#issuecomment-5243489423). Carries links to `pr/random-state-capture` and `pr/rng-numpy-parity`, both pushed to the fork. **Edited 2026-08-10 18:31 UTC**, before he replied, to correct the `AddCounter` figure and withdraw the F9 suggestion. Editing does not re-notify, so he may still hold the original by email. |
 | U9 | Issue #6, `unit_test/test_task.py` commits to git and bumps the version when the suite runs (I8). Text in `docs/pending/issue-test-task.md`. | **POSTED** 2026-08-10 as `hexate`, [issue #6](https://github.com/irefrixs/marvel-lcg/issues/6) |
+| U10 | Issue #7, `/debug` reaches `exec` and its auth wrapper is inactive by default (F6/F6a). Carries the fix as `pr/gate-debug-endpoint`. Text in `docs/pending/issue-debug-endpoint.md`. | **POSTED** 2026-08-10 as `hexate`, [issue #7](https://github.com/irefrixs/marvel-lcg/issues/7). The first item that plausibly meets his "urgent bugfix" exception. |
 
 **Pacing, revised 2026-08-10.** The hold is over. He replied to both issues in detail, so the
 question is no longer whether he is listening but what is worth sending.
@@ -910,7 +911,7 @@ and the file name was most of why anyone believed otherwise.
 
 | ID | Item | Status |
 | --- | --- | --- |
-| F6a | Gate `/debug` on loopback or a real password | **DONE**, not yet cut as a `pr/` branch |
+| F6a | Gate `/debug` on loopback or a real password | **DONE**, `pr/gate-debug-endpoint`, reported upstream as [issue #7](https://github.com/irefrixs/marvel-lcg/issues/7) (U10) |
 | F6b | Rename `command_validation.py` and its docstring so it stops implying a security control | PROPOSED |
 | F6c | The same no-password-means-authenticated hole applies to **every** route using `IsAuthenticate`, not just `/debug`. Tracked as J2, and it is worth more than its Medium rating | PROPOSED |
 
