@@ -71,6 +71,12 @@ usable diffs; do not expect PR merges.
 | U2 | PVP feasibility issue (section H) | DRAFTED — hold until #4 gets a reply or ~1 week |
 | U3 | Scene save/load defects (F5, F4) | DRAFTED — send a few days after U2 |
 | U4 | `command_validation.py` (F6) | DRAFTED — send with U3 |
+| U6 | Comment on #4 correcting 34× to 18.9× in situ, and noting F9. Text in scratchpad `issue4_comment.md`. | **HELD** — deliberately not sent, see below |
+
+**Pacing.** Two issues went up on 2026-08-09 and neither has a reply. Nothing further gets sent
+until he responds. U6 is a correction to our own number rather than a new ask, so it is safe to
+sit on, and it reads better attached to a live conversation than as a third unanswered post. If
+he never replies, U6 is not worth sending alone.
 
 Drafts live outside the repo in the session scratchpad (`issues_draft.md`).
 
