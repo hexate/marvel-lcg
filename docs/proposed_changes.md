@@ -166,7 +166,7 @@ we are, one layer deeper, by writing the contract down first.
 | U4 | `command_validation.py` (F6) | DRAFTED, needs re-aiming as a bug report |
 | U7 | Issue #5, unbounded retry in `ChooseEffects` (I7). Posted 2026-08-09 as `hexate`. Fix ready on `pr/cap-input-retries`. | **ANSWERED** 2026-08-10, **declined**, fork-only now |
 | U6 | Comment on #4 correcting 34× to 18.9× in situ, and noting F9. Text in `docs/pending/issue4-comment-rng-figure.md`. | **SUPERSEDED** by U8, which folds the correction in. Do not post both. |
-| U8 | Reply on #4: F1 patch as he asked for it, the `ChooseWithoutReplacement` gap in the implementation he recommended, and **F10**, which is the numpy-compatible pure-Python generator he said was intended but never built. Folds U6 in. | **POSTED** 2026-08-10 as `hexate`, [comment](https://github.com/irefrixs/marvel-lcg/issues/4#issuecomment-5243489423). Carries links to `pr/random-state-capture` and `pr/rng-numpy-parity`, both pushed to the fork. |
+| U8 | Reply on #4: F1 patch as he asked for it, the `ChooseWithoutReplacement` gap in the implementation he recommended, and **F10**, which is the numpy-compatible pure-Python generator he said was intended but never built. Folds U6 in. | **POSTED** 2026-08-10 as `hexate`, [comment](https://github.com/irefrixs/marvel-lcg/issues/4#issuecomment-5243489423). Carries links to `pr/random-state-capture` and `pr/rng-numpy-parity`, both pushed to the fork. **Edited 2026-08-10 18:31 UTC**, before he replied, to correct the `AddCounter` figure and withdraw the F9 suggestion. Editing does not re-notify, so he may still hold the original by email. |
 | U9 | Issue #6, `unit_test/test_task.py` commits to git and bumps the version when the suite runs (I8). Text in `docs/pending/issue-test-task.md`. | **POSTED** 2026-08-10 as `hexate`, [issue #6](https://github.com/irefrixs/marvel-lcg/issues/6) |
 
 **Pacing, revised 2026-08-10.** The hold is over. He replied to both issues in detail, so the
@@ -551,7 +551,7 @@ no grep-only claims.
 | ID | Finding | Location | Severity | Status |
 | --- | --- | --- | --- | --- |
 | F1 | RNG state capture costs 34× and leaks unboundedly | `engine/lib/random.py:49,68,78` | **High** | **DONE**, `pr/random-state-capture` |
-| F9 | `AddCounter` logs on every draw; 0.54 µs of the 1.21 µs that remains after F1 | `engine/lib/random.py:55` | Low | PROPOSED |
+| F9 | `AddCounter` logs on every draw. Measured at 0.312 µs, fixable to 0.068 µs, but it runs once per draw and a game makes a handful | `engine/lib/random.py:82` | Low | **REJECTED**, saving is microseconds per game |
 | F2 | `numpy.random.choice` on object lists is 39× slower than stdlib | `engine/lib/random.py:45-70` | Medium | **DONE** by F11: that call is no longer on the default path, and the bundled `choice` is 4.4× faster than it |
 | F11 | Default `disable_numpy_random` to the bundled backend, now that F10 makes it produce numpy's sequence. Removes the numpy dependency and the process-global RNG exposure F3 left open | `engine/lib/random.py:5` | Medium | **DONE**, fork-only |
 | F12 | `Random.Undo` hits a bare `pass` on the bundled backend, so the `Unshuffle` cheat silently does nothing whenever `disable_numpy_random` is set. Reachable upstream today, not only after F11 | `engine/lib/random.py`, `engine/lib/mt19937.py` | Medium | **DONE**, `pr/rng-undo-bundled`, stacked on `pr/random-state-capture` |
@@ -612,9 +612,36 @@ and reshuffles to prove the debug cheat still behaves.
 ### F9: `AddCounter` logs on every draw
 
 `Random.AddCounter` builds an f-string and calls `Log.DebugSilent` on every single random
-operation, whether or not the category is enabled. Measured at 0.54 µs per draw, which is now the
-largest remaining cost in the call. Cheap to fix by checking whether the category is live before
-formatting.
+operation, whether or not the category is enabled. Cheap to fix by checking whether the category is
+live before formatting.
+
+**Rejected 2026-08-10, after measuring it properly.** Two things were wrong with the case above.
+
+The 0.54 µs was the whole wrapper, `Random.Shuffle` minus a raw `numpy.random.shuffle`, attributed
+to logging. Broken down per call, `AddCounter` itself is 0.312 µs, and the largest single piece is
+not the f-string:
+
+| component | µs/call |
+| --- | --- |
+| `from engine.log import Log`, function-local | 0.148 |
+| the f-string | 0.056 |
+| `Log.DebugSilent` call | 0.031 |
+| counter increment | 0.043 |
+| category membership test | 0.010 |
+| **`AddCounter` as written** | **0.312** |
+| **with import and format behind the category check** | **0.068** |
+
+The fix works, 4.6× on the function. It is still not worth making. `AddCounter` has exactly three
+callers, all inside `Random` itself, so it runs once per draw, and F11 established that a game
+makes 2 draws at solo setup and 6 at four players. The saving across a whole game is measured in
+microseconds.
+
+The import is function-local for a reason, incidentally, so nobody should hoist it later thinking
+it is an oversight: `engine.log/__init__` imports `notify`, which imports `engine.lib`, so a
+module-level import in `engine/lib/random.py` closes a cycle. Guarding it is the only cheap option.
+
+We had already told irefrixs this was worth doing, in U8. The comment on issue #4 was edited on
+2026-08-10 to correct the figure and withdraw the suggestion.
 
 ### F3: Two RNG backends, one save format
 

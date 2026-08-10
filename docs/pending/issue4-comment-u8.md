@@ -1,7 +1,12 @@
 # U8: reply on issue #4
 
-Status: DRAFT, not sent. Supersedes `issue4-comment-rng-figure.md` (U6), whose correction is folded
-into section 1 below. Do not post both.
+Status: POSTED 2026-08-10 as comment 5243489423, then edited at 18:31 UTC before he replied. This
+file matches the live comment. Supersedes `issue4-comment-rng-figure.md` (U6), whose correction is
+folded into section 1 below.
+
+The edit rewrote section 1's second paragraph: the original blamed the f-string for 0.55 µs and
+invited him to fix it, which was wrong on the number, wrong on the cause, and pointed at a saving
+of microseconds per game. See F9.
 
 Context this answers: irefrixs's two comments of 2026-08-10, giving the numpy history and pointing
 at `mggarofalo/marvel-lcg`'s `mt19937.py`.
@@ -22,11 +27,16 @@ That part holds up, but through `Random.Shuffle`, which is what actually runs, g
 off gives 18.9x. Over 20,000 shuffles of a 50-card list it goes from 22.0 µs per call to 1.2 µs,
 and retained memory goes from about 55 MB, measured with `tracemalloc`, to zero.
 
-The gap is `AddCounter`. It builds an f-string and calls `Log.DebugSilent` on every draw whether or
-not the category is enabled, costing 0.55 µs. Raw `numpy.random.shuffle` is 0.62 µs and
-`Random.Shuffle` with capture disabled is 1.16 µs, so that logging is about 47% of what remains.
-Small, but it is now the largest thing left in there, and skipping the formatting when the category
-is off would be easy if you think it is worth doing.
+The rest of the gap is the wrapper itself, and I should be more precise than I was. Raw
+`numpy.random.shuffle` is 0.62 µs against 1.16 µs for `Random.Shuffle` with capture disabled.
+`AddCounter` is 0.312 µs of that 0.54, and the largest piece of it is not the f-string but the
+`from engine.log import Log` inside the function, at 0.148 µs against 0.056 for the formatting.
+Guarding both behind the category check takes it to 0.068 µs.
+
+I am not suggesting you make that change. `AddCounter` runs once per draw, and a game makes very
+few: I measured `GameSetup` at 2 draws solo and 6 at four players, because shuffling is per deck
+rather than per decision. The saving across a whole game is microseconds. I am correcting it only
+because I quoted a number at you and it should be right.
 
 ## 2. The state-capture cleanup you said yes to
 
