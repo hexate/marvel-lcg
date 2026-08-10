@@ -559,7 +559,7 @@ no grep-only claims.
 | F10 | Bundled RNG core is byte-exact with numpy; only `randint` and `shuffle` diverge. Fixing them ends the F3 divergence instead of reporting it | `engine/lib/mt19937.py:64,69` | **High** | **DONE**, `pr/rng-numpy-parity`, stacked on `pr/rng-backend-determinism` |
 | F4 | `World.LoadFromJson` is dead *and* cannot execute | `game/world/world.py:121-144` | Medium | PROPOSED |
 | F5 | Saving a puzzle mutates the live replay log; second save raises | `game/scene/scene.py:113-117` | **High** | **DONE**, `pr/puzzle-save-mutation` |
-| F6 | Debug-console safety check is a bypassable blocklist | `engine/security/command_validation.py` | **High** | PROPOSED |
+| F6 | Bypassable blocklist is the only thing between the `/debug` HTTP endpoint and `exec`, and the auth wrapper in front of it passes everyone when no password is set | `engine/security/command_validation.py`, `engine/device/web/server/server_sync.py:107` | **High** | **DONE** for the gate (F6a), see the section for what remains |
 | F7 | Player count hardcoded as `(0,1,2,3)[:n]` | `game/world/world.py:94,127` | Low | PROPOSED |
 | F8 | Cross-area targeting isolation is opt-in, not enforced | `game/card/card_finder/checker.py:174` | Medium (blocks PVP) | PROPOSED |
 
@@ -874,9 +874,45 @@ ordinary Python modules with **no validation at all**.
 So the honest security model is "card scripts are fully trusted," exactly as the README warns.
 The problem is that `command_validation.py` implies a protection that does not exist.
 
-**Proposed fix:** either delete it and rely on the README's honest warning, or replace it with a
-real boundary (separate process, restricted import hook, capability-limited API). A blocklist of
-module names is not a security control. Decide which — the current state is the worst of both.
+**Correction, 2026-08-10. "The debug console" is an HTTP endpoint, and the original proposal to
+delete the blocklist was written without knowing that.** ✓ VERIFIED by reading the whole chain:
+
+```
+GET /debug?<python>
+  -> handle_debug_command            engine/device/web/server/server_sync.py:20
+  -> Unquote(request.rel_url.query_string)
+  -> console.SetCommand              engine/console/console.py:49
+  -> RunCheat                        game/world/cheat/cheat_cmd_helper.py:411
+  -> IsCommandSafe                   the blocklist, one payload in eight
+  -> exec(cmd)                       game/world/cheat/cheat_cmd_helper.py:481
+```
+
+The route is registered through `AddAwaitGetSecurity`, which sounds sufficient and is not.
+`IsAuthenticate` (`engine/network/web_server.py:81`) returns `True` for **everyone** when no
+password is configured, and the shipped `launch.json` carries `"password": ""`. So in the default
+configuration the wrapper is a no-op and the blocklist is the only thing in the path.
+
+What keeps this from being an open door is the bind address: `server_addresses` defaults to
+`127.0.0.1:2345` (`engine/device/manager/web/manager.py:11`). The exposure appears exactly when
+someone sets `ip` to reach the LAN, which is what the devlog's 4-player mode asks people to do.
+Host a game for friends without setting a password and any host that can reach the port has
+arbitrary code execution.
+
+**Fixed 2026-08-10.** `/debug` is registered through a new `AddAwaitGetDebugSecurity`, which
+requires the request to come from this machine **or** to present a password that is actually
+configured. `IsLoopback` fails closed: no peer address, an unparseable one, or a proxy's address
+all count as remote. Refusal is a 403 rather than the login page, because the caller is a script.
+Six tests in `unit_test/test_debug_endpoint_gate.py`, one of which pins the precondition that
+`IsAuthenticate` passes a LAN client, so the gate cannot quietly be rewritten in terms of it.
+
+The blocklist stays, with its security framing removed. It catches a typo; it is not a boundary,
+and the file name was most of why anyone believed otherwise.
+
+| ID | Item | Status |
+| --- | --- | --- |
+| F6a | Gate `/debug` on loopback or a real password | **DONE**, not yet cut as a `pr/` branch |
+| F6b | Rename `command_validation.py` and its docstring so it stops implying a security control | PROPOSED |
+| F6c | The same no-password-means-authenticated hole applies to **every** route using `IsAuthenticate`, not just `/debug`. Tracked as J2, and it is worth more than its Medium rating | PROPOSED |
 
 ---
 
@@ -888,7 +924,7 @@ web auth, save integrity. Ordered by how much they matter.
 | ID | Finding | Location | Severity | Status |
 | --- | --- | --- | --- | --- |
 | J1 | Bare `except:` can silently drop a card ability | `game/card/face/effect/face_effect.py:55` | Medium (see measurement) | **DONE**, `pr/narrow-effect-filter-except` |
-| J2 | Auth endpoint never verifies the password; no rate limiting | `engine/network/web_server.py:202` | Medium | PROPOSED |
+| J2 | Auth endpoint never verifies the password; no rate limiting. **Compounded, see F6:** ✓ VERIFIED that `IsAuthenticate` returns `True` for every caller when no password is configured, which is the shipped default, so every `*Security` route is open to anyone who can reach the port | `engine/network/web_server.py:81,202` | Medium, arguably higher | PROPOSED |
 | J3 | Save checksums default to ignored, and load proceeds on mismatch | `engine/lib/json.py:179` | Medium | PROPOSED |
 | J4 | `JobManager.Simultaneous` is a sequential loop | `engine/job/manager.py:76` | Medium | PROPOSED |
 | J5 | `RemoveJob` check-then-act race from worker threads | `engine/job/manager.py:43` | Low | PROPOSED |
@@ -1357,6 +1393,7 @@ regression net that does not itself depend on replay.
 | 2026-08-09 | Q decided: **stay on Python.** E1 accepted in principle; G1 still worth running to size B1. |
 | 2026-08-09 | Added section F (design audit, F1–F8, RNG leak measured, dead code, puzzle-save corruption, bypassable blocklist verified by execution) and section H (PVP feasibility, revises B3 downward, multi-board isolation already exists and ships in the Kang scenario). |
 | 2026-08-09 | Added section 0 (upstream status): maintainer is active, license/contribution/test-corpus questions already answered publicly, prior work by kmelkon logged. Added A9 (kmelkon's `SaveCrash` fix never landed). Posted issue #4 upstream (U1). G3 **rejected**, corpus cannot be shared. G1 unblocked. |
+| 2026-08-10 | **F6 reassessed and gated.** The "debug console" the blocklist guards is an HTTP endpoint, `GET /debug?<python>`, ending at `exec`. Its auth wrapper passes everyone when no password is set, which is the shipped default, so the bypassable blocklist was the whole boundary. Only the `127.0.0.1` default bind keeps that from being reachable, and hosting for friends is precisely the case that removes it. `/debug` now requires a loopback request or a configured password, failing closed on an unknown peer. The earlier proposal to delete the blocklist and rely on the README was written without knowing the endpoint was network-facing. Raises J2, which is the same hole on every other route. |
 | 2026-08-10 | **F11: the fork now runs without numpy.** `disable_numpy_random` defaults to true. Benchmarked first, since U8 had already advised irefrixs to do this without checking the cost: the bundled shuffle is 34.5× slower per call but a whole game makes a handful of draws (2 at solo setup, 6 at four players), so the real cost is roughly 20 ms across a long game, and `RandomChoice` is 4.4× *faster* because numpy rebuilds an object array per call. Verified by making numpy unimportable and setting up a full game. Flipping first required giving the bundled backend undo support: `Random.Undo` had a bare `pass` there, so the switch would have silently broken the `Unshuffle` cheat. Closes F2, and the half of F3 about numpy's process-global state. |
 | 2026-08-10 | **F10 implemented.** The bundled generator now reproduces numpy operation for operation: masked rejection instead of float scaling, Fisher-Yates instead of `10n` swaps, and `replace=False` as a truncated full shuffle. Stamp versioned to `mt19937-v2` with the old value refused by name, and `CheckSceneBackend` re-framed from "does the backend match" to "can this build reproduce that sequence". 11 new tests including an end-to-end check that both backends deal the same opening hand at seed 42. Every local scene is stamped `numpy` so nothing on disk is invalidated. F3's premise test inverted as a consequence. Not yet cut as a `pr/` branch: it depends on F3's stamp, so it cannot sit directly on `upstream/master` the way the others do. |
 | 2026-08-10 | Upstream replied to both issues. Project declared **sunset**, no features or PRs, urgent bugfixes case-by-case, which supersedes the earlier "happy to accept your PR." F1 state-capture cleanup explicitly invited. I7 declined on design grounds, now fork-only. F3 reframed: numpy is canonical, the bundled backend was meant to reproduce it and never did. Audited the `mt19937.py` he recommended (`mggarofalo` fork) with `tools/rng_parity_check.py`: numpy-exact for seeding, raw stream, shuffle and choice, diverges only in `ChooseWithoutReplacement` because numpy truncates a full permutation. The control run also showed **our** bundled MT19937 core is byte-exact with numpy and only its `randint`/`shuffle` layer diverges, so F3 can be closed by fixing ~40 lines of ours instead of vendoring a third-party file, tracked as **F10**. U6 unblocked, U8 proposed, U2 recommended for indefinite hold. |
