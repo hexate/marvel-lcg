@@ -924,7 +924,8 @@ web auth, save integrity. Ordered by how much they matter.
 | ID | Finding | Location | Severity | Status |
 | --- | --- | --- | --- | --- |
 | J1 | Bare `except:` can silently drop a card ability | `game/card/face/effect/face_effect.py:55` | Medium (see measurement) | **DONE**, `pr/narrow-effect-filter-except` |
-| J2 | Auth endpoint never verifies the password; no rate limiting. **Compounded, see F6:** ✓ VERIFIED that `IsAuthenticate` returns `True` for every caller when no password is configured, which is the shipped default, so every `*Security` route is open to anyone who can reach the port | `engine/network/web_server.py:81,202` | Medium, arguably higher | PROPOSED |
+| J2 | `/authenticate` issues a cookie without checking the password, and 500s on a malformed body. **Not a bypass**, ✓ VERIFIED: the check happens later in `IsAuthenticate` and a wrong guess is refused | `engine/network/web_server.py:254` | Medium | **DONE**: verifies, 401/400, constant-time compare, warns when serving off-machine with no password |
+| F6c | `IsAuthenticate` returns `True` for every caller when no password is configured, which is the shipped default, so every `*Security` route is open to anyone who can reach the port. The real exposure behind J2 | `engine/network/web_server.py:81` | **High** | PROPOSED, needs a decision: failing closed breaks multiplayer for anyone who never set a password |
 | J3 | Save checksums default to ignored, and load proceeds on mismatch | `engine/lib/json.py:179` | Medium | PROPOSED |
 | J4 | `JobManager.Simultaneous` is a sequential loop | `engine/job/manager.py:76` | Medium | PROPOSED |
 | J5 | `RemoveJob` check-then-act race from worker threads | `engine/job/manager.py:43` | Low | PROPOSED |
@@ -1020,6 +1021,37 @@ work. But the design has consequences:
 For LAN play with an optional password this is roughly proportionate. It is worth writing down
 because at least one community fork (`z00lus`, issue #3) is explicitly targeting self-hosted
 servers, and someone will eventually port-forward this.
+
+**Partly fixed 2026-08-10.** ✓ VERIFIED first that this is not an authentication bypass, because
+the terse row in the table above reads like one: with `password` set to `hunter2`, a cookie built
+from the guess `wrong` is refused and one built from `hunter2` is accepted. The endpoint is
+careless, not open.
+
+What changed:
+
+- `/authenticate` verifies the password and answers `401`, issuing no cookie. It used to answer
+  `200` with a cookie for every attempt, so a client could not tell whether it had got in.
+- A body that is not JSON, or that omits `password`, gets `400` instead of the `500` from
+  `None.encode()`.
+- The comparison goes through `hmac.compare_digest`, since comparing secrets in constant time is
+  free here.
+- Serving on a non-loopback address with no password logs a warning naming the address. `0.0.0.0`
+  and `::` count as reachable, which is the case that matters, and an unparseable address warns
+  rather than staying quiet.
+
+**Rate limiting is deliberately not implemented, and the bullet above is misleading.** The cookie
+*is* `md5(password)`, so an attacker never has to touch `/authenticate`: they compute guesses
+locally and present them to any protected route. Limiting one endpoint does not reduce the guess
+rate, it just moves it. Rate limiting worth having would have to sit on `IsAuthenticate`, and a
+stronger password hash matters more than either.
+
+Still open, and now tracked as F6c: `IsAuthenticate` returns `True` for everyone when no password
+is configured, which is the shipped default. That is the real exposure, it applies to every
+`*Security` route, and the fix is a decision rather than a patch, since refusing would break
+multiplayer for everyone who has not set a password. `/debug` is already gated separately because
+it reaches `exec`.
+
+Untouched: unsalted MD5, plain HTTP, the one-year cookie that never rotates.
 
 ### J3: checksums are computed, then ignored
 
