@@ -12,3 +12,4 @@
 /replays/**/*.json
 /replays_*/
 /out/
+/.venv/
