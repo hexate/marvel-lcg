@@ -6,9 +6,11 @@ That is a stronger requirement than "both are MT19937". Two correct Mersenne Twi
 every word still deal different cards if they map words onto indices differently or consume a
 different number of words per operation.
 
-These tests cover exactly the three operations `engine/lib/random.py` dispatches to a backend.
+These tests cover exactly the three operations `engine/lib/random.py` dispatches to a backend, and
+deliberately import nothing but numpy so the whole file travels with the fix.
 `tools/rng_parity_check.py` is the same comparison at much wider coverage; this file is the part
-that runs on every test pass.
+that runs on every test pass. `test_rng_same_game.py` makes the same claim end to end, through a
+real game, and needs the harness to do it.
 
 `game/` cannot be imported on its own because of a circular import between game.object and
 game.player, so `import engine` has to come first.
@@ -165,48 +167,6 @@ class TestObjectListParity(unittest.TestCase):
             got = Bundled(seed).choice_one(deck)
 
             self.assertEqual(want.card_id, got.card_id, f"diverged at seed={seed}")
-
-
-class TestBackendsDealTheSameGame(unittest.TestCase):
-    """The claim the other tests only imply: the same seed deals the same game either way.
-
-    Everything above compares generators. This builds two real games through the engine and
-    compares what a player would actually see, which is the only form of the claim that matters to
-    someone loading a save file. It needs no replay fixture, so it does not depend on the replay
-    determinism it is testing (tracker item I2).
-    """
-
-    def _opening_hand(self, *, numpy_disabled: bool, seed: int = 42, expect_backend: str = ""):
-        from unit_test.harness import GameFixture
-        from engine.lib.random import Random, DISABLE_NUMPY_RANDOM
-
-        previous = DISABLE_NUMPY_RANDOM.value
-        DISABLE_NUMPY_RANDOM.value = numpy_disabled
-        try:
-            if expect_backend:
-                # Without this the test could pass by running numpy twice and comparing it to
-                # itself, which is the failure mode a config-flipping test is most likely to have.
-                self.assertEqual(Random.BackendName(), expect_backend,
-                                 "the backend flag did not take effect")
-            with GameFixture("rhino", ["spider_man"], seed=seed) as fx:
-                return [card.name for card in fx.player(0).hand_cards.Get()]
-        finally:
-            DISABLE_NUMPY_RANDOM.value = previous
-
-    def test_same_seed_deals_the_same_opening_hand(self):
-        on_numpy = self._opening_hand(numpy_disabled=False, expect_backend="numpy")
-        on_bundled = self._opening_hand(numpy_disabled=True, expect_backend="mt19937-v2")
-
-        self.assertEqual(on_numpy, on_bundled,
-                         "the same seed dealt two different hands, so saves are not portable")
-        self.assertTrue(on_numpy, "no cards dealt; the comparison would pass on two empty hands")
-
-    def test_a_different_seed_deals_a_different_hand(self):
-        """Proves the hand depends on the generator, so the comparison above means something."""
-        seed_42 = self._opening_hand(numpy_disabled=False, seed=42)
-        seed_7 = self._opening_hand(numpy_disabled=False, seed=7)
-
-        self.assertNotEqual(seed_42, seed_7, "the opening hand does not depend on the seed")
 
 
 if __name__ == "__main__":
