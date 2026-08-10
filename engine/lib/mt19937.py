@@ -61,6 +61,21 @@ class Random():
         # return float('%.08f' % a)
         return self.extract_number() / 4294967296  # which is 2**w
 
+    def GetState(self):
+        """A snapshot of the generator position, for the debug undo.
+
+        Mirrors `numpy.random.get_state()`, so `Random.PushState` can treat the two backends the
+        same way. The word list is copied, otherwise the snapshot moves as the generator runs.
+        """
+        return (self.MT[:], self.index)
+
+    def SetState(self, state) -> None:
+        words, index = state
+        assert len(words) == self.n, f"state needs {self.n} words, got {len(words)}"
+        assert 0 <= index <= self.n, f"state index out of range: {index}"
+        self.MT = words[:]
+        self.index = index
+
     def randint(self, a: int, b: int):
         """ return random int in [a,b) """
         n = self.random()
