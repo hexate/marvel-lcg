@@ -1336,8 +1336,14 @@ The retry cap would have made this failure readable instead of an `EOFError` out
 **Not caused by F10 or F11.** Checked explicitly, because the scene is stamped `rng: "numpy"` and
 the default is now the bundled generator. It fails identically under both, at the same prompt.
 
-**Recommended:** swap the `min_test` corpus to the 32-input scene, which is verified replayable, and
-write the criterion above next to it. That alone makes `test_min` pass.
+**Done 2026-08-10.** `min_test` now holds the 32-input scene, and
+`python -m unittest unit_test.test_all.TestMain.test_min` passes: `--- Test End --- (1/1)`, `OK`.
+That is the first time the replay suite has run green in this repo. The 4-input scene was removed
+from `min_test` only; the identical original is still in `replays/`.
+
+The corpus is still untracked and always will be, since `.gitignore` covers it and the scenes are
+player data upstream will not take. Anyone cloning this fork starts with an empty `min_test` and
+gets I1's bare `AssertionError`, which is why I1 and I4 are worth more than their size suggests.
 
 ### G1 attempt log (2026-08-09): not answered
 
