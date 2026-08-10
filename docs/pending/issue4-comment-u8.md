@@ -30,7 +30,8 @@ is off would be easy if you think it is worth doing.
 
 ## 2. The state-capture cleanup you said yes to
 
-That one is done and ready whenever you want it. Capture sits behind a new `enable_random_undo`,
+That one is done: <https://github.com/hexate/marvel-lcg/compare/master...pr/random-state-capture>,
+one commit off your master. Capture sits behind a new `enable_random_undo`,
 default off. `SetSeed` clears the list, since positions recorded against an old seed cannot be
 rewound to anyway. `Undo` asserts with an explanation when capture is off, so the cheat at
 `cheat_cmd_helper.py:390` fails readably instead of raising `IndexError` on an empty list. There
@@ -112,7 +113,10 @@ save files use numpy, so I expect that set is empty in practice, but it is a rea
 versioned the recorded backend name to `mt19937-v2` and refuse the old value with a message saying
 so, rather than letting it look replayable. Your call whether that is worth the string.
 
-I have this as a branch with tests. Happy to paste the whole diff here, or push it somewhere you
-can read it, whichever suits. And no pressure either way given the project is sunset. You answered
-a question that had been bothering me, and the fix mostly fell out of the answer, so it seemed
-worth handing back.
+The branch is here, with the tests:
+<https://github.com/hexate/marvel-lcg/compare/pr/rng-backend-determinism...pr/rng-numpy-parity>
+
+That comparison is against the scene-stamp change rather than against master, since this builds on
+it. One commit, four files. Happy to paste the diff inline instead if that is easier to read, and
+no pressure either way given the project is sunset. You answered a question that had been bothering
+me, and the fix mostly fell out of the answer, so it seemed worth handing back.

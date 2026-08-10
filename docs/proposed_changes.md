@@ -166,7 +166,7 @@ we are, one layer deeper, by writing the contract down first.
 | U4 | `command_validation.py` (F6) | DRAFTED, needs re-aiming as a bug report |
 | U7 | Issue #5, unbounded retry in `ChooseEffects` (I7). Posted 2026-08-09 as `hexate`. Fix ready on `pr/cap-input-retries`. | **ANSWERED** 2026-08-10, **declined**, fork-only now |
 | U6 | Comment on #4 correcting 34× to 18.9× in situ, and noting F9. Text in `docs/pending/issue4-comment-rng-figure.md`. | **SUPERSEDED** by U8, which folds the correction in. Do not post both. |
-| U8 | Reply on #4: F1 patch as he asked for it, the `ChooseWithoutReplacement` gap in the implementation he recommended, and **F10**, which is the numpy-compatible pure-Python generator he said was intended but never built. Folds U6 in. | **DRAFTED**, `docs/pending/issue4-comment-u8.md`, awaiting Q's review |
+| U8 | Reply on #4: F1 patch as he asked for it, the `ChooseWithoutReplacement` gap in the implementation he recommended, and **F10**, which is the numpy-compatible pure-Python generator he said was intended but never built. Folds U6 in. | **POSTED** 2026-08-10 as `hexate`, [comment](https://github.com/irefrixs/marvel-lcg/issues/4#issuecomment-5243489423). Carries links to `pr/random-state-capture` and `pr/rng-numpy-parity`, both pushed to the fork. |
 
 **Pacing, revised 2026-08-10.** The hold is over. He replied to both issues in detail, so the
 question is no longer whether he is listening but what is worth sending.
@@ -239,6 +239,12 @@ git cherry-pick -x <sha>            # commits on work/ are kept atomic for exact
 ```
 
 That writes `out/patches/pr-<topic>.patch` (git-am-able) and `.diff` (paste into the issue).
+
+**Branches pushed to the fork, 2026-08-10.** `pr/rng-numpy-parity` now exists on `origin`, so U8
+could link a readable comparison rather than paste 300 lines into a comment. Because the branch is
+stacked, the useful URL compares it against its base, not against master:
+`compare/pr/rng-backend-determinism...pr/rng-numpy-parity`. Every other `pr/*` branch was already
+pushed.
 
 **Deliver the diff, not the PR.** PR #2 was closed with `mergedAt: null` while its content
 shipped as `ccb25a3` — he reads contributions and re-applies them himself. So the issue body
