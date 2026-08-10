@@ -149,18 +149,22 @@ class ConfigVariables:
 
         # Convert single values to their respective types
         for key, value in result.items():
-            if len(value) == 0:
-                if key.startswith("no_"):
-                    ConfigVariables.instance_command[key[3:]] = False
-                else:
-                    ConfigVariables.instance_command[key] = True
-            elif len(value) == 1:
-                ConfigVariables.instance_command[key] = value[0]
-            else:
-                ConfigVariables.instance_command[key] = value
+            # `-no_x` addresses the variable `x`, so the prefix has to come off before the lookup
+            # below as well as before the store. Leaving it on meant the value was written under
+            # the right name and then nothing re-read it, so `-no_x` was accepted and silently
+            # ignored for any variable that had already been declared.
+            is_negated = len(value) == 0 and key.startswith("no_")
+            var_name = key[3:] if is_negated else key
 
-            if key in ConfigVariables.variable_dict:
-                ConfigVariables.InitVariable(key)
+            if len(value) == 0:
+                ConfigVariables.instance_command[var_name] = not is_negated
+            elif len(value) == 1:
+                ConfigVariables.instance_command[var_name] = value[0]
+            else:
+                ConfigVariables.instance_command[var_name] = value
+
+            if var_name in ConfigVariables.variable_dict:
+                ConfigVariables.InitVariable(var_name)
 
     @staticmethod
     def LoadConfig(file_name: str):
