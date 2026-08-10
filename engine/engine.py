@@ -158,7 +158,13 @@ class Engine:
     @staticmethod
     def SaveCrash():
         if not Engine.has_crashed:
-            Engine.game.session.SaveScene(f'./crash.json', delete_old=False)
+            # Engine.game is not assigned until the end of Initialize, so a failure before that
+            # point reaches here with nothing to save. Touching it raised AttributeError, which
+            # then replaced the real exception as the error the user saw.
+            if getattr(Engine, 'game', None) != None:
+                Engine.game.session.SaveScene(f'./crash.json', delete_old=False)
+            else:
+                Log.Warn(CATEGORY_NAME, "Crashed before the game existed, no scene to save")
             Engine.has_crashed = True
         if Engine.in_unit_test:
             exit(-1)
