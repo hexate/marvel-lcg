@@ -2,7 +2,13 @@ from core import *
 from engine.lib.mt19937 import Random as R
 from engine.config import ConfigVariables
 
-DISABLE_NUMPY_RANDOM = ConfigVariables.Bool('disable_numpy_random', False)
+# Defaults to the bundled generator since F10 made it reproduce numpy's sequence exactly, so this
+# fork runs without numpy at all. Two reasons beyond the 10 MB dependency. The numpy path uses
+# numpy's process-global state, which means any other code touching `numpy.random` perturbs replay;
+# the bundled generator cannot be reached that way. And numpy is only faster where it is not being
+# asked to rebuild an object array per call, which is what `RandomChoice` does. Measured cost of
+# the switch is roughly 40 µs per shuffle, against a game that shuffles a handful of times.
+DISABLE_NUMPY_RANDOM = ConfigVariables.Bool('disable_numpy_random', True)
 
 # Capturing generator state on every draw is what `Random.Undo` rewinds, and `Random.Undo` is
 # reached from one debug cheat. numpy.random.get_state() copies the 624-word Mersenne buffer each
