@@ -567,6 +567,28 @@ web auth, save integrity. Ordered by how much they matter.
 | J5 | `RemoveJob` check-then-act race from worker threads | `engine/job/manager.py:43` | Low | PROPOSED |
 | J6 | 519 `assert`s enforce game rules; `python -O` deletes them | engine-wide | Low, latent | PROPOSED |
 | J7 | Mutable default arguments (10 sites) | various | Low, latent | PROPOSED |
+| J8 | **Clicking Cancel on the End Phase prompt raises.** Reproduced in a real browser game. | `engine/controller/controller.py:274` | Medium, user-reachable | PROPOSED |
+
+### J8 — Cancel on a multi-option forced prompt asserts
+
+✓ VERIFIED by playing the game, 2026-08-09. Spider-Man vs Rhino, seed 42, end of turn 1. The
+"Spider-Man End Phase (1~6)" prompt offers a Cancel button; clicking it produces:
+
+```
+File "engine/controller/controller.py", line 274, in ChoiceOne
+    assert len(effect_descriptors) == 1 and effect_descriptors[0].target_num_range[0] == 0, f"{is_forced}"
+AssertionError: True
+UndoRequest
+```
+
+Declining sends `id == 0`, and the assert on that path only tolerates a single descriptor needing
+no targets. The End Phase prompt has more than one, so a legal-looking UI action raises. The game
+recovers by offering the error dialog with Ignore/Report and an undo, so it is not fatal, but the
+Cancel button is offered in a state where it cannot be honoured.
+
+Worth checking whether Cancel should be suppressed for this prompt shape, or whether the assert is
+too narrow. Note the harness hit the same assert from the other direction while building I2, which
+suggests the decline contract is genuinely underspecified rather than just mis-clicked here.
 
 ### J1 — a bare `except` can silently disable a card
 
@@ -719,7 +741,8 @@ algorithmic one.
 | --- | --- | --- | --- |
 | G1 | **Profile a real session.** See the attempt log below. | The single number that decides E1. Everything in B1 and E is inference until this exists. | **BLOCKED** — driver cannot sustain a long game |
 | G2 | Determine when `DoNotCheckFastUndo()` disables the fast-undo pruning path in `engine/controller/module/undo.py`, and how much that path actually saves. | If fast-undo is silently off in normal multiplayer, the reported "over a minute" may be a bug, not a design limit. | PROPOSED |
-| G4 | Record a real game through the browser and save the replay, per irefrixs's instructions in issue #1. Unblocks G1. | The synthetic driver stalls; a human-played scene sidesteps that entirely. | PROPOSED |
+| G4 | Record a real game through the browser and save the replay. | The synthetic driver stalls; a human-played scene sidesteps that entirely. | **DONE** — see below |
+| G5 | Play a game **to completion** in the browser and save that. A mid-game replay cannot drive the test harness: it replays the recorded inputs and then asks for input N+1, which the debug device answers with `input()` and an `EOFError`. Fixtures have to be finished games. | The remaining blocker on G1. | PROPOSED |
 | G3 | ~~Ask upstream for a replay corpus.~~ | Asked and answered in issue #1: cannot be shared (player-uploaded, >1 GB, off-Git). Superseded by I3 — author our own. | **REJECTED** |
 
 ---
@@ -904,6 +927,33 @@ readable failures.
 
 **Unblocking path.** G4: record a real game through the browser and save the replay, which is what
 irefrixs described in issue #1. A human-played scene sidesteps the driver problem completely.
+
+### G4 result — a real game was recorded (2026-08-09)
+
+Played Spider-Man vs Rhino on *The Break-In!*, seed 42, through the browser against a locally
+running server. Produced `replays/[0.5.9.201]-spider-man-rhino-(4)-(42).json`, 4 inputs.
+
+Three things this settled that nothing else had:
+
+- **The game is genuinely playable on macOS end to end.** Menu, deck upload, scenario select,
+  mulligan, form change, attack, end phase. Card art streams from the CDN, so the absent `assets`
+  folder is not a blocker. It self-populated 325 images into `assets/pics/` on first run.
+- **F3 is confirmed live.** The saved scene carries `"rng": "numpy"` in its metadata, written by
+  the fix, through the real UI and the real save path rather than a test.
+- **J8**, a user-reachable crash, was found by ordinary play.
+
+Practical notes for the next attempt:
+
+- The browser UI **cannot be driven reliably by automation on first load**. Clicking "Create
+  Scene" times out the renderer while the server fetches card art one file at a time. Creating the
+  game over HTTP instead works: `GET /new?data=<NewGameDescriptor JSON>`. Once art is cached the
+  in-game UI is responsive and clickable.
+- Saving mid-game works via the debug console: `GET /debug?/save`. It queues and runs at the next
+  input request. `/save_replay_data` is *not* equivalent, it serialises the scene without calling
+  `PrepareSave`, so `inputs` comes back empty.
+
+**Still not G1.** The fixture replays its 4 inputs and then asks for input 5, which the debug
+device answers with `input()` and dies on `EOFError`. See G5.
 
 **Postscript.** The "stall" was not a stall. The driver runs with skip off, so every message built
 a full world descriptor, which is 62% of runtime. It was progressing the whole time, just slowly,
