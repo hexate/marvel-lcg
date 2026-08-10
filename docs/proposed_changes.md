@@ -140,6 +140,16 @@ Currently cut, all one commit off `upstream/master` unless noted:
 | `pr/puzzle-save-mutation` | F5, puzzle save no longer mutates the live replay log | 2 files 99 + 5- |
 | `pr/test-harness` | I2, replay-independent harness + first tests | 2 files 278 + |
 
+**Decision, affirmed 2026-08-10.** Keep this layout. Contributing back is a goal in its own
+right, not a byproduct of the work, so the per-fix isolation cost is worth paying even though
+merging everything onto a fork trunk would be less effort. Do not collapse `pr/*` into the work
+branch.
+
+Worth remembering that "upstream" is not only irefrixs. `kmelkon` is doing install and
+portability work, and `z00lus` is building a solo-first self-hosted fork (both visible in issues
+#1 and #3). F1, F3, I7 and A9 are useful to them whether or not irefrixs ever replies, so a
+silent maintainer does not make the patches worthless.
+
 **Fork discipline** — keep changes cherry-pickable, since he applies diffs rather than merging PRs:
 
 - one topic branch per tracker item, small and self-contained
