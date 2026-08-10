@@ -91,17 +91,22 @@ class Random:
         Off unless `enable_random_undo` is set. Left on, this copies a 624-word Mersenne buffer on
         every draw and grows `Random.states` for the life of the process.
 
-        The backend name is stored with the snapshot. The two backends keep their position in
+        Which generator produced the snapshot is stored with it. The two keep their position in
         different shapes, and restoring one into the other would corrupt the generator rather than
-        fail, so the name is what makes the mismatch loud.
+        fail, so the tag is what makes the mismatch loud.
+
+        The tag is the `disable_numpy_random` flag rather than `BackendName`, deliberately. Undo
+        only has to tell the two code paths apart, and reading the scene stamp here would tie a
+        debug affordance to the save format for no benefit.
         """
         if not ENABLE_RANDOM_UNDO.value:
             return
-        if DISABLE_NUMPY_RANDOM.value:
-            Random.states.append((Random.BACKEND_BUNDLED, Random.rand.GetState()))
+        numpy_disabled = DISABLE_NUMPY_RANDOM.value
+        if numpy_disabled:
+            Random.states.append((numpy_disabled, Random.rand.GetState()))
         else:
             import numpy.random
-            Random.states.append((Random.BACKEND_NUMPY, numpy.random.get_state()))
+            Random.states.append((numpy_disabled, numpy.random.get_state()))
 
     @staticmethod
     def SetSeed(seed: int) -> None:
@@ -171,8 +176,7 @@ class Random:
         """Rewind to the position recorded before the most recent draw.
 
         Both backends support this. The bundled one used to fall through a bare `pass`, so the
-        `Unshuffle` cheat at `cheat_cmd_helper.py:390` quietly did nothing instead of rewinding,
-        which matters more now that it is the default.
+        `Unshuffle` cheat at `cheat_cmd_helper.py:390` quietly did nothing instead of rewinding.
         """
         assert ENABLE_RANDOM_UNDO.value, (
             "Random.Undo needs 'enable_random_undo' in the config. State capture is off by "
@@ -180,11 +184,12 @@ class Random:
         )
         assert Random.states, "No recorded generator position to undo."
 
-        recorded, state = Random.states.pop()
-        current = Random.BackendName()
-        assert recorded == current, (
-            f"Recorded generator position belongs to the '{recorded}' backend but this build is "
-            f"running '{current}'. Restoring it would corrupt the generator."
+        recorded_numpy_disabled, state = Random.states.pop()
+        assert recorded_numpy_disabled == DISABLE_NUMPY_RANDOM.value, (
+            f"Recorded generator position belongs to the "
+            f"{'bundled' if recorded_numpy_disabled else 'numpy'} generator but this build is "
+            f"running the {'bundled' if DISABLE_NUMPY_RANDOM.value else 'numpy'} one. Restoring "
+            f"it would corrupt the generator rather than rewind it."
         )
 
         if DISABLE_NUMPY_RANDOM.value:

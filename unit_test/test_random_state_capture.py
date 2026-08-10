@@ -105,6 +105,24 @@ class TestStateCapture(unittest.TestCase):
 
             self.assertEqual(first, again, "Undo did not restore the bundled generator")
 
+    def test_undo_refuses_a_snapshot_from_the_other_backend(self):
+        """The two generators store their position in different shapes.
+
+        Restoring one into the other would corrupt the generator instead of failing, so the
+        snapshot carries which one produced it.
+        """
+        with _Capture(True):
+            with _Backend(numpy_disabled=False):
+                Random.Shuffle(list(range(10)))
+
+            with _Backend(numpy_disabled=True):
+                with self.assertRaises(AssertionError) as caught:
+                    Random.Undo()
+
+        message = str(caught.exception)
+        self.assertIn("numpy", message)
+        self.assertIn("bundled", message)
+
     def test_undo_without_capture_explains_itself(self):
         """Calling the cheat with capture off must say why, not raise IndexError on an empty pop."""
         with _Capture(False):
