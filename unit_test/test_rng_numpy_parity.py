@@ -9,8 +9,9 @@ different number of words per operation.
 These tests cover exactly the three operations `engine/lib/random.py` dispatches to a backend, and
 deliberately import nothing but numpy so the whole file travels with the fix.
 `tools/rng_parity_check.py` is the same comparison at much wider coverage; this file is the part
-that runs on every test pass. `test_rng_same_game.py` makes the same claim end to end, through a
-real game, and needs the harness to do it.
+that runs on every test pass. Making the same claim end to end, by dealing a real hand twice,
+needs a harness that can drive a game without a replay file, so that test ships with the harness
+instead of here.
 
 `game/` cannot be imported on its own because of a circular import between game.object and
 game.player, so `import engine` has to come first.

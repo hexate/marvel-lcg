@@ -258,6 +258,19 @@ Currently cut, all one commit off `upstream/master` unless noted:
 | `pr/cap-input-retries` | I7, retry cap in `ChooseEffects` (issue #5) | 2 files 93 + |
 | `pr/puzzle-save-mutation` | F5, puzzle save no longer mutates the live replay log | 2 files 99 + 5- |
 | `pr/test-harness` | I2, replay-independent harness + first tests | 2 files 278 + |
+| `pr/rng-numpy-parity` | F10, bundled generator reproduces numpy, stamp versioned. **Stacked on `pr/rng-backend-determinism`, not on `upstream/master`** | 4 files 304 + 38- |
+
+**The one exception to the rule above**, decided 2026-08-10. F10 needs F3's scene stamp in order to
+retire the old backend name, so it cannot sit directly on `upstream/master`. It is cut from
+`pr/rng-backend-determinism` instead, and its patch has to be generated against that base:
+
+```sh
+./tools/make-upstream-patch.sh pr/rng-numpy-parity pr/rng-backend-determinism
+```
+
+Sent upstream, the two travel together or F10 goes second. Note the branch deliberately omits
+`unit_test/test_rng_same_game.py`, which needs the I2 harness; that test stays on the work branch
+and would ride with `pr/test-harness`.
 
 **Decision, affirmed 2026-08-10.** Keep this layout. Contributing back is a goal in its own
 right, not a byproduct of the work, so the per-fix isolation cost is worth paying even though
@@ -526,7 +539,7 @@ no grep-only claims.
 | F9 | `AddCounter` logs on every draw; 0.54 µs of the 1.21 µs that remains after F1 | `engine/lib/random.py:55` | Low | PROPOSED |
 | F2 | `numpy.random.choice` on object lists is 39× slower than stdlib | `engine/lib/random.py:45-70` | Medium | PROPOSED |
 | F3 | Two RNG backends produce different sequences → replay incompatibility | `engine/lib/random.py` | **High** | **DONE**, `pr/rng-backend-determinism` |
-| F10 | Bundled RNG core is byte-exact with numpy; only `randint` and `shuffle` diverge. Fixing them ends the F3 divergence instead of reporting it | `engine/lib/mt19937.py:64,69` | **High** | **DONE**, not yet cut as a `pr/` branch |
+| F10 | Bundled RNG core is byte-exact with numpy; only `randint` and `shuffle` diverge. Fixing them ends the F3 divergence instead of reporting it | `engine/lib/mt19937.py:64,69` | **High** | **DONE**, `pr/rng-numpy-parity`, stacked on `pr/rng-backend-determinism` |
 | F4 | `World.LoadFromJson` is dead *and* cannot execute | `game/world/world.py:121-144` | Medium | PROPOSED |
 | F5 | Saving a puzzle mutates the live replay log; second save raises | `game/scene/scene.py:113-117` | **High** | **DONE**, `pr/puzzle-save-mutation` |
 | F6 | Debug-console safety check is a bypassable blocklist | `engine/security/command_validation.py` | **High** | PROPOSED |
