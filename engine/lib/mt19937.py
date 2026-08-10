@@ -59,35 +59,64 @@ class Random():
         """ return uniform ditribution in [0,1) """
         # a = (self.extract_number() / 10**8) % 1
         # return float('%.08f' % a)
+        # Deliberately not used to pick indices. Scaling this float was how the old randint worked,
+        # and it is why this generator produced a different game from numpy off the same seed even
+        # though the word stream was already identical. Bounded integers come off the raw words.
         return self.extract_number() / 4294967296  # which is 2**w
+
+    def randbelow(self, n: int) -> int:
+        """ return random int in [0,n) the way numpy does it
+
+        Masked rejection, matching numpy's `random_interval`: mask down to the next power of two
+        and redraw while the value is out of range. Rejection is the point. It is what makes the
+        draw uniform without a modulo bias, and it means an operation does not always consume the
+        same number of words, so no float-scaling shortcut can imitate it.
+        """
+        assert n >= 1, f"n must be at least 1, got {n}"
+
+        mask = n - 1
+        mask |= mask >> 1
+        mask |= mask >> 2
+        mask |= mask >> 4
+        mask |= mask >> 8
+        mask |= mask >> 16
+
+        while True:
+            value = self.extract_number() & mask
+            if value < n:
+                return value
 
     def randint(self, a: int, b: int):
         """ return random int in [a,b) """
-        n = self.random()
-        return int(n/(1/(b-a)) + a)
+        return a + self.randbelow(b - a)
 
     def shuffle(self, X: List[Any]) -> None:
-        """ shuffle the sequence """
-        for _ in range(10*len(X)):
-            a = self.randint(0, len(X))
-            b = self.randint(0, len(X))
-            X[a], X[b] = X[b], X[a]
+        """ shuffle the sequence, matching numpy.random.shuffle
+
+        Fisher-Yates walking down, `len - 1` draws, which is numpy's exact algorithm. The previous
+        version made `10 * len` random transpositions: a fair enough shuffle, but a different
+        sequence and 20x the draws, so it desynchronised every later draw as well.
+        """
+        for i in range(len(X) - 1, 0, -1):
+            j = self.randbelow(i + 1)
+            X[i], X[j] = X[j], X[i]
 
     def choice(self, X: List[Any], replace: bool=True, size: int=1):
-        """ choice an element randomly in the sequence 
-            size: the number of element to be chosen
+        """ choose `size` elements, matching numpy.random.choice
+
+        `replace=False` is a full shuffle truncated to `size`, because that is what numpy does
+        (`permutation(n)[:size]`). Drawing `size` items directly gives an equally fair sample but
+        spends `size` draws instead of `len - 1`, which moves every later draw in the game.
         """
         newX = list(X)
         if replace:
-            return [newX[self.randint(0, len(newX))] for _ in range(size)]
-        else:
-            l: List[Any] = []
-            for _ in range(size):
-                if len(newX) != 0:
-                    a = self.randint(0, len(newX))
-                    l += [newX[a]]
-                    newX.remove(newX[a])
-            return l
+            # Not reached from the engine: `Random.RandomChoice2` only ever asks for replace=False,
+            # and single draws go through `choice_one`. Kept because it is part of the reference
+            # implementation this file came from, and pinned against numpy in
+            # test_rng_numpy_parity so an unused branch cannot quietly become a wrong one.
+            return [newX[self.randbelow(len(newX))] for _ in range(size)]
+        self.shuffle(newX)
+        return newX[:size]
 
     def choice_one(self, X: Sequence[Any]):
         """ choice an element randomly in the sequence 

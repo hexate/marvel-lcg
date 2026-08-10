@@ -13,15 +13,26 @@ class Random:
     states: List[Any] = []
 
     BACKEND_NUMPY = "numpy"
-    BACKEND_BUNDLED = "mt19937"
+    BACKEND_BUNDLED = "mt19937-v2"
+
+    # The bundled generator as it behaved before F10. Its Mersenne Twister was already numpy's word
+    # for word, but it picked indices by scaling a float and shuffled with `10 * n` random swaps, so
+    # it dealt a different game. That code is gone, which means no build can reproduce these scenes:
+    # the version in the stamp is what lets us say so instead of silently replaying them wrong.
+    BACKEND_BUNDLED_RETIRED = "mt19937"
+
+    # The generators this build can reproduce. Both produce the same sequence from the same seed,
+    # operation for operation, pinned by unit_test/test_rng_numpy_parity.py. So the recorded name
+    # says which code produced a scene, not which code is allowed to replay it.
+    EQUIVALENT_BACKENDS = (BACKEND_NUMPY, BACKEND_BUNDLED)
 
     @staticmethod
     def BackendName(numpy_disabled: bool|None=None) -> str:
         """Which generator is producing the sequence.
 
         A save file is an input log replayed through game logic, so replay only reproduces the
-        original game if the generator matches. The two backends disagree from the same seed, so
-        the name is recorded on the scene and checked before replay.
+        original game if the generator produces the same sequence. Both current backends do, but
+        the retired one did not, so the name is recorded on the scene and checked before replay.
         """
         if numpy_disabled == None:
             numpy_disabled = DISABLE_NUMPY_RANDOM.value
@@ -29,7 +40,11 @@ class Random:
 
     @staticmethod
     def CheckSceneBackend(recorded: str, file_name: str="") -> None:
-        """Refuse to replay a scene recorded under the other backend.
+        """Refuse to replay a scene whose generator this build cannot reproduce.
+
+        Not "the other backend": numpy and the bundled generator are interchangeable now, so
+        switching `disable_numpy_random` no longer changes which scenes will load. What cannot be
+        replayed is a scene recorded by a generator that no longer exists.
 
         An empty `recorded` means the scene predates this field. Those still load, because there
         is no way to know which generator produced them, but they carry the same risk.
@@ -37,12 +52,18 @@ class Random:
         if not recorded:
             return
 
-        current = Random.BackendName()
-        assert recorded == current, (
-            f"Scene was recorded with the '{recorded}' RNG backend but this build is running "
-            f"'{current}'. Replaying it would produce a different game. "
-            f"Set 'disable_numpy_random' to {str(recorded == Random.BACKEND_BUNDLED).lower()} "
-            f"to load it. {file_name}"
+        assert recorded != Random.BACKEND_BUNDLED_RETIRED, (
+            f"Scene was recorded with the retired '{recorded}' generator, and no build can "
+            f"reproduce its sequence any more: it picked indices by scaling a float and shuffled "
+            f"by random swaps, both of which were replaced to match numpy. Replaying it would "
+            f"produce a different game, and no config flag brings the old sequence back. "
+            f"{file_name}"
+        )
+
+        assert recorded in Random.EQUIVALENT_BACKENDS, (
+            f"Scene was recorded with the unknown '{recorded}' RNG backend. This build has "
+            f"{' and '.join(Random.EQUIVALENT_BACKENDS)}, and replaying under a generator that "
+            f"did not produce the scene deals a different game without saying so. {file_name}"
         )
 
     @staticmethod
