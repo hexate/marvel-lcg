@@ -219,24 +219,42 @@ mechanism above suggests the cost is algorithmic (replay-from-zero), not interpr
 snapshot/rollback would beat any language change. Treat "rewrite it in a faster language" as
 unproven until the profile says otherwise.
 
-### B1a — replay rebuilds the entire UI state on every message and discards it
+### B1a — RETRACTED. The skip guard already exists and works.
 
-✓ VERIFIED by measurement, 2026-08-09. Found while investigating why the G1 driver appeared to
-hang. It was not hanging. It was rendering.
+**This entry was wrong. Read the retraction before the measurement.**
 
-`WorldRender.PresentInternal` builds a full descriptor of the world on **line 96**:
+The original claim was that replay rebuilds the world descriptor on every message and throws it
+away, because line 96 of `PresentInternal` is unconditional. Line 96 *is* unconditional, but it is
+unreachable during replay: `PresentInternal` returns early at **lines 59-73** whenever `skip` is
+set, before any descriptor work happens.
 
-```python
-self.descriptor = ToDescriptor.World(world, event_name, sound_name)
-```
+✓ VERIFIED by direct measurement. Twenty `PresentInternal` calls on a live world:
 
-That line is unconditional. The `skip` flag, which is on throughout replay, undo and
-fast-forward, gates only two things in that method: the log line at line 88 and the `WaitSync`
-call at line 114. It does not gate the descriptor build.
+| | descriptor builds |
+| --- | --- |
+| `skip=False` | 20 / 20 |
+| `skip=True` | **0 / 20** |
 
-`ToDescriptor.World` walks every deck and calls `Card.Render()` on every card.
+**How the error happened, because it is worth not repeating.** The 62% figure below is real, but
+it was measured on the test harness, which deliberately runs with start state `'New'` so that skip
+is *off* (skip discards scripted input, which was blocker 2 when the harness was built). So the
+number describes **live play**, where building the descriptor is the legitimate work of producing
+the UI. It was then attributed to replay, which never executes that path. The measurement was
+sound; the thing it was measured on was not the thing being claimed.
 
-Measured on a 10-input single-player game, 82 cards in play:
+The comment upstream already sitting above that guard says as much: *"Comment out this to render
+the game while testing, but it is VERY slow."* The problem was known and handled.
+
+**What survives.** During live play, descriptor construction is 62% of runtime at 1.14 ms per
+message and roughly 12.7 messages per recorded input. That is worth knowing for interactive
+responsiveness, and it is why the harness is slow, but it says nothing about undo.
+
+**What this means for the harness.** Running with skip off makes it unrepresentative of replay
+performance by construction. Any future attempt to measure undo cost has to run with skip on,
+which is the mode that breaks scripted input. That conflict is the real obstacle to G1, not the
+driver stalling.
+
+Original measurement, on a 10-input single-player game with 82 cards, **live play, not replay**:
 
 | | |
 | --- | --- |
@@ -262,7 +280,8 @@ be confirmed rather than assumed.
 
 | ID | Item | Status |
 | --- | --- | --- |
-| B1a | Skip suppresses display and waiting but not descriptor construction; 62% of measured runtime | PROPOSED — likely the largest single win available |
+| B1a | ~~Skip does not gate descriptor construction~~ | **RETRACTED** — the guard exists at `world_render.py:59`; 0/20 builds with skip on |
+| B1b | Descriptor construction is 62% of **live play** runtime, 1.14 ms per message. Real, but it is the UI being produced, not waste. Relevant to interactive responsiveness only. | PROPOSED — low priority |
 
 Note `engine/task/manager.py` gates threading behind `enable_multiple_threads`, default `False`.
 ✗ UNVERIFIED — whether enabling it helps, or why it is off.
@@ -877,6 +896,25 @@ readable failures.
 
 **Unblocking path.** G4: record a real game through the browser and save the replay, which is what
 irefrixs described in issue #1. A human-played scene sidesteps the driver problem completely.
+
+**Postscript.** The "stall" was not a stall. The driver runs with skip off, so every message built
+a full world descriptor, which is 62% of runtime. It was progressing the whole time, just slowly,
+and slowly for a reason that does not apply to replay. See the B1a retraction.
+
+This also sharpens what G1 actually needs. Measuring undo means running with **skip on**, and skip
+is the mode that discards scripted input (harness blocker 2). Reconciling those two is the real
+prerequisite, not a better policy.
+
+### A note on two retractions in one session
+
+J1 was rated High on a failure mode that measurement showed had never fired. B1a was reported as a
+live defect that measurement showed was already guarded. Both followed the same shape: a mechanism
+was read correctly out of the source, and then a number measured on an adjacent path was attached
+to it.
+
+The check that would have caught both: before claiming a cost or a severity, confirm the code path
+being measured is the code path being described. Reading the mechanism is not the same as
+observing it run.
 
 ### I2 progress log (2026-08-09)
 
