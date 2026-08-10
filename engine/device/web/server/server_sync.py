@@ -104,7 +104,9 @@ class GameServerSync(GameServerBase):
     @override
     def __init__(self) -> None:
         super().__init__()
-        self.AddAwaitGetSecurity('/debug', self.handle_debug_command)
+        # Not AddAwaitGetSecurity: this one reaches exec(), and that wrapper lets everyone through
+        # when no password is configured, which is the shipped default.
+        self.AddAwaitGetDebugSecurity('/debug', self.handle_debug_command)
 
         self.AddAwaitGetSecurity('/client_updated', self.handle_client_updated)
         self.AddAwaitGetSecurity('/get_ask', self.handle_get_ask)

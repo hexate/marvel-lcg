@@ -9,6 +9,7 @@ from engine.lib import MimeType, Json, Ver
 from engine.log import Log
 from engine.file import FileManager
 import hashlib
+import ipaddress
 
 CATEGORY_NAME = "WEB"
 
@@ -84,6 +85,58 @@ class WebServer:
         if app_password_cookie != self.hash_password:
             return False
         return True
+
+    @final
+    def IsLoopback(self, request: web.Request) -> bool:
+        """Did this request come from the machine running the server?
+
+        Fails closed. An absent or unparseable peer address counts as remote, and behind a reverse
+        proxy this is the proxy's address, which is also the answer that errs the safe way.
+        """
+        remote = request.remote
+        if not remote:
+            return False
+        try:
+            return ipaddress.ip_address(remote).is_loopback
+        except ValueError:
+            return False
+
+    @final
+    def MayRunArbitraryCommands(self, request: web.Request) -> bool:
+        """Gate for endpoints whose input reaches `exec`, which today means `/debug`.
+
+        `IsAuthenticate` is not sufficient on its own: with no password configured it returns True
+        for every caller, and the shipped `launch.json` has an empty password. That is fine for the
+        default bind of 127.0.0.1, and it is an open door the moment someone adds a LAN address so
+        friends can join.
+
+        So: this machine always, anyone else only when a password is actually set and presented.
+        """
+        if self.IsLoopback(request):
+            return True
+        return bool(self.hash_password) and self.IsAuthenticate(request)
+
+    @final
+    def AddAwaitGetDebugSecurity(self, path: str, handle: HandleAsyncType):
+        """Register a route that can execute arbitrary input.
+
+        Refuses with 403 rather than the authenticate page: the caller is a script, not a browser
+        following a login flow, and a page of HTML in response to a command is a confusing way to
+        say no.
+        """
+        async def new_handle(request: web.Request) -> web.StreamResponse:
+            if not self.MayRunArbitraryCommands(request):
+                Log.Warn(CATEGORY_NAME,
+                         f"Refused a debug command from {request.remote}: this endpoint runs "
+                         f"arbitrary code, so it needs a request from this machine or a password "
+                         f"set in the config.")
+                return web.Response(status=403, text="debug commands need a local request or a "
+                                                     "configured password")
+            elif not self.IsVersionMatch(request):
+                return self.LoadHtmlCleanCache()
+            else:
+                return await handle(request)
+        self.web_app.router.add_get(path, new_handle)
 
     @final
     def IsVersionMatch(self, request: web.Request) -> bool:
