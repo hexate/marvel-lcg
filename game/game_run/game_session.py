@@ -74,11 +74,16 @@ class GameSession:
 
         if scene.seed == -1:
             scene.SetSeed(Random.RandomSeed())
-            scene.SetMetadataStr("rng", Random.BackendName())
         else:
             # A recorded scene only replays faithfully under the generator that produced it.
             Random.CheckSceneBackend(scene.rng, scene.path)
             Random.SetSeed(scene.seed)
+
+        # Stamp only a game being created now. A loaded scene with no recorded backend predates
+        # the field, and guessing its generator here would bake a possibly false claim into the
+        # next save.
+        if state.start_state.is_new and scene.rng == "":
+            scene.SetMetadataStr("rng", Random.BackendName())
 
         from_undo = state.exit_state.is_undo_exit
 
