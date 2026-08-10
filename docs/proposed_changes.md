@@ -932,7 +932,7 @@ web auth, save integrity. Ordered by how much they matter.
 | J5 | `RemoveJob` check-then-act race from worker threads | `engine/job/manager.py:43` | Low | PROPOSED |
 | J6 | 519 `assert`s enforce game rules; `python -O` deletes them | engine-wide | Low, latent | PROPOSED |
 | J7 | Mutable default arguments (10 sites) | various | Low, latent | PROPOSED |
-| J8 | **Clicking Cancel on the End Phase prompt raises.** Reproduced in a real browser game. | `engine/controller/controller.py:274` | Medium, user-reachable | PROPOSED |
+| J8 | **Clicking Cancel on the End Phase prompt raises.** Reproduced in a real browser game. | `engine/controller/controller.py:295` | Medium, user-reachable | **DONE**, the rule is now `Controller.CanDecline` and a client that breaks it is refused rather than crashing |
 | J9 | **DONE.** `-no_<flag>` on the command line was silently ignored for any already-declared variable. `ParseArguments` writes the stripped name into `instance_command` but then calls `InitVariable(key)` with the `no_` prefix still attached, so the lookup misses `variable_dict` and nothing re-reads the value. The positive form works, because there the key matches. ✓ VERIFIED: `-no_disable_numpy_random` left the flag at its default, which is how the F10 tests nearly measured the wrong backend. Two-line fix, strip before the lookup | `engine/config.py:153-163` | Medium, silent | **DONE**, two tests, one per form |
 
 ### J8: Cancel on a multi-option forced prompt asserts
@@ -955,6 +955,26 @@ Cancel button is offered in a state where it cannot be honoured.
 Worth checking whether Cancel should be suppressed for this prompt shape, or whether the assert is
 too narrow. Note the harness hit the same assert from the other direction while building I2, which
 suggests the decline contract is genuinely underspecified rather than just mis-clicked here.
+
+**Fixed 2026-08-10.** The rule the assert encoded is real and is kept: a forced prompt can only be
+declined when its single option asks for nothing, otherwise it was not forced. What changed is what
+happens when the rule is broken. The rule now has a name, `Controller.CanDecline`, and five tests
+in `unit_test/test_decline_contract.py`.
+
+The engine takes that id from a client over HTTP, so a client offering a button the engine will not
+honour must get a refusal, not a stack trace. `ChoiceOne` already has a way to say "I cannot use
+this input", returning `(None, True)`, and the caller asks again. That is now what happens.
+
+**The subtlety worth keeping.** Skip and replay fallthrough feed the engine its own input, and
+`"{}"` parses to id 0, so the decline path is reachable without any client involved. Refusing
+generated input would just produce the same answer forever, so that case stays a loud failure with
+a message naming the prompt. Only client input gets the refuse-and-ask-again treatment. Without
+that split this fix would trade a crash for a spin, which on this branch would be bounded by I7's
+retry cap but upstream, where I7 was declined, would be an unbounded hang.
+
+Not verified end to end: reproducing the original browser click needs a live game driven to the end
+of turn 1, which the harness cannot currently reach. The rule is unit-tested, the wiring is four
+lines, and the replay suite plus 56 unit tests exercise `ChoiceOne` heavily without regression.
 
 ### J1: a bare `except` can silently disable a card
 
