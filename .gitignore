@@ -13,3 +13,5 @@
 /replays_*/
 /out/
 /.venv/
+# Written into the repo root by unit_test/test_task.py::test_zip_cards
+/cards-*.zip
