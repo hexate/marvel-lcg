@@ -25,7 +25,7 @@ METADATA_KEY_INT = Literal[
 ]
 
 METADATA_KEY_STR = Literal[
-    "time", "path", "comment", "cover", "report", "sign"
+    "time", "path", "comment", "cover", "report", "sign", "rng"
 ]
 
 METADATA_KEY_FLOAT = Literal[
@@ -108,6 +108,12 @@ class Scene:
 
         if self.time == "":
             self.SetMetadataStr("time", Time.Format())
+
+        # Record which generator produced this game. Replay only reproduces the original if the
+        # same backend is used, and the two disagree from the same seed.
+        if self.rng == "":
+            from engine.lib.random import Random
+            self.SetMetadataStr("rng", Random.BackendName())
 
         data = self
         if self.is_puzzle:
@@ -273,6 +279,11 @@ class Scene:
     @property
     def seed(self) -> int:
         return self.GetMetadataInt("seed") # -1 means random
+
+    @property
+    def rng(self) -> str:
+        """RNG backend this scene was recorded with. Empty on scenes saved before this existed."""
+        return self.GetMetadataStr("rng")
 
     @property
     def comment(self) -> str:
