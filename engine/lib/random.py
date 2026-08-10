@@ -12,6 +12,39 @@ class Random:
 
     states: List[Any] = []
 
+    BACKEND_NUMPY = "numpy"
+    BACKEND_BUNDLED = "mt19937"
+
+    @staticmethod
+    def BackendName(numpy_disabled: bool|None=None) -> str:
+        """Which generator is producing the sequence.
+
+        A save file is an input log replayed through game logic, so replay only reproduces the
+        original game if the generator matches. The two backends disagree from the same seed, so
+        the name is recorded on the scene and checked before replay.
+        """
+        if numpy_disabled == None:
+            numpy_disabled = DISABLE_NUMPY_RANDOM.value
+        return Random.BACKEND_BUNDLED if numpy_disabled else Random.BACKEND_NUMPY
+
+    @staticmethod
+    def CheckSceneBackend(recorded: str, file_name: str="") -> None:
+        """Refuse to replay a scene recorded under the other backend.
+
+        An empty `recorded` means the scene predates this field. Those still load, because there
+        is no way to know which generator produced them, but they carry the same risk.
+        """
+        if not recorded:
+            return
+
+        current = Random.BackendName()
+        assert recorded == current, (
+            f"Scene was recorded with the '{recorded}' RNG backend but this build is running "
+            f"'{current}'. Replaying it would produce a different game. "
+            f"Set 'disable_numpy_random' to {str(recorded == Random.BACKEND_BUNDLED).lower()} "
+            f"to load it. {file_name}"
+        )
+
     @staticmethod
     def AddCounter():
         from engine.log import Log

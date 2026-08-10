@@ -74,7 +74,10 @@ class GameSession:
 
         if scene.seed == -1:
             scene.SetSeed(Random.RandomSeed())
+            scene.SetMetadataStr("rng", Random.BackendName())
         else:
+            # A recorded scene only replays faithfully under the generator that produced it.
+            Random.CheckSceneBackend(scene.rng, scene.path)
             Random.SetSeed(scene.seed)
 
         from_undo = state.exit_state.is_undo_exit
