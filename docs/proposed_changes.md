@@ -164,7 +164,7 @@ macOS build steps added to the install guide (2ac194a).
 | A6 | `Beep` is a no-op on **every** platform since `winsound` was stripped — audio cues are gone, not just on macOS. Could be restored cross-platform (`afplay` on macOS, `paplay`/`aplay` on Linux) or the dead code removed. | `core/lib/beep.py` | Low | PROPOSED |
 | A7 | `FileManager.EditCode` shells out to `code`; fails silently via `os.system` if the VS Code CLI is not on PATH. | `engine/file/manager.py:149` | Low | PROPOSED |
 | A8 | `public/js/watch.bat` is Windows-only. A `watch.sh` companion would match the documented macOS/Linux flow. | `public/js/watch.bat` | Cosmetic | PROPOSED |
-| A9 | **`Engine.SaveCrash` masks any startup failure.** Uses `Engine.game` (assigned at `engine.py:104`) but runs for crashes before that, so the handler itself raises `AttributeError` and hides the real exception. Found by `kmelkon` in #1; PR #2 was closed unmerged and **this piece never landed**. Still present at `engine/engine.py:161`. | `engine/engine.py:159-162` | Medium | PROPOSED — credit kmelkon |
+| A9 | **`Engine.SaveCrash` masks any startup failure.** Uses `Engine.game` (assigned at `engine.py:104`) but runs for crashes before that, so the handler itself raises `AttributeError` and hides the real exception. Found by `kmelkon` in #1; PR #2 was closed unmerged and this piece never landed. | `engine/engine.py:159-162` | Medium | **DONE** — `pr/guard-savecrash`, credit kmelkon |
 
 ### Not defects — documented for the next person
 
