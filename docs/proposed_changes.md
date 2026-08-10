@@ -324,7 +324,7 @@ macOS build steps added to the install guide (2ac194a).
 
 | ID | Item | Location | Severity | Status |
 | --- | --- | --- | --- | --- |
-| A1 | `tsconfig.json` uses `moduleResolution: "node10"`, removed in TypeScript 7 (`error TS5108`). The install guide says `npm install -g typescript`, which now installs 7.x. | `public/js/tsconfig.json:37` | High (blocks a clean build) | PROPOSED |
+| A1 | `tsconfig.json` set `moduleResolution: "node"`, which TypeScript 7 reports as `node10` and has removed (`error TS5108`). The install guide says `npm install -g typescript`, which now installs 7.x, so a fresh clone could not build the client | `public/js/tsconfig.json:37` | High (blocks a clean build) | **DONE**, option removed; clean compile and emit on 7.0.2 and 5.9.3 |
 | A2 | Coverage key check hardcodes Windows separators: `name.startswith("cards\\pack\\")`. On macOS/Linux paths use `/`, so `GetKeyName` returns `""` for every card and card-script coverage silently reports nothing. | `engine/profile/coverage.py:19` | Medium (dev tooling, silent failure) | PROPOSED |
 | A3 | Untrusted-save guard tests `"crashs\\dl" in world.scene.path`, never matches on POSIX, so the `DebugBreak()` safety stop before `exec(cmd)` is skipped. | `game/world/cheat/cheat_cmd_helper.py:478` | Medium (debug-only, but it is a safety check) | PROPOSED |
 | A4 | `IsDrivePath` only recognizes `C:\` / `C:/`. POSIX absolute paths (`/Users/...`) are not detected as drive paths, affecting the cheat command that loads a scene by absolute path. | `engine/file/manager.py:156` | Low | PROPOSED |
