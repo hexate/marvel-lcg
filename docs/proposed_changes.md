@@ -312,7 +312,8 @@ no grep-only claims.
 
 | ID | Finding | Location | Severity | Status |
 | --- | --- | --- | --- | --- |
-| F1 | RNG state capture costs 34× and leaks unboundedly | `engine/lib/random.py:49,68,78` | **High** | PROPOSED |
+| F1 | RNG state capture costs 34× and leaks unboundedly | `engine/lib/random.py:49,68,78` | **High** | **DONE** — `pr/random-state-capture` |
+| F9 | `AddCounter` logs on every draw; 0.54 µs of the 1.21 µs that remains after F1 | `engine/lib/random.py:55` | Low | PROPOSED |
 | F2 | `numpy.random.choice` on object lists is 39× slower than stdlib | `engine/lib/random.py:45-70` | Medium | PROPOSED |
 | F3 | Two RNG backends produce different sequences → replay incompatibility | `engine/lib/random.py` | **High** | **DONE** — `pr/rng-backend-determinism` |
 | F4 | `World.LoadFromJson` is dead *and* cannot execute | `game/world/world.py:121-144` | Medium | PROPOSED |
@@ -341,9 +342,38 @@ So the entire mechanism exists to serve one debug command, and it taxes every sh
 play with a 34× slowdown and a permanent memory cost. It also compounds with B1: each undo
 replays the session, re-running every random call and appending every state again.
 
-**Proposed fix:** capture state only when the debug-undo cheat is armed. Better, store
-`(seed, counter)` — `Random.counter` is already maintained — and recover a prior state by
-reseeding and fast-forwarding, which is O(1) memory.
+**Fixed** on `pr/random-state-capture`. Capture now sits behind a new `enable_random_undo` config
+variable, default off, via `Random.PushState()`. `SetSeed` clears the list, since positions
+recorded against an old seed cannot be rewound to anyway. `Undo` asserts with an explanation when
+capture is off instead of raising `IndexError` on an empty pop, so the debug cheat fails readably.
+
+Measured over 20,000 `Random.Shuffle` calls on a 50-card list:
+
+| | per call | retained |
+| --- | --- | --- |
+| capture on | 21.6 µs | 49.9 MB |
+| capture off | 1.1 µs | 0 MB |
+
+**Correction to the figure quoted in issue #4.** That issue reports 34×, which is the cost of the
+capture measured in isolation against a raw `numpy.random.shuffle`, and is accurate as stated.
+Removing it from the real API gives **18.9×**, not 34×, because `Random.Shuffle` carries other
+per-draw overhead that the isolated benchmark excluded. Both numbers are true of different things;
+the in-situ number is the one that matters. Worth a short follow-up comment on #4 so the
+difference is on the record rather than looking like a walked-back claim later.
+
+That overhead is now itself measurable: raw `numpy.random.shuffle` is 0.67 µs, `Random.Shuffle`
+with capture off is 1.21 µs, so `AddCounter` costs 0.54 µs per draw, 45% of what remains. Logged
+as F9.
+
+Six tests in `unit_test/test_random_state_capture.py`, including one that rewinds the generator
+and reshuffles to prove the debug cheat still behaves.
+
+### F9 — `AddCounter` logs on every draw
+
+`Random.AddCounter` builds an f-string and calls `Log.DebugSilent` on every single random
+operation, whether or not the category is enabled. Measured at 0.54 µs per draw, which is now the
+largest remaining cost in the call. Cheap to fix by checking whether the category is live before
+formatting.
 
 ### F3 — Two RNG backends, one save format
 
