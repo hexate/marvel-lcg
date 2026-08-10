@@ -13,16 +13,16 @@ table; do not delete rows — move them to `Done` or `Rejected` and keep the rat
 | `ACCEPTED` | Agreed, not started |
 | `IN PROGRESS` | Being worked on |
 | `DONE` | Implemented and verified (note *how* it was verified) |
-| `REJECTED` | Decided against — keep the reason |
+| `REJECTED` | Decided against, keep the reason |
 | `BLOCKED` | Waiting on something external |
 
 ## Evidence markers
 
 Claims in this doc are marked so we know what has actually been checked:
 
-- ✓ **VERIFIED** — file read and/or behavior observed at runtime
-- ? **INFERRED** — from grep/search only, not confirmed by reading
-- ✗ **UNVERIFIED** — asserted, not yet checked
+- ✓ **VERIFIED**: file read and/or behavior observed at runtime
+- ? **INFERRED**: from grep/search only, not confirmed by reading
+- ✗ **UNVERIFIED**: asserted, not yet checked
 
 ---
 
@@ -33,16 +33,16 @@ Checked 2026-08-09. Local `HEAD` is `2ac194a`, identical to `irefrixs/marvel-lcg
 **The maintainer is active.** Despite the 2026-07-31 discontinuation post, irefrixs answered
 issues in detail on 2026-08-05 and pushed commits on 2026-08-07.
 
-### Already answered upstream — do not re-ask
+### Already answered upstream: do not re-ask
 
 | Topic | Answer | Source |
 | --- | --- | --- |
 | License | "Considering Apache License 2.0, no final decision yet." No `LICENSE` file exists. | issue #1 |
 | Community builds | Welcome, even pre-license. Credit as *"originally developed by the Irefrixs Team"* explicitly approved. | issue #3 |
 | Contributions | "We have not finalized our contribution policy… we would be happy to accept your PR." | issue #1 |
-| Test corpus | Cannot be shared — player-uploaded, >1 GB, kept off Git on a shared disk. | issue #1 |
+| Test corpus | Cannot be shared, player-uploaded, >1 GB, kept off Git on a shared disk. | issue #1 |
 | `launch-debug.json` | Developer-local file, intentionally not committed. Copy `launch.json`. | issue #1 |
-| Issue etiquette | **"Split future questions into separate issues"** — an explicit request. Honor it. | issue #1 |
+| Issue etiquette | **"Split future questions into separate issues"**, an explicit request. Honor it. | issue #1 |
 
 He also restated the PVP position directly: *"this engine still has significant limitations…
 it is not capable of handling features such as PvP properly. We are sharing the project primarily
@@ -61,24 +61,27 @@ usable diffs; do not expect PR merges.
 | `numpy` missing from `requirements.txt` | ✓ applied (`ccb25a3`) |
 | bogus `PIL` entry | ✓ applied (`ccb25a3`) |
 | macOS/TS build steps in install guide | ✓ applied (`2ac194a`) |
-| **`Engine.SaveCrash` masks startup errors** | ✗ **not applied** — see A9 |
+| **`Engine.SaveCrash` masks startup errors** | ✗ **not applied**, see A9 |
 
 ### Our contributions
 
 | ID | Item | Status |
 | --- | --- | --- |
-| U1 | Issue #4 — RNG divergence (F3) + state-capture cost (F1, F2). Posted 2026-08-09 as `hexate`. | **POSTED** — awaiting reply |
-| U2 | PVP feasibility issue (section H) | DRAFTED — hold until #4 gets a reply or ~1 week |
-| U3 | Scene save/load defects (F5, F4) | DRAFTED — send a few days after U2 |
-| U4 | `command_validation.py` (F6) | DRAFTED — send with U3 |
-| U6 | Comment on #4 correcting 34× to 18.9× in situ, and noting F9. Text in scratchpad `issue4_comment.md`. | **HELD** — deliberately not sent, see below |
+| U1 | Issue #4, RNG divergence (F3) + state-capture cost (F1, F2). Posted 2026-08-09 as `hexate`. | **POSTED**, awaiting reply |
+| U2 | PVP feasibility issue (section H) | DRAFTED, hold until #4 gets a reply or ~1 week |
+| U3 | Scene save/load defects (F5, F4). F5 is fixed on `pr/puzzle-save-mutation`, so this can carry a patch rather than just a report. | DRAFTED, send a few days after U2 |
+| U4 | `command_validation.py` (F6) | DRAFTED, send with U3 |
+| U7 | Issue #5, unbounded retry in `ChooseEffects` (I7). Posted 2026-08-09 as `hexate`. Fix ready on `pr/cap-input-retries`. | **POSTED**, awaiting reply |
+| U6 | Comment on #4 correcting 34× to 18.9× in situ, and noting F9. Text in `docs/pending/issue4-comment-rng-figure.md`. | **HELD**, deliberately not sent, see below |
 
 **Pacing.** Two issues went up on 2026-08-09 and neither has a reply. Nothing further gets sent
 until he responds. U6 is a correction to our own number rather than a new ask, so it is safe to
 sit on, and it reads better attached to a live conversation than as a third unanswered post. If
 he never replies, U6 is not worth sending alone.
 
-Drafts live outside the repo in the session scratchpad (`issues_draft.md`).
+U6 is committed at `docs/pending/issue4-comment-rng-figure.md`. U2, U3 and U4 drafts are still
+only in the session scratchpad (`issues_draft.md`) and will be lost when it is cleaned up; move
+them into `docs/pending/` before relying on them.
 
 ### Working on the fork does not depend on upstream replies
 
@@ -96,13 +99,13 @@ another contributor (`z00lus`) is already maintaining a divergent fork with his 
 
 | ID | Item | Status |
 | --- | --- | --- |
-| U5 | **No `LICENSE` file exists.** Absent one, default copyright is "all rights reserved"; the issue-#3 comment is strong evidence of intent but is not a license grant with terms. Low risk for private/hobby work, real risk before any distribution or commercial use. He has already named Apache 2.0, so the ask is "please commit the file," not a new question — offer to send it. | PROPOSED |
+| U5 | **No `LICENSE` file exists.** Absent one, default copyright is "all rights reserved"; the issue-#3 comment is strong evidence of intent but is not a license grant with terms. Low risk for private/hobby work, real risk before any distribution or commercial use. He has already named Apache 2.0, so the ask is "please commit the file," not a new question, offer to send it. | PROPOSED |
 
 ### Branch layout and how to package a contribution
 
 | Branch | Purpose | Upstream? |
 | --- | --- | --- |
-| `master` | tracks `upstream/master`, never committed to directly | — |
+| `master` | tracks `upstream/master`, never committed to directly |, |
 | `work/engine-audit` | fork integration: docs, tooling, direction | never |
 | `pr/<topic>` | one contribution, cut fresh from `upstream/master` | yes |
 
@@ -124,17 +127,24 @@ carrying a readable diff is the actual deliverable; a PR is a convenience link, 
 Combined with his "split future questions into separate issues" request, the unit of contribution
 is **one issue + one small diff per topic**.
 
-Currently cut:
+Currently cut, all one commit off `upstream/master` unless noted:
 
 | Branch | Contents | Size |
 | --- | --- | --- |
-| `pr/gitignore-dev-files` | ignore `launch-debug.json`, generated replays | 1 file, +3 |
-| `pr/test-harness` | I2 harness + first tests | 2 files, +278 |
+| `pr/gitignore-dev-files` | ignore `launch-debug.json`, generated replays | 1 file 3 + |
+| `pr/guard-savecrash` | A9, startup failures no longer masked (kmelkon's finding) | 2 files 55 + 1- |
+| `pr/narrow-effect-filter-except` | J1, bare `except` narrowed to `TypeError` | 2 files 74 + 2- |
+| `pr/rng-backend-determinism` | F3, RNG backend recorded on scenes, mismatch refused | 4 files 151 + 1- |
+| `pr/random-state-capture` | F1, RNG state capture made opt-in | 2 files 112 + 3- |
+| `pr/cap-input-retries` | I7, retry cap in `ChooseEffects` (issue #5) | 2 files 93 + |
+| `pr/puzzle-save-mutation` | F5, puzzle save no longer mutates the live replay log | 2 files 99 + 5- |
+| `pr/test-harness` | I2, replay-independent harness + first tests | 2 files 278 + |
 
 **Fork discipline** — keep changes cherry-pickable, since he applies diffs rather than merging PRs:
 
 - one topic branch per tracker item, small and self-contained
-- keep upstream-contributable fixes (F1–F6, A9, I1, I4) separate from fork-only direction (I2, PVP)
+- keep upstream-contributable fixes (F1–F6, A9, I1, I4, I7) separate from fork-only direction
+  (docs, tooling, PVP). I2 turned out to be contributable too and is cut as `pr/test-harness`.
 - rebase on `upstream/master` periodically rather than letting the fork drift
 - `launch-debug.json` is deliberately untracked upstream — add it to `.gitignore` locally, do not
   commit it
@@ -158,15 +168,16 @@ macOS build steps added to the install guide (2ac194a).
 | --- | --- | --- | --- | --- |
 | A1 | `tsconfig.json` uses `moduleResolution: "node10"`, removed in TypeScript 7 (`error TS5108`). The install guide says `npm install -g typescript`, which now installs 7.x. | `public/js/tsconfig.json:37` | High (blocks a clean build) | PROPOSED |
 | A2 | Coverage key check hardcodes Windows separators: `name.startswith("cards\\pack\\")`. On macOS/Linux paths use `/`, so `GetKeyName` returns `""` for every card and card-script coverage silently reports nothing. | `engine/profile/coverage.py:19` | Medium (dev tooling, silent failure) | PROPOSED |
-| A3 | Untrusted-save guard tests `"crashs\\dl" in world.scene.path` — never matches on POSIX, so the `DebugBreak()` safety stop before `exec(cmd)` is skipped. | `game/world/cheat/cheat_cmd_helper.py:478` | Medium (debug-only, but it is a safety check) | PROPOSED |
+| A3 | Untrusted-save guard tests `"crashs\\dl" in world.scene.path`, never matches on POSIX, so the `DebugBreak()` safety stop before `exec(cmd)` is skipped. | `game/world/cheat/cheat_cmd_helper.py:478` | Medium (debug-only, but it is a safety check) | PROPOSED |
 | A4 | `IsDrivePath` only recognizes `C:\` / `C:/`. POSIX absolute paths (`/Users/...`) are not detected as drive paths, affecting the cheat command that loads a scene by absolute path. | `engine/file/manager.py:156` | Low | PROPOSED |
 | A5 | `FormatPath` indexes `normalized_path[1]` without a length check → `IndexError` on a 1-character path. Platform-independent, found during the port. | `engine/file/manager.py:165` | Low | PROPOSED |
-| A6 | `Beep` is a no-op on **every** platform since `winsound` was stripped — audio cues are gone, not just on macOS. Could be restored cross-platform (`afplay` on macOS, `paplay`/`aplay` on Linux) or the dead code removed. | `core/lib/beep.py` | Low | PROPOSED |
+| A6 | `Beep` is a no-op on **every** platform since `winsound` was stripped, audio cues are gone, not just on macOS. Could be restored cross-platform (`afplay` on macOS, `paplay`/`aplay` on Linux) or the dead code removed. | `core/lib/beep.py` | Low | PROPOSED |
 | A7 | `FileManager.EditCode` shells out to `code`; fails silently via `os.system` if the VS Code CLI is not on PATH. | `engine/file/manager.py:149` | Low | PROPOSED |
 | A8 | `public/js/watch.bat` is Windows-only. A `watch.sh` companion would match the documented macOS/Linux flow. | `public/js/watch.bat` | Cosmetic | PROPOSED |
-| A9 | **`Engine.SaveCrash` masks any startup failure.** Uses `Engine.game` (assigned at `engine.py:104`) but runs for crashes before that, so the handler itself raises `AttributeError` and hides the real exception. Found by `kmelkon` in #1; PR #2 was closed unmerged and this piece never landed. | `engine/engine.py:159-162` | Medium | **DONE** — `pr/guard-savecrash`, credit kmelkon |
+| A10 | **`.gitignore` misses `save.json`.** The rule is `/save_*.json`, which does not match `save.json`, the exact filename the debug `/save` command writes (`ex_save_name = './save.json'`, `game/cheat/cheat.py:126`). Confirmed with `git check-ignore`. One-character fix; belongs on `pr/gitignore-dev-files`. | `.gitignore:6` | Low | PROPOSED |
+| A9 | **`Engine.SaveCrash` masks any startup failure.** Uses `Engine.game` (assigned at `engine.py:104`) but runs for crashes before that, so the handler itself raises `AttributeError` and hides the real exception. Found by `kmelkon` in #1; PR #2 was closed unmerged and this piece never landed. | `engine/engine.py:159-162` | Medium | **DONE**, `pr/guard-savecrash`, credit kmelkon |
 
-### Not defects — documented for the next person
+### Not defects: documented for the next person
 
 - **`assets/` is absent from the repo by design** (`.gitignore`). It must be pulled from the
   itch.io build. Without it the game still runs and falls back to the card-image CDN configured
@@ -190,17 +201,17 @@ Each has been cross-checked against the code below.
 
 | ID | Item | Severity | Status |
 | --- | --- | --- | --- |
-| B1 | **Runtime performance.** Python backend is "fast for development, but slow at runtime." UNDO in 4-player can take over a minute. | Critical | PROPOSED — needs profiling before any fix |
-| B2 | **Function registration instead of Buff.** Centralized registered functions are easy to review but hard to serialize, which is what makes UNDO impractical. A `Buff` replacement was started and never finished. | Critical | PROPOSED — partial migration exists |
+| B1 | **Runtime performance.** Python backend is "fast for development, but slow at runtime." UNDO in 4-player can take over a minute. | Critical | PROPOSED, needs profiling before any fix |
+| B2 | **Function registration instead of Buff.** Centralized registered functions are easy to review but hard to serialize, which is what makes UNDO impractical. A `Buff` replacement was started and never finished. | Critical | PROPOSED, partial migration exists |
 | B3 | **New FFG PVP rules.** The engine was not built to accommodate them; upstream estimated ~300 hours of refactor and expected many hard-to-find bugs. | Large feature | PROPOSED |
 
-### B1 — UNDO cost
+### B1: UNDO cost
 
 ✓ VERIFIED (mechanism, not timing). Undo is implemented as *replay from the beginning*, not as
 state rollback:
 
 - `game/scene/` records the full list of player `inputs` for the session.
-- `engine/controller/manager.py:50-89` — on a start-state with `is_undo`, the manager reloads the
+- `engine/controller/manager.py:50-89`: on a start-state with `is_undo`, the manager reloads the
   scene, calls `SetReplayInputs(scene.inputs)`, and sets up `skip` to fast-forward.
 - `engine/controller/module/skip.py` fast-forwards by re-executing game logic with rendering
   suppressed — it does not skip the computation.
@@ -219,7 +230,7 @@ mechanism above suggests the cost is algorithmic (replay-from-zero), not interpr
 snapshot/rollback would beat any language change. Treat "rewrite it in a faster language" as
 unproven until the profile says otherwise.
 
-### B1a — RETRACTED. The skip guard already exists and works.
+### B1a: RETRACTED. The skip guard already exists and works.
 
 **This entry was wrong. Read the retraction before the measurement.**
 
@@ -280,13 +291,13 @@ be confirmed rather than assumed.
 
 | ID | Item | Status |
 | --- | --- | --- |
-| B1a | ~~Skip does not gate descriptor construction~~ | **RETRACTED** — the guard exists at `world_render.py:59`; 0/20 builds with skip on |
-| B1b | Descriptor construction is 62% of **live play** runtime, 1.14 ms per message. Real, but it is the UI being produced, not waste. Relevant to interactive responsiveness only. | PROPOSED — low priority |
+| B1a | ~~Skip does not gate descriptor construction~~ | **RETRACTED**, the guard exists at `world_render.py:59`; 0/20 builds with skip on |
+| B1b | Descriptor construction is 62% of **live play** runtime, 1.14 ms per message. Real, but it is the UI being produced, not waste. Relevant to interactive responsiveness only. | PROPOSED, low priority |
 
 Note `engine/task/manager.py` gates threading behind `enable_multiple_threads`, default `False`.
 ✗ UNVERIFIED — whether enabling it helps, or why it is off.
 
-### B2 — Buff migration is barely started
+### B2: Buff migration is barely started
 
 ✓ VERIFIED by count:
 
@@ -296,11 +307,11 @@ Note `engine/task/manager.py` gates threading behind `enable_multiple_threads`, 
 So the migration upstream described as "started" covers well under 1% of card scripts. The
 infrastructure exists and is small:
 
-- `game/buff/buff.py` — `Buff` base class: `by_effects` list, `OnGain`/`OnLost`, `OnRoundEnd`,
+- `game/buff/buff.py`: `Buff` base class: `by_effects` list, `OnGain`/`OnLost`, `OnRoundEnd`,
   `OnRecordPlayedFace`, UI text. Concrete buffs like `BuffIsTreatAsIfBlank` subclass it.
-- `game/buff/manager.py` — `BuffManager.RegisterBuffer(type)`, forwards round-end and
+- `game/buff/manager.py`: `BuffManager.RegisterBuffer(type)`, forwards round-end and
   played-face events.
-- `game/card/face/component/buffs.py` — card-face integration.
+- `game/card/face/component/buffs.py`: card-face integration.
 
 This is the single largest lever on B1: buffs are declarative state that can be serialized and
 rolled back, whereas registered closures cannot. Any UNDO redesign probably depends on this
@@ -310,7 +321,7 @@ landing first.
 better play a compatibility shim that lets both mechanisms coexist and converts scripts lazily as
 they are touched?
 
-### B-measure — Codebase size and measured performance (2026-08-09)
+### B-measure: Codebase size and measured performance (2026-08-09)
 
 Taken to inform the "fix in Python vs. port to another language" decision.
 
@@ -318,7 +329,7 @@ Taken to inform the "fix in Python vs. port to another language" decision.
 
 | Area | Lines | Files | Nature |
 | --- | --- | --- | --- |
-| `cards/` | 102,461 | 3,859 | Card rules content — **63% of the Python codebase** |
+| `cards/` | 102,461 | 3,859 | Card rules content, **63% of the Python codebase** |
 | `game/` | 53,169 | 326 | Rules engine |
 | `engine/` | 5,883 | 68 | Platform: web server, tasks, file I/O, config |
 | `core/` | 666 | 16 | Utilities |
@@ -330,7 +341,7 @@ Taken to inform the "fix in Python vs. port to another language" decision.
 | --- | --- |
 | Config + `CardsDB.Initialize()` | 0.32 s |
 | Import all 3,457 card scripts | 0.89 s total, 0.26 ms each, 0 errors |
-| Card scripts loaded at startup | 0 — imports are lazy |
+| Card scripts loaded at startup | 0, imports are lazy |
 
 **Design note** ✓ VERIFIED: `game/event/manager.py` indexes effects as
 `self.effects[category][message_type][priority]`. Dispatch is a dict lookup by message type, not
@@ -342,7 +353,7 @@ a replay-based test harness (`unit_test/entry.py`, `game/test/test_run.py`) that
 `REPLAY_FOLDERS` (`./replays/`), which is absent. This is the one number that would settle B1.
 See G1.
 
-### B3 — PVP rules
+### B3: PVP rules
 
 ✗ UNVERIFIED — no audit yet of what specifically in the engine assumes co-op (single villain,
 shared encounter deck, non-adversarial targeting). The ~300h estimate is upstream's, for their
@@ -354,7 +365,7 @@ own codebase and standards. Do not treat it as a scoped estimate for this fork.
 
 | ID | Item | Severity | Status |
 | --- | --- | --- | --- |
-| C1 | No pinned dependency versions — `requirements.txt` lists bare package names. A lockfile or version floors would make builds reproducible. | Medium | PROPOSED |
+| C1 | No pinned dependency versions, `requirements.txt` lists bare package names. A lockfile or version floors would make builds reproducible. | Medium | PROPOSED |
 | C2 | No CI. Repo has `unit_test/` and `game/test/` but nothing runs them automatically. | Medium | PROPOSED |
 | C3 | Compiled JS is gitignored and must be built before first run; there is no build script wrapping the Python + TypeScript steps. | Low | PROPOSED |
 
@@ -368,8 +379,8 @@ maintains a module blocklist (`subprocess`, `webbrowser`, `win32api`, …).
 
 | ID | Item | Severity | Status |
 | --- | --- | --- | --- |
-| D1 | Assess whether `command_validation.py`'s blocklist approach is sound, or whether it is bypassable (blocklists usually are). This governs the safety of the whole custom-card ecosystem. | High | PROPOSED — needs audit |
-| D2 | A3 above (the `crashs\\dl` guard) is part of this surface — the downloaded-save safety break does not fire on POSIX. | Medium | PROPOSED |
+| D1 | Assess whether `command_validation.py`'s blocklist approach is sound, or whether it is bypassable (blocklists usually are). This governs the safety of the whole custom-card ecosystem. | High | PROPOSED, needs audit |
+| D2 | A3 above (the `crashs\\dl` guard) is part of this surface, the downloaded-save safety break does not fire on POSIX. | Medium | PROPOSED |
 
 ---
 
@@ -382,17 +393,17 @@ no grep-only claims.
 
 | ID | Finding | Location | Severity | Status |
 | --- | --- | --- | --- | --- |
-| F1 | RNG state capture costs 34× and leaks unboundedly | `engine/lib/random.py:49,68,78` | **High** | **DONE** — `pr/random-state-capture` |
+| F1 | RNG state capture costs 34× and leaks unboundedly | `engine/lib/random.py:49,68,78` | **High** | **DONE**, `pr/random-state-capture` |
 | F9 | `AddCounter` logs on every draw; 0.54 µs of the 1.21 µs that remains after F1 | `engine/lib/random.py:55` | Low | PROPOSED |
 | F2 | `numpy.random.choice` on object lists is 39× slower than stdlib | `engine/lib/random.py:45-70` | Medium | PROPOSED |
-| F3 | Two RNG backends produce different sequences → replay incompatibility | `engine/lib/random.py` | **High** | **DONE** — `pr/rng-backend-determinism` |
+| F3 | Two RNG backends produce different sequences → replay incompatibility | `engine/lib/random.py` | **High** | **DONE**, `pr/rng-backend-determinism` |
 | F4 | `World.LoadFromJson` is dead *and* cannot execute | `game/world/world.py:121-144` | Medium | PROPOSED |
-| F5 | Saving a puzzle mutates the live replay log; second save raises | `game/scene/scene.py:113-117` | **High** | **DONE** — `pr/puzzle-save-mutation` |
+| F5 | Saving a puzzle mutates the live replay log; second save raises | `game/scene/scene.py:113-117` | **High** | **DONE**, `pr/puzzle-save-mutation` |
 | F6 | Debug-console safety check is a bypassable blocklist | `engine/security/command_validation.py` | **High** | PROPOSED |
 | F7 | Player count hardcoded as `(0,1,2,3)[:n]` | `game/world/world.py:94,127` | Low | PROPOSED |
 | F8 | Cross-area targeting isolation is opt-in, not enforced | `game/card/card_finder/checker.py:174` | Medium (blocks PVP) | PROPOSED |
 
-### F1 — RNG state capture: 34× slowdown and an unbounded leak
+### F1: RNG state capture: 34× slowdown and an unbounded leak
 
 ✓ VERIFIED by measurement. Every `Shuffle` / `RandomChoice` / `RandomChoice2` call does
 `Random.states.append(numpy.random.get_state())` before the actual draw.
@@ -438,14 +449,14 @@ as F9.
 Six tests in `unit_test/test_random_state_capture.py`, including one that rewinds the generator
 and reshuffles to prove the debug cheat still behaves.
 
-### F9 — `AddCounter` logs on every draw
+### F9: `AddCounter` logs on every draw
 
 `Random.AddCounter` builds an f-string and calls `Log.DebugSilent` on every single random
 operation, whether or not the category is enabled. Measured at 0.54 µs per draw, which is now the
 largest remaining cost in the call. Cheap to fix by checking whether the category is live before
 formatting.
 
-### F3 — Two RNG backends, one save format
+### F3: Two RNG backends, one save format
 
 ✓ VERIFIED by execution. `DISABLE_NUMPY_RANDOM` (default `False`) switches between
 `numpy.random` and the bundled `engine/lib/mt19937.py`. Same seed (12345), same 10-element list:
@@ -488,11 +499,11 @@ backends actually disagree, so the guard cannot quietly become pointless.
 Still open, tracked separately: nothing forces a choice between the two backends, and the numpy
 path remains process-global. This change makes divergence loud rather than eliminating it.
 
-### F4 — `World.LoadFromJson` is dead and non-functional
+### F4: `World.LoadFromJson` is dead and non-functional
 
 ✓ VERIFIED. Zero callers anywhere in the repo. It also cannot run:
 
-- Line 127: `for i in (0, 1, 2, 3)[:world_descriptor.players]` — slices a tuple by
+- Line 127: `for i in (0, 1, 2, 3)[:world_descriptor.players]`: slices a tuple by
   `world_descriptor.players`, which is `List[PlayerDescriptor]`
   (`game/render/descriptor/world.py:61`). `TypeError` on entry.
 - Lines 136 and 139: `CardFactory.GenerateCard(card.card_id, self.players[0].player_deck, self)`
@@ -501,7 +512,7 @@ path remains process-global. This change makes divergence loud rather than elimi
 Chesterton's fence applies, but the fence is provably not holding anything up: it has no callers
 and raises immediately. Delete it, or fix and test it.
 
-### F5 — Saving a puzzle corrupts the in-memory replay log
+### F5: Saving a puzzle corrupts the in-memory replay log
 
 `Scene.UpdateInputs` assigns `self.inputs = game.controller_manager.replay.history_inputs` — a
 reference, not a copy. `PrepareSave` then does, for puzzles:
@@ -526,7 +537,7 @@ Note for anyone cherry-picking: this conflicts with F3, which inserts the `rng` 
 above the same block in `PrepareSave`. Both belong; keep the stamp and drop the now-unused
 `data = self`.
 
-### F6 — The command blocklist blocks only the naive case
+### F6: The command blocklist blocks only the naive case
 
 ✓ VERIFIED by execution against `IsCommandSafe`:
 
@@ -560,7 +571,7 @@ web auth, save integrity. Ordered by how much they matter.
 
 | ID | Finding | Location | Severity | Status |
 | --- | --- | --- | --- | --- |
-| J1 | Bare `except:` can silently drop a card ability | `game/card/face/effect/face_effect.py:55` | Medium (see measurement) | **DONE** — `pr/narrow-effect-filter-except` |
+| J1 | Bare `except:` can silently drop a card ability | `game/card/face/effect/face_effect.py:55` | Medium (see measurement) | **DONE**, `pr/narrow-effect-filter-except` |
 | J2 | Auth endpoint never verifies the password; no rate limiting | `engine/network/web_server.py:202` | Medium | PROPOSED |
 | J3 | Save checksums default to ignored, and load proceeds on mismatch | `engine/lib/json.py:179` | Medium | PROPOSED |
 | J4 | `JobManager.Simultaneous` is a sequential loop | `engine/job/manager.py:76` | Medium | PROPOSED |
@@ -569,7 +580,7 @@ web auth, save integrity. Ordered by how much they matter.
 | J7 | Mutable default arguments (10 sites) | various | Low, latent | PROPOSED |
 | J8 | **Clicking Cancel on the End Phase prompt raises.** Reproduced in a real browser game. | `engine/controller/controller.py:274` | Medium, user-reachable | PROPOSED |
 
-### J8 — Cancel on a multi-option forced prompt asserts
+### J8: Cancel on a multi-option forced prompt asserts
 
 ✓ VERIFIED by playing the game, 2026-08-09. Spider-Man vs Rhino, seed 42, end of turn 1. The
 "Spider-Man End Phase (1~6)" prompt offers a Cancel button; clicking it produces:
@@ -590,7 +601,7 @@ Worth checking whether Cancel should be suppressed for this prompt shape, or whe
 too narrow. Note the harness hit the same assert from the other direction while building I2, which
 suggests the decline contract is genuinely underspecified rather than just mis-clicked here.
 
-### J1 — a bare `except` can silently disable a card
+### J1: a bare `except` can silently disable a card
 
 In `FindGiven`, which filters the effects an ability can see:
 
@@ -632,7 +643,7 @@ the 43007 union behaviour byte-for-byte and lets everything else propagate. Two 
 `unit_test/test_effect_filter.py`: one asserts a non-`TypeError` escapes, and fails without the
 change; the other pins the union case so the clause cannot be narrowed further by accident.
 
-### J2 — the auth endpoint does not check the password
+### J2: the auth endpoint does not check the password
 
 ```python
 async def handle_authenticate(request):
@@ -658,7 +669,7 @@ For LAN play with an optional password this is roughly proportionate. It is wort
 because at least one community fork (`z00lus`, issue #3) is explicitly targeting self-hosted
 servers, and someone will eventually port-forward this.
 
-### J3 — checksums are computed, then ignored
+### J3: checksums are computed, then ignored
 
 `Types.DictChecksum` is SHA-256 over sorted-key JSON, which is fine. The problem is the plumbing:
 
@@ -671,7 +682,7 @@ servers, and someone will eventually port-forward this.
 Given that replays and puzzles are shared between players, "warn and load anyway" is the part
 worth revisiting.
 
-### J4 — `Simultaneous` runs sequentially
+### J4: `Simultaneous` runs sequentially
 
 ```python
 @staticmethod
@@ -688,7 +699,7 @@ invitation for someone to "fix" it and silently break replay.
 
 Rename, or add a comment saying the serialism is deliberate.
 
-### J6 — the rules engine is enforced by `assert`
+### J6: the rules engine is enforced by `assert`
 
 519 `assert` statements across `core/`, `engine/`, and `game/`, many of them validating game rules
 rather than checking internal invariants. Python's `-O` flag removes every one. Nothing in the
@@ -730,20 +741,20 @@ algorithmic one.
 
 | ID | Item | Status |
 | --- | --- | --- |
-| E1 | Decision: remain on Python; treat B1 as an algorithmic fix (snapshot/rollback) rather than a rewrite. | PROPOSED — pending G1 |
-| E2 | If a CPU wall is later confirmed, evaluate in-language escape hatches first: PyPy, and the existing `enable_multiple_threads` flag (`engine/task/manager.py`, default `False` — reason for the default is ✗ UNVERIFIED). | PROPOSED |
+| E1 | Decision: remain on Python; treat B1 as an algorithmic fix (snapshot/rollback) rather than a rewrite. | PROPOSED, pending G1 |
+| E2 | If a CPU wall is later confirmed, evaluate in-language escape hatches first: PyPy, and the existing `enable_multiple_threads` flag (`engine/task/manager.py`, default `False`, reason for the default is ✗ UNVERIFIED). | PROPOSED |
 
 ---
 
-## G. Gates — do these before committing to a direction
+## G. Gates: do these before committing to a direction
 
 | ID | Item | Why it blocks | Status |
 | --- | --- | --- | --- |
-| G1 | **Profile a real session.** See the attempt log below. | The single number that decides E1. Everything in B1 and E is inference until this exists. | **BLOCKED** — driver cannot sustain a long game |
+| G1 | **Profile a real session.** See the attempt log below. | The single number that decides E1. Everything in B1 and E is inference until this exists. | **BLOCKED**, driver cannot sustain a long game |
 | G2 | Determine when `DoNotCheckFastUndo()` disables the fast-undo pruning path in `engine/controller/module/undo.py`, and how much that path actually saves. | If fast-undo is silently off in normal multiplayer, the reported "over a minute" may be a bug, not a design limit. | PROPOSED |
-| G4 | Record a real game through the browser and save the replay. | The synthetic driver stalls; a human-played scene sidesteps that entirely. | **DONE** — see below |
-| G5 | Play a game **to completion** in the browser and save that. A mid-game replay cannot drive the test harness: it replays the recorded inputs and then asks for input N+1, which the debug device answers with `input()` and an `EOFError`. Fixtures have to be finished games. | The remaining blocker on G1. | PROPOSED |
-| G3 | ~~Ask upstream for a replay corpus.~~ | Asked and answered in issue #1: cannot be shared (player-uploaded, >1 GB, off-Git). Superseded by I3 — author our own. | **REJECTED** |
+| G4 | Record a real game through the browser and save the replay. | The synthetic driver stalls; a human-played scene sidesteps that entirely. | **DONE**, see below |
+| G5 | Play a game **to completion** in the browser and save that. Attempted 2026-08-09 and abandoned, see the attempt note below. A mid-game replay cannot drive the test harness: it replays the recorded inputs and then asks for input N+1, which the debug device answers with `input()` and an `EOFError`. Fixtures have to be finished games. | The remaining blocker on G1. | PROPOSED |
+| G3 | ~~Ask upstream for a replay corpus.~~ | Asked and answered in issue #1: cannot be shared (player-uploaded, >1 GB, off-Git). Superseded by I3, author our own. | **REJECTED** |
 
 ---
 
@@ -765,7 +776,7 @@ PVP needs already exist and one of them ships working in a released scenario.
 - `Worlds.GetOnFieldCards / GetVillains / GetMainSchemes / GetOnFieldMinions` all take a game area
 - `CardFinder` accepts a `game_area` filter, enforced at `card_finder/checker.py:174-175`
 - moves carry `target_game_area` (15 sites)
-- `Scenario.GetVillain(game_area)` is **already area-aware** — per-area villains work today
+- `Scenario.GetVillain(game_area)` is **already area-aware**: per-area villains work today
 
 And it is not theoretical: **`cards/pack/toafk/kang/__init__.py:107` creates a second game area
 in a shipped scenario.** The Once and Future Kang splits players onto separate boards, each with
@@ -787,7 +798,7 @@ the entire `game/` layer.
 | H2 | **Exactly one `Scenario` per world** | `World.__init__:46` hardcodes a single instance. Two opposing sides need two, or a re-framing of what "scenario" means. | Medium |
 | H3 | **Turn structure is co-op-shaped** | `World.OnGameLoop`: `start_round → PlayerPhase (all players) → PlayersEndPhase → VillainPhase → end_round`. PVP needs alternating or interleaved turns. | Medium |
 | H4 | **Nothing iterates `world.game_areas`** | 0 loops over it. `CreateGameArea` has 1 caller. `game/card/factory.py:133` hardcodes every new card into `GetFirstGameArea()`. The plumbing exists; the engine only ever drives area[0]. | Medium |
-| H5 | **Area isolation is opt-in (= F8)** | `world.py:52-55` comments claim cards/targeting cannot cross areas, but `CardFinder.game_area` defaults to `None` and only **11** call sites pass it. Harmless in co-op (one area); a correctness requirement in PVP. Auditing every finder call site is likely the largest hidden cost. | **Large — the sleeper** |
+| H5 | **Area isolation is opt-in (= F8)** | `world.py:52-55` comments claim cards/targeting cannot cross areas, but `CardFinder.game_area` defaults to `None` and only **11** call sites pass it. Harmless in co-op (one area); a correctness requirement in PVP. Auditing every finder call site is likely the largest hidden cost. | **Large, the sleeper** |
 | H6 | **Player count capped at 4** (= F7) | `(0,1,2,3)[:player_num]`. PVP team formats may want more. | Small |
 
 ### Assessment
@@ -889,14 +900,14 @@ version."*
 
 | ID | Item | Rationale | Status |
 | --- | --- | --- | --- |
-| I2 | **Build a unit-test layer that does not go through replay.** Construct a `World` directly, drive it with the existing debug commands (`gain`, `play`, `can`, `cannot` — documented in `public/js/marvel/debug/debug.ts`), assert on state. Independent of replay determinism, and survives behavior changes. | Breaks the circularity. Prerequisite for touching B2 or H5 safely. | PROPOSED |
+| I2 | **Build a unit-test layer that does not go through replay.** Construct a `World` directly, drive it with the existing debug commands (`gain`, `play`, `can`, `cannot`, documented in `public/js/marvel/debug/debug.ts`), assert on state. Independent of replay determinism, and survives behavior changes. | Breaks the circularity. Prerequisite for touching B2 or H5 safely. | **DONE**, `pr/test-harness`; see the I2 progress log below |
 | I3 | **Author a small replay corpus ourselves.** Play a few games; scenes auto-save to `./replays/`. Version-stamp them and accept they need regeneration on behavioral change. | Enough for G1 profiling and coarse smoke tests. Cheap. Do this first. | PROPOSED |
 | I4 | Commit `launch-debug.json.example` and `.gitkeep` files for `replays/min_test/` and `replays/profiles/`, plus a short note in the docs. | Every newcomer hits the same wall; kmelkon and we both did. Good upstream contribution. | PROPOSED |
 
 **Sequence:** I3 (unblocks G1 today) → I1 + I4 (trivial, contributable) → I2 (the real fix, and a
 prerequisite for B2).
 
-### G1 attempt log (2026-08-09) — not answered
+### G1 attempt log (2026-08-09): not answered
 
 Three approaches, all defeated by the same thing: a scripted policy cannot sustain a long game.
 
@@ -928,7 +939,7 @@ readable failures.
 **Unblocking path.** G4: record a real game through the browser and save the replay, which is what
 irefrixs described in issue #1. A human-played scene sidesteps the driver problem completely.
 
-### G4 result — a real game was recorded (2026-08-09)
+### G4 result: a real game was recorded (2026-08-09)
 
 Played Spider-Man vs Rhino on *The Break-In!*, seed 42, through the browser against a locally
 running server. Produced `replays/[0.5.9.201]-spider-man-rhino-(4)-(42).json`, 4 inputs.
@@ -954,6 +965,18 @@ Practical notes for the next attempt:
 
 **Still not G1.** The fixture replays its 4 inputs and then asks for input 5, which the debug
 device answers with `input()` and dies on `EOFError`. See G5.
+
+### G5 attempt: abandoned (2026-08-09)
+
+Second browser session. Fresh game created over HTTP, server started with `-auto_save_after_game_over` so completion would save itself, mulligan cleared, turns cycled to **1/7 threat**. Then it stopped converging.
+
+What defeated it: during the villain phase the encounter-card reveal puts a large card preview over the centre of the screen, and clicks stop reaching the game. Clicking the OK element opened the side menu (Log / Pause / Undo / Redo / QSave) instead of advancing. A queued `/debug?Threat('The Break-In!', 12)` intended to force a loss never visibly applied, and the server log stayed empty because output is buffered, so the game's actual state was not observable from outside.
+
+The UI has hover previews, animation overlays, and context-sensitive buttons at the same screen position. Coordinate and element clicking handles simple prompts and falls apart during the villain phase.
+
+**Recommendation: a human plays this one.** Staying in alter-ego makes the villain scheme rather than attack, so threat climbs to 7 and the game ends in a loss in a handful of End Turn clicks. Avoid Cancel on the End Phase prompt in hero form, that is J8. With `-auto_save_after_game_over` set the replay writes itself.
+
+Also learned: `auto_save_after_game_over` defaults to **False** (`game/game.py:20`), so a finished game does not save unless that flag is set.
 
 **Postscript.** The "stall" was not a stall. The driver runs with skip off, so every message built
 a full world descriptor, which is 62% of runtime. It was progressing the whole time, just slowly,
@@ -982,10 +1005,10 @@ worth reporting on their own.
 
 | # | Blocker | Resolution |
 | --- | --- | --- |
-| 1 | `KeyInput.IsInputReady` calls `input()` and blocks — the replay log is the engine's only non-human input source. | Wrote `ScriptedInput`, an `InputDevice` that answers from a policy. This was the missing primitive. ✓ |
+| 1 | `KeyInput.IsInputReady` calls `input()` and blocks, the replay log is the engine's only non-human input source. | Wrote `ScriptedInput`, an `InputDevice` that answers from a policy. This was the missing primitive. ✓ |
 | 2 | Start state `'InTesting'` turns skip mode on (`manager.py:74-77`); with skip on, `ChoiceOne` **discards the device's answer** and substitutes `convert_fallthrough_input` (`controller.py:158-159`), which is `"{}"` when no replay inputs exist. Same prompt repeated ~296k times in 60 s. | Use start state `'New'`, which takes the `is_new` branch and leaves skipping off. ✓ |
-| 3 | **`ConsoleDevice` never implements `IsSyncReady`** — it inherits the abstract stub at `engine/device/base/output.py:17`, which returns `None`. `DoWaitSync` waits on that with `timeout=None`, so the first `Present()` deadlocks: main thread in `JobManager.WaitForAllJobsToComplete`, render job in `DoWaitSync`. Invisible in the replay harness because `world_render.py:114` only calls `WaitSync` when not skipping, and replay always skips. | Wrote `ScriptedOutput` with `IsSyncReady() -> True`. ✓ |
-| 4 | Mulligan prompt repeated forever — 455k `ChoiceOne` calls in 90 s, no exception raised. Root cause: `DoGetInput` appends the player to `manager.asking_players` before waiting and returns **`None`** if they are still in that list on wake (`base.py:113`). `ChoiceOne` maps a `None` input to `return None, True` (the "cheat" flag) and `ChooseEffects` loops on `cheat` (`player_action.py:178`). Setting `payload.input_json` directly — the way `KeyInput` does it — never clears `asking_players`. | Answer via `manager.WhenInput(answer, player_id)`, which is what the web client calls: it removes the player from `asking_players`, stores the answer, and notifies. ✓ |
+| 3 | **`ConsoleDevice` never implements `IsSyncReady`**, it inherits the abstract stub at `engine/device/base/output.py:17`, which returns `None`. `DoWaitSync` waits on that with `timeout=None`, so the first `Present()` deadlocks: main thread in `JobManager.WaitForAllJobsToComplete`, render job in `DoWaitSync`. Invisible in the replay harness because `world_render.py:114` only calls `WaitSync` when not skipping, and replay always skips. | Wrote `ScriptedOutput` with `IsSyncReady() -> True`. ✓ |
+| 4 | Mulligan prompt repeated forever, 455k `ChoiceOne` calls in 90 s, no exception raised. Root cause: `DoGetInput` appends the player to `manager.asking_players` before waiting and returns **`None`** if they are still in that list on wake (`base.py:113`). `ChoiceOne` maps a `None` input to `return None, True` (the "cheat" flag) and `ChooseEffects` loops on `cheat` (`player_action.py:178`). Setting `payload.input_json` directly, the way `KeyInput` does it, never clears `asking_players`. | Answer via `manager.WhenInput(answer, player_id)`, which is what the web client calls: it removes the player from `asking_players`, stores the answer, and notifies. ✓ |
 
 **Status: I2 is working.** `unit_test/test_harness.py` passes — 2 tests, 0.27 s total, no fixture on
 disk. A full game (Peter Parker vs Rhino on *The Break-In!*, 6-card hand, 34-card deck) builds in
@@ -995,12 +1018,12 @@ That runtime matters: it is fast enough for a real TDD loop, which the replay ha
 
 | ID | Item | Status |
 | --- | --- | --- |
-| I7 | **`ChooseEffects` retries without bound.** `while True: … if cheat: continue` (`game/player/action/player_action.py:165-181`) has no iteration cap, no backoff, and no bail-out. A device that consistently fails to deliver input spins at ~5,000 iterations/sec indefinitely, silently. With a human web client this is the intended "show the error, let them re-enter" path; with any automated device it is an unkillable hang. A retry cap that raises after N attempts would have turned three of the four blockers above into instant, self-explanatory failures. | PROPOSED |
+| I7 | **`ChooseEffects` retries without bound.** `while True: … if cheat: continue` (`game/player/action/player_action.py:165-181`) has no iteration cap, no backoff, and no bail-out. A device that consistently fails to deliver input spins at ~5,000 iterations/sec indefinitely, silently. With a human web client this is the intended "show the error, let them re-enter" path; with any automated device it is an unkillable hang. A retry cap that raises after N attempts would have turned three of the four blockers above into instant, self-explanatory failures. | **DONE**, `pr/cap-input-retries`, posted upstream as issue #5 |
 
 | ID | Item | Status |
 | --- | --- | --- |
-| I5 | **The console/keyboard device cannot drive a live game — two independent bugs.** (a) `ConsoleDevice` never implements `IsSyncReady`, so the first render sync deadlocks (only `WebDevice` implements it, `web_device.py:36`). (b) `KeyInput` sets `payload.input_json` directly instead of calling `WhenInput`, so `DoGetInput` always returns `None` and the caller retries forever (blocker 4). Neither surfaces in the replay harness: the sync call is guarded by `world_render.py:114`, which only runs when **not** skipping, and replay supplies inputs so `IsInputReady` is never reached. **Low practical severity** — nobody plays by typing JSON at a terminal — but the `-device` non-web path is dead code, and it blocks anyone building a headless mode. Report as a note, not a defect. | PROPOSED |
-| I6 | `WorldRender.CalculateCRC()` runs on **every** `ChoiceOne` (`controller.py:54`) and walks every card calling `GetRenderInfo()`. Measured ~0.1 ms per call. Harmless per decision, but it is unconditional — including during skip/replay, where nothing renders. Worth checking against B1. | PROPOSED |
+| I5 | **The console/keyboard device cannot drive a live game, two independent bugs.** (a) `ConsoleDevice` never implements `IsSyncReady`, so the first render sync deadlocks (only `WebDevice` implements it, `web_device.py:36`). (b) `KeyInput` sets `payload.input_json` directly instead of calling `WhenInput`, so `DoGetInput` always returns `None` and the caller retries forever (blocker 4). Neither surfaces in the replay harness: the sync call is guarded by `world_render.py:114`, which only runs when **not** skipping, and replay supplies inputs so `IsInputReady` is never reached. **Low practical severity**, nobody plays by typing JSON at a terminal, but the `-device` non-web path is dead code, and it blocks anyone building a headless mode. Report as a note, not a defect. | PROPOSED |
+| I6 | `WorldRender.CalculateCRC()` runs on **every** `ChoiceOne` (`controller.py:54`) and walks every card calling `GetRenderInfo()`. Measured ~0.1 ms per call. Harmless per decision, but it is unconditional, including during skip/replay, where nothing renders. Worth checking against B1. | PROPOSED |
 
 Note: I2 is the most valuable engineering work identified anywhere in this document. Every large
 change — snapshot/rollback, the Buff migration, PVP area isolation — is gated on having a
@@ -1015,6 +1038,6 @@ regression net that does not itself depend on replay.
 | 2026-08-09 | Doc created. Sections A (macOS audit), B (upstream rationale, cross-checked), C, D seeded. Nothing implemented yet. |
 | 2026-08-09 | Added B-measure (codebase sizing + startup/import benchmarks), section E (Python-vs-port recommendation), section G (decision gates G1–G3). Recommendation: stay on Python, pending G1. |
 | 2026-08-09 | Q decided: **stay on Python.** E1 accepted in principle; G1 still worth running to size B1. |
-| 2026-08-09 | Added section F (design audit, F1–F8 — RNG leak measured, dead code, puzzle-save corruption, bypassable blocklist verified by execution) and section H (PVP feasibility, revises B3 downward — multi-board isolation already exists and ships in the Kang scenario). |
-| 2026-08-09 | Added section 0 (upstream status): maintainer is active, license/contribution/test-corpus questions already answered publicly, prior work by kmelkon logged. Added A9 (kmelkon's `SaveCrash` fix never landed). Posted issue #4 upstream (U1). G3 **rejected** — corpus cannot be shared. G1 unblocked. |
-| 2026-08-09 | Added section I (testing): harness verified working-but-empty; documented the circularity — the tests are replays, replays are version-pinned, and replay determinism is the very property F3 shows is broken. I2 (replay-independent unit-test layer) identified as the highest-value engineering work in this document. |
+| 2026-08-09 | Added section F (design audit, F1–F8, RNG leak measured, dead code, puzzle-save corruption, bypassable blocklist verified by execution) and section H (PVP feasibility, revises B3 downward, multi-board isolation already exists and ships in the Kang scenario). |
+| 2026-08-09 | Added section 0 (upstream status): maintainer is active, license/contribution/test-corpus questions already answered publicly, prior work by kmelkon logged. Added A9 (kmelkon's `SaveCrash` fix never landed). Posted issue #4 upstream (U1). G3 **rejected**, corpus cannot be shared. G1 unblocked. |
+| 2026-08-09 | Added section I (testing): harness verified working-but-empty; documented the circularity, the tests are replays, replays are version-pinned, and replay determinism is the very property F3 shows is broken. I2 (replay-independent unit-test layer) identified as the highest-value engineering work in this document. |
