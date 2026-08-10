@@ -544,7 +544,8 @@ no grep-only claims.
 | --- | --- | --- | --- | --- |
 | F1 | RNG state capture costs 34× and leaks unboundedly | `engine/lib/random.py:49,68,78` | **High** | **DONE**, `pr/random-state-capture` |
 | F9 | `AddCounter` logs on every draw; 0.54 µs of the 1.21 µs that remains after F1 | `engine/lib/random.py:55` | Low | PROPOSED |
-| F2 | `numpy.random.choice` on object lists is 39× slower than stdlib | `engine/lib/random.py:45-70` | Medium | PROPOSED |
+| F2 | `numpy.random.choice` on object lists is 39× slower than stdlib | `engine/lib/random.py:45-70` | Medium | **DONE** by F11: that call is no longer on the default path, and the bundled `choice` is 4.4× faster than it |
+| F11 | Default `disable_numpy_random` to the bundled backend, now that F10 makes it produce numpy's sequence. Removes the numpy dependency and the process-global RNG exposure F3 left open | `engine/lib/random.py:5` | Medium | **DONE**, fork-only |
 | F3 | Two RNG backends produce different sequences → replay incompatibility | `engine/lib/random.py` | **High** | **DONE**, `pr/rng-backend-determinism` |
 | F10 | Bundled RNG core is byte-exact with numpy; only `randint` and `shuffle` diverge. Fixing them ends the F3 divergence instead of reporting it | `engine/lib/mt19937.py:64,69` | **High** | **DONE**, `pr/rng-numpy-parity`, stacked on `pr/rng-backend-determinism` |
 | F4 | `World.LoadFromJson` is dead *and* cannot execute | `game/world/world.py:121-144` | Medium | PROPOSED |
@@ -652,9 +653,10 @@ Nine tests in `unit_test/test_rng_backend.py`. One of them used to pin the premi
 backends disagree, so the guard could not quietly become pointless. F10 removed the premise
 instead, so that test now pins the opposite.
 
-Still open, tracked separately: the numpy path remains process-global, so any other code touching
-`numpy.random` still breaks replay determinism. F10 closed the other half by making the two
-backends produce the same sequence, so this change no longer has to make divergence loud.
+Both halves are now closed. F10 made the two backends produce the same sequence, so this change no
+longer has to make divergence loud, and F11 took the process-global numpy path off the default, so
+other code touching `numpy.random` can no longer perturb replay. The exposure returns for anyone
+who sets `disable_numpy_random` back to false.
 
 **Upstream context, 2026-08-10.** irefrixs confirmed the bundled backend was always meant to
 reproduce numpy's sequence and never did, and that numpy is canonical because every existing save
@@ -729,6 +731,52 @@ still matches, the game diverges anyway. Two ways out:
    `CheckSceneBackend` already refuses on mismatch.
 
 Q chose option 2 on 2026-08-10. It costs one string and keeps F3's guarantee intact.
+
+### F11: the fork runs without numpy
+
+Decided and implemented 2026-08-10, once F10 made the two backends interchangeable.
+`disable_numpy_random` now defaults to `true`, so `engine/lib/random.py` never imports numpy on a
+normal run.
+
+**What it costs.** Measured per call through the `Random.*` wrappers, on lists of card objects
+because that is what a deck is:
+
+| operation | numpy | bundled | ratio |
+| --- | --- | --- | --- |
+| shuffle 52 objects | 1.19 µs | 41.11 µs | 34.5× slower |
+| shuffle 30 objects | 0.95 µs | 22.93 µs | 24.0× slower |
+| `RandomChoice2`, 6 of 52 | 6.04 µs | 42.12 µs | 7.0× slower |
+| `RandomChoice` of 52 | 5.36 µs | 1.22 µs | **4.4× faster** |
+
+The last row is F2 seen from the other side: `numpy.random.choice` rebuilds an object array from
+the Python list on every call, so numpy loses the moment it is not handed an array.
+
+**Why the slowdown does not matter.** The engine barely draws. ✓ VERIFIED by counting
+`Random.counter` through a real `GameSetup`: 2 draws solo, 4 at two players, 6 at four. Shuffling
+is a per-deck event, not a per-decision one. Even at a pessimistic 500 shuffles across a long
+four-player game the bundled path costs about 20 ms more in total. Game setup wall time is
+identical on both backends once caches are warm, 46 ms against 47 ms, and the first-run figure of
+214 ms that looked like a backend difference was cache warmth, confirmed by alternating them.
+
+**What it buys.** No 10 MB dependency, and it closes the half of F3 that was still open: the numpy
+path uses numpy's *process-global* state, so any other code touching `numpy.random` perturbs
+replay. The bundled generator cannot be reached that way.
+
+✓ VERIFIED end to end with numpy made unimportable by a `sys.meta_path` blocker: a full game sets
+up, `numpy` never enters `sys.modules`, and the opening hand is identical to the numpy-backed one
+at the same seed.
+
+numpy stays in `requirements.txt`. `unit_test/test_rng_numpy_parity.py` compares against it on
+every run, which is exactly what would catch the bundled generator drifting. It is a test
+dependency now rather than a runtime one.
+
+**The flip needed a fix first, and this is the part worth remembering.** `Random.Undo` had a bare
+`pass` on the bundled branch, and `PushState` was only called inside the numpy branches. Switching
+the default would have turned the `Unshuffle` cheat at `cheat_cmd_helper.py:390` into a silent
+no-op. Not a crash, not an error, just a debug command that stopped doing anything. The bundled
+generator now has `GetState`/`SetState`, `PushState` records for either backend behind the same
+`enable_random_undo` flag, and each snapshot is tagged with the backend that produced it so
+restoring one into the other asserts instead of corrupting the generator.
 
 ### F4: `World.LoadFromJson` is dead and non-functional
 
@@ -1272,6 +1320,7 @@ regression net that does not itself depend on replay.
 | 2026-08-09 | Q decided: **stay on Python.** E1 accepted in principle; G1 still worth running to size B1. |
 | 2026-08-09 | Added section F (design audit, F1–F8, RNG leak measured, dead code, puzzle-save corruption, bypassable blocklist verified by execution) and section H (PVP feasibility, revises B3 downward, multi-board isolation already exists and ships in the Kang scenario). |
 | 2026-08-09 | Added section 0 (upstream status): maintainer is active, license/contribution/test-corpus questions already answered publicly, prior work by kmelkon logged. Added A9 (kmelkon's `SaveCrash` fix never landed). Posted issue #4 upstream (U1). G3 **rejected**, corpus cannot be shared. G1 unblocked. |
+| 2026-08-10 | **F11: the fork now runs without numpy.** `disable_numpy_random` defaults to true. Benchmarked first, since U8 had already advised irefrixs to do this without checking the cost: the bundled shuffle is 34.5× slower per call but a whole game makes a handful of draws (2 at solo setup, 6 at four players), so the real cost is roughly 20 ms across a long game, and `RandomChoice` is 4.4× *faster* because numpy rebuilds an object array per call. Verified by making numpy unimportable and setting up a full game. Flipping first required giving the bundled backend undo support: `Random.Undo` had a bare `pass` there, so the switch would have silently broken the `Unshuffle` cheat. Closes F2, and the half of F3 about numpy's process-global state. |
 | 2026-08-10 | **F10 implemented.** The bundled generator now reproduces numpy operation for operation: masked rejection instead of float scaling, Fisher-Yates instead of `10n` swaps, and `replace=False` as a truncated full shuffle. Stamp versioned to `mt19937-v2` with the old value refused by name, and `CheckSceneBackend` re-framed from "does the backend match" to "can this build reproduce that sequence". 11 new tests including an end-to-end check that both backends deal the same opening hand at seed 42. Every local scene is stamped `numpy` so nothing on disk is invalidated. F3's premise test inverted as a consequence. Not yet cut as a `pr/` branch: it depends on F3's stamp, so it cannot sit directly on `upstream/master` the way the others do. |
 | 2026-08-10 | Upstream replied to both issues. Project declared **sunset**, no features or PRs, urgent bugfixes case-by-case, which supersedes the earlier "happy to accept your PR." F1 state-capture cleanup explicitly invited. I7 declined on design grounds, now fork-only. F3 reframed: numpy is canonical, the bundled backend was meant to reproduce it and never did. Audited the `mt19937.py` he recommended (`mggarofalo` fork) with `tools/rng_parity_check.py`: numpy-exact for seeding, raw stream, shuffle and choice, diverges only in `ChooseWithoutReplacement` because numpy truncates a full permutation. The control run also showed **our** bundled MT19937 core is byte-exact with numpy and only its `randint`/`shuffle` layer diverges, so F3 can be closed by fixing ~40 lines of ours instead of vendoring a third-party file, tracked as **F10**. U6 unblocked, U8 proposed, U2 recommended for indefinite hold. |
 | 2026-08-09 | Added section I (testing): harness verified working-but-empty; documented the circularity, the tests are replays, replays are version-pinned, and replay determinism is the very property F3 shows is broken. I2 (replay-independent unit-test layer) identified as the highest-value engineering work in this document. |
