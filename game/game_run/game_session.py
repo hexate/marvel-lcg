@@ -67,6 +67,9 @@ class GameSession:
 
         player_num = len(scene.players)
 
+        # Read before ResetStartState clears it.
+        is_new_game = state.start_state.is_new
+
         controller_manager.Setup(player_num, max_timeout, scene, state.start_state)
         state.ResetStartState()
 
@@ -82,7 +85,7 @@ class GameSession:
         # Stamp only a game being created now. A loaded scene with no recorded backend predates
         # the field, and guessing its generator here would bake a possibly false claim into the
         # next save.
-        if state.start_state.is_new and scene.rng == "":
+        if is_new_game and scene.rng == "":
             scene.SetMetadataStr("rng", Random.BackendName())
 
         from_undo = state.exit_state.is_undo_exit
