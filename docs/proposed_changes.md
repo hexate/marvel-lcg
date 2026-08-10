@@ -314,7 +314,7 @@ no grep-only claims.
 | --- | --- | --- | --- | --- |
 | F1 | RNG state capture costs 34× and leaks unboundedly | `engine/lib/random.py:49,68,78` | **High** | PROPOSED |
 | F2 | `numpy.random.choice` on object lists is 39× slower than stdlib | `engine/lib/random.py:45-70` | Medium | PROPOSED |
-| F3 | Two RNG backends produce different sequences → replay incompatibility | `engine/lib/random.py` | **High** | PROPOSED |
+| F3 | Two RNG backends produce different sequences → replay incompatibility | `engine/lib/random.py` | **High** | **DONE** — `pr/rng-backend-determinism` |
 | F4 | `World.LoadFromJson` is dead *and* cannot execute | `game/world/world.py:121-144` | Medium | PROPOSED |
 | F5 | Saving a puzzle mutates the live replay log; second save raises | `game/scene/scene.py:113-117` | **High** | PROPOSED |
 | F6 | Debug-console safety check is a bypassable blocklist | `engine/security/command_validation.py` | **High** | PROPOSED |
@@ -362,9 +362,31 @@ faithfully replayed under the other — it will silently diverge into a differen
 Compounding: the numpy path uses numpy's **process-global** RNG. Any other code touching
 `numpy.random` breaks replay determinism.
 
-**Proposed fix:** commit to one backend, record it in the scene metadata, and refuse to replay a
-scene recorded under a different one. Prefer the bundled MT19937 — it is self-contained and not
-process-global. This is a prerequisite for trusting saves at all.
+**Fixed** on `pr/rng-backend-determinism`, 3 commits, 151 insertions.
+
+Scenes now carry an `rng` metadata field. `GameSetup` stamps it on a game being created and calls
+`Random.CheckSceneBackend` before seeding a recorded one, asserting on a mismatch with a message
+naming the flag value needed to load the file. Verified end to end against a real game:
+
+| Case | Result |
+| --- | --- |
+| new game | `scene.rng == 'numpy'`, stamped at setup |
+| scene claiming the other backend | `AssertionError`, refused |
+| scene with no recorded backend | loads, stays unstamped |
+
+Legacy scenes deliberately keep loading. There is no way to know which generator produced them,
+and guessing would bake a false claim into the next save, so they carry the same risk as before.
+
+Two implementation traps worth remembering. `GameSetup` calls `state.ResetStartState()` early, so
+`start_state.is_new` has to be read before that line or it is always false. And keying the stamp
+on `seed == -1` is wrong, because a new game started with an explicit seed takes the other branch
+and never gets recorded.
+
+Seven tests in `unit_test/test_rng_backend.py`, including one pinning the premise that the two
+backends actually disagree, so the guard cannot quietly become pointless.
+
+Still open, tracked separately: nothing forces a choice between the two backends, and the numpy
+path remains process-global. This change makes divergence loud rather than eliminating it.
 
 ### F4 — `World.LoadFromJson` is dead and non-functional
 
