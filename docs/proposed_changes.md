@@ -933,7 +933,7 @@ web auth, save integrity. Ordered by how much they matter.
 | J6 | 519 `assert`s enforce game rules; `python -O` deletes them | engine-wide | Low, latent | PROPOSED |
 | J7 | Mutable default arguments (10 sites) | various | Low, latent | PROPOSED |
 | J8 | **Clicking Cancel on the End Phase prompt raises.** Reproduced in a real browser game. | `engine/controller/controller.py:274` | Medium, user-reachable | PROPOSED |
-| J9 | **`-no_<flag>` on the command line is silently ignored for any already-declared variable.** `ParseArguments` writes the stripped name into `instance_command` but then calls `InitVariable(key)` with the `no_` prefix still attached, so the lookup misses `variable_dict` and nothing re-reads the value. The positive form works, because there the key matches. ✓ VERIFIED: `-no_disable_numpy_random` left the flag at its default, which is how the F10 tests nearly measured the wrong backend. Two-line fix, strip before the lookup | `engine/config.py:153-163` | Medium, silent | PROPOSED |
+| J9 | **DONE.** `-no_<flag>` on the command line was silently ignored for any already-declared variable. `ParseArguments` writes the stripped name into `instance_command` but then calls `InitVariable(key)` with the `no_` prefix still attached, so the lookup misses `variable_dict` and nothing re-reads the value. The positive form works, because there the key matches. ✓ VERIFIED: `-no_disable_numpy_random` left the flag at its default, which is how the F10 tests nearly measured the wrong backend. Two-line fix, strip before the lookup | `engine/config.py:153-163` | Medium, silent | **DONE**, two tests, one per form |
 
 ### J8: Cancel on a multi-option forced prompt asserts
 
@@ -1245,7 +1245,7 @@ So the infrastructure is sound; it finds zero cases and then dies on a bare asse
 
 | ID | Item | Status |
 | --- | --- | --- |
-| I1 | Empty corpus fails with a bare `AssertionError` at `unit_test/entry.py:48` instead of reporting "no test cases found". Trivial fix, saves the next person an hour. | PROPOSED |
+| I1 | Empty corpus fails with a bare `AssertionError` at `unit_test/entry.py:48` instead of reporting "no test cases found". Trivial fix, saves the next person an hour. | **DONE**, fails at the check with the folder named and how to fill it |
 
 ### Why this is worse than a missing-fixtures problem
 
@@ -1288,7 +1288,7 @@ version."*
 | --- | --- | --- | --- |
 | I2 | **Build a unit-test layer that does not go through replay.** Construct a `World` directly, drive it with the existing debug commands (`gain`, `play`, `can`, `cannot`, documented in `public/js/marvel/debug/debug.ts`), assert on state. Independent of replay determinism, and survives behavior changes. | Breaks the circularity. Prerequisite for touching B2 or H5 safely. | **DONE**, `pr/test-harness`; see the I2 progress log below |
 | I3 | **Author a small replay corpus ourselves.** Play a few games; scenes auto-save to `./replays/`. Version-stamp them and accept they need regeneration on behavioral change. | Enough for G1 profiling and coarse smoke tests. Cheap. Do this first. | **STARTED**, three scenes recorded, one of them not usable as a fixture. See below |
-| I4 | Commit `launch-debug.json.example` and `.gitkeep` files for `replays/min_test/` and `replays/profiles/`, plus a short note in the docs. | Every newcomer hits the same wall; kmelkon and we both did. Good upstream contribution. | PROPOSED |
+| I4 | Commit `launch-debug.json.example` and `.gitkeep` files for `replays/min_test/` and `replays/profiles/`, plus a short note in the docs. | Every newcomer hits the same wall; kmelkon and we both did. Good upstream contribution. | **DONE**, with one deviation: no `.example` file, since it would duplicate `launch.json` byte for byte and drift. The guide documents the `cp` instead |
 
 **Sequence:** I3 (unblocks G1 today) → I1 + I4 (trivial, contributable) → I2 (the real fix, and a
 prerequisite for B2).
