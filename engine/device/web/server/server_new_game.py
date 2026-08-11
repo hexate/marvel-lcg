@@ -55,6 +55,26 @@ class GameServerNewGame(GameServerBase):
         self.device_manager.AddSize("Save", len(compressed_data))
         return web.Response(body=compressed_data, content_type='application/json', headers={'Content-Encoding': 'gzip'})
 
+    def save_local(self, request: web.Request) -> web.Response:
+        """Write the current scene to the replays folder, for the game over "Save replay" button.
+
+        `delete_old=False` matches the `/save` debug command: this is a save the player asked for,
+        so it should not archive whatever file the scene was loaded from. The automatic save at
+        game over passes True because it owns that file.
+
+        The client prints the body as the path it saved to, so a failure has to come back as an
+        error status. Returning friendly text on failure reads as success (`command.ts`).
+        """
+        session = self.game.session
+        if not session.scene:
+            # SaveScene asserts on a missing scene. Reachable before the first game starts.
+            return web.Response(text="Save failed, there is no game to save", status=409)
+
+        file_name = session.SaveScene(delete_old=False)
+        if not file_name:
+            return web.Response(text="Save failed, the scene was not written", status=500)
+        return web.Response(text=file_name)
+
     def play_puzzle(self, puzzle: 'PuzzleData'):
         from game.scene.scene import Scene
 
@@ -157,6 +177,8 @@ class GameServerNewGame(GameServerBase):
         self.AddAwaitGetSecurity('/load_replay', self.load_replay)
         self.AddPostSecurity('/load_replay_data', self.load_replay_data)
         self.AddAwaitGetSecurity('/save_replay_data', self.save_replay_data)
+        # Non-await: SaveScene writes the file synchronously, so it runs off the event loop.
+        self.AddNonAwaitGetSecurity('/save_local', self.save_local)
         self.AddAwaitGetSecurity('/load_puzzle', self.load_puzzle)
         self.AddAwaitGetSecurity('/new_puzzle_replay', self.new_puzzle_replay)
         self.AddAwaitGetSecurity('/new_puzzle', self.new_puzzle)
