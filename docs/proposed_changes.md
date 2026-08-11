@@ -964,7 +964,64 @@ web auth, save integrity. Ordered by how much they matter.
 | J12 | **The image catch-all answered 200 for every path nothing else claimed.** `r'/{path:.+}'` is registered last and sent everything to `handle_image_request`, which returns `Cache.LoadImage`'s placeholder. `LoadImage` never fails, so a missing or misspelled route came back as a 254x352 grey JPEG with a 200 rather than an error. That is what hid J13 for an unknown length of time, and it would hide the next one. Fixed by having the game register every card id with the cache (`Cache.RegisterImageName`, called from `CardsDB.Initialize`, mirroring the existing `SetLinkPic` handoff so `engine/` still does not import `cards/`) and gating the route on `Cache.CanLoadImage`: a registered name, something already cached or on disk, or a card-id-shaped name that could still download. Everything else is 404. Cards we ship no art for keep the placeholder. The editor is unaffected, it has its own `handle_image` calling `LoadImage` directly | `engine/device/web/server/server_files.py:61`, `engine/file/cache.py:60` | Medium, masks other defects | **DONE**. ✓ VERIFIED: card art, backs, status and challenge cards serve unchanged; `2425_boss_rush` still degrades to the placeholder; unknown paths 404; New Game screen loads all 322 images; 76 tests pass |
 | J13 | **The game over "Save replay" button saved nothing and reported success.** `Command.saveLocal` fetches `save_local` (`public/js/marvel/command.ts:27`, wired to the button at `public/js/marvel/message.ts:27`) and nothing served that path, so it fell through J12 and got a placeholder JPEG with a 200. The client did not check the status, called `.text()` on the image, and showed "Your save file has been saved in: " followed by the JPEG bytes. ✓ VERIFIED by playing a real game: statistics were written at game over but no file existed in `replays/`, the repo root, or the browser's download folder. Auto-save was separately off, which is the default, so nothing else caught it. Fixed by adding the handler the client was always calling, saving through `session.SaveScene(delete_old=False)` to match the `/save` debug command, 409 when there is no scene rather than tripping the assert in `SaveScene`, and checking `response.ok` on the client | `engine/device/web/server/server_new_game.py:58` | Medium, silent data loss | **DONE**, commit `3adbad1` |
 | J14 | **`IsPortAvailable` binds without `SO_REUSEADDR`, so a restart fails while a browser still holds the port.** `s.bind((address, port))` with a default socket, and the caller asserts on the result (`engine/device/manager/web/manager.py:61`). A browser tab left open on the game keeps keep-alive connections whose orphaned server-side sockets pin port 2345 after the process dies, so relaunching within that window dies with `AssertionError: ip='127.0.0.1', port=2345` and no explanation. ✓ VERIFIED the hard way on 2026-08-10: four consecutive failed restarts, `netstat` showing no listener, a raw `bind()` in a separate process succeeding once the tab was navigated away. Initially misdiagnosed as the port being slow to release. Two parts worth fixing: set `SO_REUSEADDR` on the probe socket and on the real bind, and make the assert say what is holding the port | `engine/network/net_lib.py:53-68` | Low, developer-facing | PROPOSED |
+| J15 | **A failed art download becomes permanent, and hides a card that is changing the rules.** `LoadImage` ends at `ImageCreator.CreateNoImage` and then `Cache.SetCache(file_name, image_data)`, so the generated placeholder is cached in memory under the card's own name for the life of the process. Nothing retries, because the next call returns from `Cache.cache` at the top of the function. One 3-second timeout and that card stays blank for the whole session. Worse, `if SAVE_EMPTY_IMAGE.value and not is_time_out` writes the placeholder to disk as `{card_id}.jpg`: only `requests.exceptions.Timeout` sets `is_time_out`, so a CDN 404, a DNS failure or a reset connection all persist a fake JPEG that is byte-indistinguishable from real art, and `FindImageFile` then reports the card satisfied forever. ✓ VERIFIED: `assets/cache/90001.jpg` is byte-identical to the generated placeholder (`cdeafa0e…`, 2035 bytes) while `assets/pics/90001.jpg` holds the real 20 KB art, so the write branch has already fired here and only the folder search order hides it | `engine/file/cache.py:186-197` | Medium, user-reachable | PROPOSED |
+| J16 | **`DrawText` cannot draw text, so `show_image_text` is a no-op and every placeholder is a blank colour swatch.** The loop that appends to `lines` is commented out (it called `draw.textsize`, removed in Pillow 10), `current_line` is initialised to `""` and never reassigned, so `if current_line` is false, `lines` stays empty and the draw loop at the end never runs. `words` is computed and unused. Every caller gets an unmodified image back. `launch.json` ships `show_image_text: true`, so the intended behaviour is a card rendered as its name, type and text, which would make J15 self-explaining instead of a mystery | `engine/lib/image_creator.py:96-122` | Low alone, Medium with J15 | **DONE**. Ported the loop to `draw.textlength`, and kept source newlines as line breaks since card text carries them and `split()` on all whitespace lost them. ✓ VERIFIED: `01153` now renders its name, type and full text; 4 new tests, each confirmed to fail with the draw suppressed again; safe suite 80 tests |
 | J9 | **DONE.** `-no_<flag>` on the command line was silently ignored for any already-declared variable. `ParseArguments` writes the stripped name into `instance_command` but then calls `InitVariable(key)` with the `no_` prefix still attached, so the lookup misses `variable_dict` and nothing re-reads the value. The positive form works, because there the key matches. ✓ VERIFIED: `-no_disable_numpy_random` left the flag at its default, which is how the F10 tests nearly measured the wrong backend. Two-line fix, strip before the lookup | `engine/config.py:153-163` | Medium, silent | **DONE**, two tests, one per form |
+
+### J15/J16: a blank card that was silently changing the rules
+
+Found from play, 2026-08-11, in the same Spider-Man vs Rhino session that has been running since
+21:05 the previous evening. The report was two symptoms that sounded unrelated: allies were being
+discarded after attacking or thwarting, and Rhino had an attachment whose art would not render, so
+the card could not be identified.
+
+Most of the ally deaths are the rules. Allies take consequential damage after using a basic power,
+which the data encodes as the `*` count in the printed ATK/THW and `can_attack.py:48` /
+`can_thwart.py:23` parse back out. Core allies have 2 or 3 hit points, so two or three activations
+end them. The rest is the attachment: the only card in the core set that grants retaliate to the
+villain is `01153` Concussion Blasters from the Under Attack modular, ✓ VERIFIED as
+`GiveKeywordToAttached(Villain, retaliate=1)` in its script. Retaliate adds 1 damage to every ally
+that attacks, on top of the consequential damage, which is why attacking cost allies faster than
+thwarting did. ? INFERRED that this is the card in play, from elimination plus the art being absent
+from disk; the live scene was not inspected.
+
+The point for this document is what the two defects do together. `01151` from Under Attack has art
+cached but `01152`, `01153` and `01154` did not, and the Cerebro CDN serves all three fine on
+demand, ✓ VERIFIED at 200 and roughly 370 KB in 0.6s each. So the fetch failed once, at the moment
+the card first entered play. Because the file was not written to disk, ? INFERRED that it was the
+`Timeout` branch, the only one that skips the write. J15 then pinned the placeholder in memory for
+the remaining eleven hours of the session.
+
+J16 is what turned that from cosmetic into misleading. `CreateNoImage` resolves the render data
+correctly, ✓ VERIFIED by calling it directly: `01153` yields name `Concussion Blasters`, type
+`Attachment`. It hands that to `CreateImage`, which paints the aspect background and then calls
+`DrawText` three times, and `DrawText` returns without drawing. The output is a single-colour
+254x352 image, ✓ VERIFIED at exactly one distinct pixel value, `(135, 147, 159)`, which is
+`aspect_dict[""]`. Byte-identical for `01096`, `01152` and `01153`, which is the tell: three
+different names, one output.
+
+So the player was shown a blank rectangle for a card that had silently given the villain retaliate,
+and the fallback designed to name that card had been dead the whole time. Same shape as J12: a
+rendering path that cannot fail, and therefore cannot report.
+
+Worth fixing in this order:
+
+1. Stop persisting the placeholder. A generated image must never be written under the card's own
+   name, because nothing downstream can tell it from art. If a negative result is worth keeping,
+   keep it in a sidecar the loader knows to ignore.
+2. Separate "we ship no art for this" from "the fetch failed". The first deserves a cached
+   placeholder, which is what `2425_boss_rush` needs. The second deserves a retry.
+3. Retry within the session rather than caching the failure forever, and reconsider `timeout=3`
+   against 370 KB files.
+4. ~~Fix `DrawText` or delete `show_image_text`.~~ **DONE.** Shipping a config flag that does
+   nothing is worse than not having it, because it reads as a fallback that exists. Done first
+   because it is the part that makes every future instance of J15 diagnose itself: a card with no
+   art now says what it is, which is all that was needed here.
+5. Log a warning when a card renders as a placeholder. Nothing in the session said so.
+
+Worth noting for whoever takes 1 to 3: the placeholder still cannot render `→`, which the default
+font has no glyph for, so `resources → discard this card` comes out with a box in the middle. Legible
+enough to identify a card, and not worth a font dependency on its own.
 
 ### J8: Cancel on a multi-option forced prompt asserts
 
@@ -1594,3 +1651,4 @@ regression net that does not itself depend on replay.
 | 2026-08-10 | Upstream replied to both issues. Project declared **sunset**, no features or PRs, urgent bugfixes case-by-case, which supersedes the earlier "happy to accept your PR." F1 state-capture cleanup explicitly invited. I7 declined on design grounds, now fork-only. F3 reframed: numpy is canonical, the bundled backend was meant to reproduce it and never did. Audited the `mt19937.py` he recommended (`mggarofalo` fork) with `tools/rng_parity_check.py`: numpy-exact for seeding, raw stream, shuffle and choice, diverges only in `ChooseWithoutReplacement` because numpy truncates a full permutation. The control run also showed **our** bundled MT19937 core is byte-exact with numpy and only its `randint`/`shuffle` layer diverges, so F3 can be closed by fixing ~40 lines of ours instead of vendoring a third-party file, tracked as **F10**. U6 unblocked, U8 proposed, U2 recommended for indefinite hold. |
 | 2026-08-09 | Added section I (testing): harness verified working-but-empty; documented the circularity, the tests are replays, replays are version-pinned, and replay determinism is the very property F3 shows is broken. I2 (replay-independent unit-test layer) identified as the highest-value engineering work in this document. |
 | 2026-08-10 | **J13, J12, J14 added from a play session.** Playing a real game surfaced a save that silently did nothing: the game over "Save replay" button fetches a route the open-source server never registered. The reason nobody noticed is J12, the image catch-all, which answers every unclaimed path with a placeholder JPEG and a 200, so a missing route is indistinguishable from a card we lack art for. J13 is fixed and committed, J12 is fixed by registering card ids with the cache and 404ing anything else, and a sweep of every client `fetch` target found no other live endpoint without a route. J14 logs the `SO_REUSEADDR` restart papercut that cost four failed restarts during the same session. Separately, the missing itch.io `assets` folder was installed, which is what the grey scenario tiles and status cards were about; the published build ships challenge art only through `2424`, so `2425_boss_rush` has data but no art anywhere. |
+| 2026-08-11 | **J15 and J16 added from play.** A blank attachment on Rhino turned out to be Concussion Blasters, which had silently given the villain retaliate 1 and was the reason allies kept dying on attack. Two defects behind it: a failed art fetch is cached in memory under the card's name and never retried, and written to disk as a fake JPEG on any failure that is not a timeout, which is already true of `assets/cache/90001.jpg` here; and `DrawText` has had its line-accumulation loop commented out since the Pillow 10 `textsize` removal, so `show_image_text: true` produces a single-colour swatch rather than the card's name and text. The fallback that existed to identify an unrenderable card has never worked. J16 fixed the same day, since it is what makes any future J15 diagnose itself. J15 left PROPOSED: it is the retry and cache-poisoning design, and worth deciding rather than patching. Missing art for `01096`, `01152`, `01153` and `01154` fetched into `assets/cache/`; the running process keeps its cached placeholder until restarted. |
