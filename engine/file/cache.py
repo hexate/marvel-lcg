@@ -13,12 +13,31 @@ CACHE_FOLDER    = ConfigVariables.Folder('cache_folder', "./assets/cache/")
 IMAGE_SERVERS   = ConfigVariables.ListStr('image_servers', [])
 SAVE_EMPTY_IMAGE = ConfigVariables.Bool('save_empty_image', True)
 BREAK_WHEN_LOAD_ONLINE_IMAGE = ConfigVariables.Bool('break_when_load_online_image', False)
+# 3 seconds was the original, against card art that measures around 370 KB a file: a slow moment
+# was enough to lose one permanently, which is the J15 failure.
+IMAGE_DOWNLOAD_TIMEOUT = ConfigVariables.Int('image_download_timeout', 10)
+# How many times a transient fetch failure may be retried within one run before the card settles
+# for a placeholder. Per name, not global.
+IMAGE_DOWNLOAD_ATTEMPTS = ConfigVariables.Int('image_download_attempts', 3)
+# Consecutive transient failures across all names before this run stops asking at all. Retrying is
+# right for one card losing a race with a slow network and wrong for a network that is not there:
+# without a limit, a disconnected machine pays every attempt times every timeout times every card
+# before the New Game screen finishes drawing. Any success resets the count.
+IMAGE_DOWNLOAD_FAILURE_LIMIT = ConfigVariables.Int('image_download_failure_limit', 10)
+
+NO_ART_MARKER_EXT = "no_art"
 
 class Cache:
 
     cache: Dict[str, bytes] = {}
     link_pic: Dict[str, str] = {}
     known_names: Set[str] = set()
+    # The image route runs each request on a worker thread, so these are touched from several at
+    # once. A lost increment costs at most one extra retry, never a wrong image, which is why they
+    # are left unlocked like `cache` itself already is.
+    fetch_attempts: Dict[str, int] = {}
+    consecutive_fetch_failures: int = 0
+    downloads_given_up: bool = False
 
     @staticmethod
     def SetLinkPic(card_id: str, link_to_pic_id: str):
@@ -49,6 +68,31 @@ class Cache:
                 if FileManager.Exists(check_path):
                     return check_path
         return None
+
+    @staticmethod
+    def NoArtMarkerPath(name: str) -> str:
+        return FileManager.JoinPath(CACHE_FOLDER.value, f"{name}.{NO_ART_MARKER_EXT}")
+
+    @staticmethod
+    def HasNoArtMarker(name: str) -> bool:
+        return FileManager.Exists(Cache.NoArtMarkerPath(name))
+
+    @staticmethod
+    def WriteNoArtMarker(name: str, reason: str) -> None:
+        """Record that every configured image server was asked for this name and none had the art.
+
+        This replaces writing the generated placeholder to `{name}.jpg`, which is what the older
+        code did and what poisoned `assets/cache/90001.jpg`. A fake JPEG under the card's own name
+        cannot be told from real art by anything downstream, not `LoadImage`, not `FindImageFile`,
+        not `CanLoadImage`, so the card stayed grey in every later run and the only cure was
+        knowing to go and delete the file. A marker is skipped by all three, because they only look
+        for `.webp`, `.jpg` and `.png`, and it says why it exists when someone finds it.
+        """
+        file_path = Cache.NoArtMarkerPath(name)
+        FileManager.MakeDir(FileManager.GetDirName(file_path))
+        with FileManager.OpenFile(file_path, write=True, bin=True) as file:
+            file.Write(f"No art for {name}: {reason}\n"
+                       f"Delete this file to make the game ask for it again.\n".encode())
 
     @staticmethod
     def IsCardId(s: str) -> bool:
@@ -134,8 +178,17 @@ class Cache:
             with FileManager.OpenFile(file_path, write=True, bin=True) as file:
                 file.Write(data)
 
-        is_time_out = True
-        if IMAGE_SERVERS.value and check_is_card_id(card_id):
+        # What may be remembered about a failure depends on which kind it was. A definitive answer,
+        # every configured server asked and none holding the art, is worth keeping so the next run
+        # does not ask again. A timeout or a dropped connection is not: J15 was one 3-second timeout
+        # blanking a card for the eleven remaining hours of a session, because the placeholder went
+        # into `Cache.cache` under the card's own name and nothing ever looked again.
+        attempted = False
+        transient = False
+
+        if IMAGE_SERVERS.value and check_is_card_id(card_id) \
+        and not Cache.downloads_given_up and not Cache.HasNoArtMarker(file_name):
+            attempted = True
             # Load the image from the internet
             skip_break = not BREAK_WHEN_LOAD_ONLINE_IMAGE.value
             if not skip_break:
@@ -149,8 +202,6 @@ class Cache:
             # "https://marvelcdb.com/bundles/cards/${card_id}.jpg",
             # "https://marvelcdb.com/bundles/cards/${card_id}.png",
 
-            is_time_out = False
-
             for site in IMAGE_SERVERS.value:
                 full_url = site
                 full_url = full_url.replace('{card_id}', card_id)
@@ -159,7 +210,8 @@ class Cache:
                 try:
                     Log.DebugInfo(CATEGORY_NAME, f"Downloading from {full_url}")
 
-                    response = requests.get(full_url, headers=headers, timeout=3)
+                    response = requests.get(full_url, headers=headers,
+                                            timeout=IMAGE_DOWNLOAD_TIMEOUT.value)
                     response.raise_for_status()
 
                     content_type = response.headers.get('Content-Type')
@@ -182,17 +234,56 @@ class Cache:
                     # Get the image data from the response
                     image_data = try_load_image_data(data)
                     Cache.SetCache(file_name, image_data)
+                    Cache.consecutive_fetch_failures = 0
                     return image_data
                 except requests.exceptions.Timeout:
                     Log.Warn(CATEGORY_NAME, f"Timeout occurred while downloading {file_name}")
-                    is_time_out = True
+                    transient = True
+                except requests.exceptions.HTTPError as e:
+                    # A status is an answer. 5xx, 408 and 429 mean ask again later; anything else is
+                    # the server saying it does not have this card, which is worth remembering.
+                    status = e.response.status_code if e.response is not None else None
+                    if status is None or status >= 500 or status in (408, 429):
+                        transient = True
+                    Log.Warn(CATEGORY_NAME, f"{file_name}: HTTP {status} from {full_url}")
                 except requests.exceptions.RequestException as e:
+                    # No status, so no answer: DNS, refused, reset, TLS. Retryable.
                     Log.Warn(CATEGORY_NAME, f"Request failed with error: {e}")
+                    transient = True
 
         # raise Exception(f"Failed to load {file_name} from the internet")
         image_data = ImageCreator.CreateNoImage(card_id)
-        if SAVE_EMPTY_IMAGE.value and not is_time_out:
-            save_to_file(file_name, "jpg", image_data)
+
+        if transient:
+            Cache.consecutive_fetch_failures += 1
+            if Cache.consecutive_fetch_failures >= IMAGE_DOWNLOAD_FAILURE_LIMIT.value:
+                Cache.downloads_given_up = True
+                Log.Warn(CATEGORY_NAME,
+                         f"{Cache.consecutive_fetch_failures} image downloads failed in a row, "
+                         f"not asking again this run. Cards with no local art will show a "
+                         f"placeholder. Restart once the network is back")
+
+            attempts = Cache.fetch_attempts.get(file_name, 0) + 1
+            Cache.fetch_attempts[file_name] = attempts
+            if attempts < IMAGE_DOWNLOAD_ATTEMPTS.value and not Cache.downloads_given_up:
+                # Deliberately not cached and not persisted, so the next request tries again. This
+                # is the whole of J15: a card must not be lost to one bad moment on the network.
+                Log.Warn(CATEGORY_NAME,
+                         f"No art for {file_name} yet, attempt {attempts} failed, will retry")
+                return image_data
+            Log.Warn(CATEGORY_NAME,
+                     f"Giving up on {file_name} after {attempts} failed attempts, showing a "
+                     f"placeholder for the rest of this run")
+        elif attempted and SAVE_EMPTY_IMAGE.value:
+            Cache.WriteNoArtMarker(file_name, "every configured image server was asked and none "
+                                              "had it")
+        else:
+            # Nothing was asked, either because there is no image server configured or because the
+            # name is not card-id-shaped, so a placeholder is the correct and final answer. Cards we
+            # ship no art for live here, `2425_boss_rush` among them, and warning about each one
+            # would bury the cases above.
+            Log.DebugInfo(CATEGORY_NAME, f"No art for {file_name}, showing a placeholder")
+
         Cache.SetCache(file_name, image_data)
         return image_data
 
