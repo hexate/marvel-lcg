@@ -18,9 +18,9 @@ jobs:
     name: python tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           # Only 3.13 for now, because that is the version the suite has actually been run on.
           # The install guide claims 3.10.5 and 3.14.2 also work; widening this matrix is worth
@@ -45,9 +45,9 @@ jobs:
         # contributors still have installed. The config has to keep working on both.
         typescript: ['5', '7']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
 
