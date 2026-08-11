@@ -524,10 +524,38 @@ own codebase and standards. Do not treat it as a scoped estimate for this fork.
 | ID | Item | Severity | Status |
 | --- | --- | --- | --- |
 | C1 | No pinned dependency versions, `requirements.txt` lists bare package names. A lockfile or version floors would make builds reproducible. | Medium | PROPOSED |
-| C2 | No CI. Repo has `unit_test/` and `game/test/` but nothing runs them automatically. | Medium | PROPOSED |
+| C2 | No CI. Repo has `unit_test/` and `game/test/` but nothing runs them automatically. | Medium | **DONE**, `.github/workflows/tests.yml`: 66 tests on push and PR, plus a client type check on TypeScript 5 and 7 |
 | C3 | Compiled JS is gitignored and must be built before first run; there is no build script wrapping the Python + TypeScript steps. | Low | PROPOSED |
 
 ---
+
+### C2 findings (2026-08-10): what CI can and cannot run here
+
+The suite runs on a clean checkout. ✓ VERIFIED by cloning the repository to a scratch directory,
+which therefore had no `assets/` (117 MB, gitignored and downloaded separately), no
+`launch-debug.json` and no recorded games, and running all 66 tests there. They pass, and the clone
+was left with no commits and no stray files.
+
+Two modules stay out, and both are traps for `unittest discover` rather than oversights:
+
+| Module | Why it is excluded |
+| --- | --- |
+| `test_task` | Not a test. Bumps `build.py`, runs `git commit`, writes a zip into the repo root (I8) |
+| `test_all` | Replays recorded games, which are player data and are not in the repository (I3) |
+
+`tools/run_tests.py` encodes that, prints what it skipped and why, and is what CI calls. It is also
+the local command, which is worth more than it sounds: this session repeatedly ran the suite by
+naming fourteen modules by hand, and one absent-minded `discover` is what produced the stray
+version-bump commits that had to be rebased out this morning.
+
+The workflow asks for `permissions: contents: read`. In a repository where a file under
+`unit_test/` makes git commits, a CI job with no write token is a second line of defence rather
+than a formality.
+
+Pinned to Python 3.13, the only version the suite has actually been run on. The install guide
+claims 3.10.5 and 3.14.2 work, and widening the matrix is worth doing once that is confirmed
+instead of assumed. The client type check runs on TypeScript 5 and 7, which pins the compatibility
+the A1 fix claims.
 
 ## D. Security
 

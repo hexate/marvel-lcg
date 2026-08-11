@@ -61,9 +61,19 @@ nothing further after its last recorded input, so record until the game ends. A 
 middle of a turn will replay to that point and then sit waiting for the next decision, which in a
 test means it fails with `EOFError` from `input()`.
 
+Most of the tests need none of that. To run everything that is self-contained:
+
+```
+py tools/run_tests.py
+```
+
+That works on a fresh clone with no assets, no `launch-debug.json` and no recorded games. Once you
+have put a scene in `replays/min_test/`, the replay suite runs too:
+
 ```
 py -m unittest unit_test.test_all.TestMain.test_min
 ```
 
-Note that `unit_test/test_task.py` is not a test. Running the whole `unit_test` folder will execute
-it, which bumps the version in `build.py` and makes a git commit.
+Do not run `py -m unittest discover unit_test`. It would also execute `unit_test/test_task.py`,
+which is not a test: it bumps the version in `build.py`, makes a git commit, and writes a zip into
+the repository root. `tools/run_tests.py` skips it for you and says so.
