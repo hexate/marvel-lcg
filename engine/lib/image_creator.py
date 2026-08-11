@@ -95,22 +95,23 @@ class ImageCreatorHelper:
 
     @staticmethod
     def DrawText(draw: ImageDraw.ImageDraw, text: str, position: Tuple[int, int], font: ImageFont.ImageFont|ImageFont.FreeTypeFont, max_width: int, fill: str='black', wrap: bool=False) -> None:
+        # The wrapping loop used to live here commented out, measuring with `draw.textsize`, which
+        # Pillow 10 removed. Commented out it left `lines` empty and `current_line` at "", so this
+        # drew nothing for any caller and `show_image_text` produced a blank colour swatch instead
+        # of a card. `textlength` is the replacement measurement. Source newlines are kept as line
+        # breaks, because card text carries them and the old `split()` on all whitespace lost them.
         lines: List[str] = []
-        filtered_text = text
-        words = filtered_text.split()
-        current_line = ""
-
-        # for word in words:
-        #     # Check if adding the next word would exceed the max width
-        #     test_line = f"{current_line} {word}".strip()
-        #     if draw.textsize(test_line, font=ImageCreatorHelper.font)[0] <= max_width:
-        #         current_line = test_line
-        #     else:
-        #         lines.append(current_line)
-        #         current_line = word
-
-        # Add the last line if there's any text left
-        if current_line:
+        for paragraph in text.split("\n"):
+            current_line = ""
+            for word in paragraph.split():
+                test_line = f"{current_line} {word}".strip()
+                # A single word wider than max_width still goes on its own line rather than
+                # producing an empty one; the image clips it.
+                if not current_line or draw.textlength(test_line, font=font) <= max_width:
+                    current_line = test_line
+                else:
+                    lines.append(current_line)
+                    current_line = word
             lines.append(current_line)
 
         # Adjust the starting position to center the text vertically
