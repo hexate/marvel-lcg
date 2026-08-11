@@ -28,6 +28,12 @@ export class Command {
         const text = await response_block_thread.text();
         // const text = "A"
         // prompt(`Your save file has been saved in:`, text)
+        // Unrouted paths fall through to the image handler, which answers 200 with a JPEG. Without
+        // this check a save that never happened reports the image bytes as its file path.
+        if (!response_block_thread.ok) {
+            Notify.showCommand(`Save failed: ${text}`)
+            return
+        }
         Notify.showCommand(`Your save file has been saved in: ${text}`)
     }
 
