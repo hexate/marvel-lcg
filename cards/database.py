@@ -79,6 +79,12 @@ class CardsDB:
                                 CardsDB.ability_link_cards[card_id] = ability_link_id
 
 
+        # Tell the cache every name the game can ask for an image of. Cards whose art we do not
+        # ship still get their placeholder; anything not registered here is not a card, and the
+        # image route answers 404 instead of a grey card.
+        for card_id in CardsDB.papers:
+            Cache.RegisterImageName(card_id)
+
         for card_id in CardsDB.papers:
             paper = CardsDB.papers[card_id]
             if 'Linked' not in paper.desc:

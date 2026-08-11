@@ -32,6 +32,14 @@ class GameServerFiles(GameServerBase):
         file_path = request.path
         file_path = file_path.split("/")[-1]
 
+        # This is the last route registered, so it sees every path nothing else claimed. Serving a
+        # placeholder for all of them means a missing or misspelled route answers 200 with a grey
+        # card instead of failing: that is how `save_local` went unnoticed, the client read the
+        # JPEG bytes as its save path and reported success. Cards we have no art for still get the
+        # placeholder, because the game registered their names.
+        if not Cache.CanLoadImage(file_path):
+            return web.Response(text=f"No image named {file_path}", status=404)
+
         image_bytes = Cache.LoadImage(file_path)
         image_size = len(image_bytes)
 

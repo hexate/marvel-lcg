@@ -18,10 +18,59 @@ class Cache:
 
     cache: Dict[str, bytes] = {}
     link_pic: Dict[str, str] = {}
+    known_names: Set[str] = set()
 
     @staticmethod
     def SetLinkPic(card_id: str, link_to_pic_id: str):
         Cache.link_pic[card_id] = link_to_pic_id
+
+    @staticmethod
+    def RegisterImageName(card_id: str):
+        """Declare a name the game may ask for, whether or not we hold art for it.
+
+        `LoadImage` answers every name with a placeholder, so on its own it cannot tell a card we
+        have no art for from a path that means nothing. The game layer registers the names it knows
+        about, the same way it already hands over `SetLinkPic`, and `CanLoadImage` uses that to keep
+        the first case working while the second becomes a 404.
+        """
+        Cache.known_names.add(card_id)
+
+    @staticmethod
+    def FindImageFile(name: str) -> str|None:
+        """The path this name would load from, or None if nothing on disk matches.
+
+        Mirrors the folders and extensions `LoadImage` searches, in the same order. Kept separate
+        rather than shared because `LoadImage` also decodes, and this only needs to know whether a
+        candidate exists. Change one and change the other.
+        """
+        for cache_folder in IMAGE_FOLDERS.value + [TEXTURE_FOLDER.value] + [CACHE_FOLDER.value]:
+            for ext_name in [".webp", ".jpg", ".png"]:
+                check_path = f"{cache_folder}/{name}{ext_name}"
+                if FileManager.Exists(check_path):
+                    return check_path
+        return None
+
+    @staticmethod
+    def IsCardId(s: str) -> bool:
+        # Pattern to match: five digits followed by an optional lowercase letter
+        import re
+        return re.match(r'^\d{5}[a-z]?$', s) is not None
+
+    @staticmethod
+    def CanLoadImage(card_id: str) -> bool:
+        """Is this a name we could serve an image for, or is it just an unknown path?
+
+        Callers that route by path need this because `LoadImage` never fails: it returns a
+        placeholder for anything, which turns a missing route into a 200 and a grey card.
+        """
+        card_id = card_id.lstrip("/")
+        if not card_id:
+            return False
+        return (card_id in Cache.cache
+                or card_id in Cache.known_names
+                or card_id in Cache.link_pic
+                or Cache.IsCardId(card_id)
+                or Cache.FindImageFile(card_id) is not None)
 
     @staticmethod
     def SetCache(card_id: str, data: bytes):
