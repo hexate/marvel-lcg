@@ -37,7 +37,27 @@ class Engine:
     in_unit_test = False
 
     @staticmethod
+    def CheckAssertionsEnabled(assertions_enabled: bool = __debug__) -> None:
+        """Refuse to run with assertions stripped.
+
+        Around 619 `assert` statements across core/, engine/, game/ and cards/ carry the game
+        rules, not merely internal invariants: legal targets, timing windows, resource costs.
+        `python -O` deletes all of them, and the result is not a game that crashes but a game that
+        walks past illegal plays without noticing. Refusing to start is the honest response.
+
+        The parameter exists so this is testable; nothing should pass it in production.
+        """
+        if assertions_enabled:
+            return
+        raise RuntimeError(
+            "Started with assertions disabled (python -O). The rules of the game are enforced by "
+            "assert statements, and -O removes every one of them, so this build would allow "
+            "illegal plays instead of stopping on them. Run without -O."
+        )
+
+    @staticmethod
     def Initialize() -> bool:
+        Engine.CheckAssertionsEnabled()
         Ver.Initialize()
         game_name = f'Marvel LCG {Ver.ui_version_str}'
         System.SetTitle(game_name)

@@ -6,6 +6,13 @@ from build import Build
 
 CATEGORY_NAME = "JSON"
 
+class ChecksumError(Exception):
+    """A file's contents do not match the checksum recorded inside it.
+
+    Raised only for `check_sum="Restrict"`, and only for a real mismatch. A file with no checksum
+    at all, or one written before checksums existed, has nothing to contradict and is not an error.
+    """
+
 class Json:
 
     CHECKSUM_RESULT = Literal["Ok", "Mismatch", "Version Error", "Not Found"]
@@ -176,11 +183,33 @@ class Json:
         return obj, checksum
 
     @staticmethod
-    def Load(filename: str, *, check_sum: CHECKSUM_TYPE="Ignore") -> Dict[str, Any]:
+    def CheckLoadedChecksum(filename: str, checksum: 'Json.CHECKSUM_RESULT',
+                            check_sum: 'Json.CHECKSUM_TYPE') -> None:
+        """Act on a checksum result, according to what the caller asked for.
+
+        "Restrict" used to behave exactly like "Warn": both notified and then handed the object
+        back, so nothing ever refused to load a file. It now refuses a genuine mismatch.
+
+        Only a mismatch. "Not Found" and "Version Error" mean the file carries no checksum to
+        contradict, which is true of anything written before checksums existed, and refusing those
+        would reject files that are merely old rather than damaged.
+        """
+        if check_sum == "Ignore" or checksum == "Ok":
+            return
+
+        if checksum == "Mismatch" and check_sum == "Restrict":
+            raise ChecksumError(
+                f"Checksum mismatch in file {filename}. Its contents do not match the checksum "
+                f"stored inside it, so it is corrupted or was edited after saving."
+            )
+
         from engine.log import Notify
+        Notify.Error(f"Checksum error in file {filename}")
+
+    @staticmethod
+    def Load(filename: str, *, check_sum: CHECKSUM_TYPE="Ignore") -> Dict[str, Any]:
         obj, checksum = Json.LoadInternal(filename)
-        if checksum != "Ok" and check_sum != "Ignore":
-            Notify.Error(f"Checksum error in file {filename}")
+        Json.CheckLoadedChecksum(filename, checksum, check_sum)
         return obj
 
     @staticmethod
@@ -191,10 +220,8 @@ class Json:
 
     @staticmethod
     def LoadAs(filename: str, class_name: Type[T], *, check_sum: CHECKSUM_TYPE="Ignore") -> T:
-        from engine.log import Notify
         obj, checksum = Json.LoadAsInternal(filename, class_name, check_sum=check_sum)
-        if checksum != "Ok" and check_sum != "Ignore":
-            Notify.Error(f"Checksum error in file {filename}")
+        Json.CheckLoadedChecksum(filename, checksum, check_sum)
         return obj
 
     @staticmethod

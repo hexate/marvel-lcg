@@ -955,10 +955,10 @@ web auth, save integrity. Ordered by how much they matter.
 | J1 | Bare `except:` can silently drop a card ability | `game/card/face/effect/face_effect.py:55` | Medium (see measurement) | **DONE**, `pr/narrow-effect-filter-except` |
 | J2 | `/authenticate` issues a cookie without checking the password, and 500s on a malformed body. **Not a bypass**, ✓ VERIFIED: the check happens later in `IsAuthenticate` and a wrong guess is refused | `engine/network/web_server.py:254` | Medium | **DONE**: verifies, 401/400, constant-time compare, warns when serving off-machine with no password |
 | F6c | `IsAuthenticate` returns `True` for every caller when no password is configured, which is the shipped default, so every `*Security` route is open to anyone who can reach the port. The real exposure behind J2 | `engine/network/web_server.py:81` | **High** | PROPOSED, needs a decision: failing closed breaks multiplayer for anyone who never set a password |
-| J3 | Save checksums default to ignored, and load proceeds on mismatch | `engine/lib/json.py:179` | Medium | PROPOSED |
+| J3 | Save checksums default to ignored, and load proceeds on mismatch | `engine/lib/json.py:179` | Medium | **DONE** for the bug: `"Restrict"` now refuses a mismatch. Whether scenes should move from `"Warn"` to `"Restrict"` is a decision, see below |
 | J4 | `JobManager.Simultaneous` is a sequential loop | `engine/job/manager.py:76` | Medium | PROPOSED |
 | J5 | `RemoveJob` check-then-act race from worker threads | `engine/job/manager.py:43` | Low | PROPOSED |
-| J6 | 519 `assert`s enforce game rules; `python -O` deletes them | engine-wide | Low, latent | PROPOSED |
+| J6 | 619 `assert`s enforce game rules; `python -O` deletes them | engine-wide | Low, latent | **DONE**, `Engine.Initialize` refuses to start with assertions disabled |
 | J7 | Mutable default arguments (10 sites) | various | Low, latent | PROPOSED |
 | J8 | **Clicking Cancel on the End Phase prompt raises.** Reproduced in a real browser game. | `engine/controller/controller.py:295` | Medium, user-reachable | **DONE**, the rule is now `Controller.CanDecline` and a client that breaks it is refused rather than crashing |
 | J9 | **DONE.** `-no_<flag>` on the command line was silently ignored for any already-declared variable. `ParseArguments` writes the stripped name into `instance_command` but then calls `InitVariable(key)` with the `no_` prefix still attached, so the lookup misses `variable_dict` and nothing re-reads the value. The positive form works, because there the key matches. ✓ VERIFIED: `-no_disable_numpy_random` left the flag at its default, which is how the F10 tests nearly measured the wrong backend. Two-line fix, strip before the lookup | `engine/config.py:153-163` | Medium, silent | **DONE**, two tests, one per form |
@@ -1116,6 +1116,27 @@ Untouched: unsalted MD5, plain HTTP, the one-year cookie that never rotates.
 Given that replays and puzzles are shared between players, "warn and load anyway" is the part
 worth revisiting.
 
+**Fixed 2026-08-10, the half that is a bug.** `"Restrict"` did not restrict: it and `"Warn"` ran
+the same code, notified, and returned the object. `game/statistics/game_statistics.py:66` asks for
+`"Restrict"`, wraps the call in `try/except` that sets `file_broken`, and `Save` then refuses to
+overwrite a broken file. The handling was written for a refusal that never arrived. A mismatch
+under `"Restrict"` now raises `ChecksumError`, and both `Load` and `LoadAs` go through one place so
+they cannot drift apart.
+
+Only a genuine mismatch. `"Not Found"` and `"Version Error"` mean the file carries no checksum to
+contradict, which is true of anything written before checksums existed or with the default
+`ignore_check_sum=True`, and refusing those would reject files that are old rather than damaged.
+Six tests, including that carve-out.
+
+**Still a decision, not done.** Scenes and puzzles still load with `"Warn"`
+(`game/scene/loader.py:32`, `server_new_game.py:121`). Moving them to `"Restrict"` would refuse to
+open a save whose checksum has drifted, which is right for a file arriving from another player and
+harsh for a player's own library if anything ever wrote a stale checksum. That is a call about
+other people's files, so it is left open deliberately.
+
+Unchanged and still true: the hash is unkeyed, so it detects corruption and not modification.
+Anyone editing a replay can recompute it. That is a design limit rather than a defect.
+
 ### J4: `Simultaneous` runs sequentially
 
 ```python
@@ -1135,10 +1156,20 @@ Rename, or add a comment saying the serialism is deliberate.
 
 ### J6: the rules engine is enforced by `assert`
 
-519 `assert` statements across `core/`, `engine/`, and `game/`, many of them validating game rules
-rather than checking internal invariants. Python's `-O` flag removes every one. Nothing in the
-repo currently sets it, so this is latent rather than live, but a PyInstaller spec or a packaging
-tweak is all it would take to ship a build whose rule checks are absent.
+619 `assert` statements across `core/`, `engine/`, `game/` and `cards/`, many of them validating
+game rules rather than checking internal invariants. Python's `-O` flag removes every one. Nothing
+in the repo currently sets it, so this is latent rather than live, but a PyInstaller spec or a
+packaging tweak is all it would take to ship a build whose rule checks are absent.
+
+**Fixed 2026-08-10 by refusing to run that way.** `Engine.Initialize` now calls
+`Engine.CheckAssertionsEnabled`, which raises when `__debug__` is false, naming the flag and saying
+why. Converting 619 asserts into explicit checks is a different and much larger project; refusing
+to start costs four lines and removes the whole failure mode.
+
+The check cannot itself be an assert, for obvious reasons, and a unit test that passes the flag by
+hand only proves the branch works rather than that it is ever reached. So one of the four tests
+launches a real `python -O` subprocess and confirms it exits non-zero with the message. ✓ VERIFIED
+the same way by hand: `python -O` into `Engine.Initialize` refuses.
 
 ---
 
