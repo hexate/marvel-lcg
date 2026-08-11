@@ -1,7 +1,24 @@
-packaging
-Pillow
-requests
-aiohttp
-typing_extensions
-colorama
-numpy
+# Upper bounds only, at the next major of each package.
+#
+# The failure this prevents is the one that actually happens: a dependency ships a new major, and
+# an install or a CI run that touched no code goes red. aiohttp is the sharp end, since the web
+# server is built directly on its 3.x API across 11 files.
+#
+# No floors, deliberately. A floor is a claim that older versions work, and nothing here has been
+# tested against older ones. The install guide says Python 3.10 through 3.14, and pinning floors
+# picked from a 3.13 machine would quietly exclude the older interpreters upstream supports.
+#
+# Verified with, on Python 3.13.12:
+#   aiohttp 3.14.3, colorama 0.4.6, numpy 2.5.2, packaging 26.3,
+#   pillow 12.3.0, requests 2.34.2, typing_extensions 4.16.0
+#
+# If CI ever fails on a dependency inside these bounds, that is the moment to add a lockfile for
+# CI to install from. Until then a second file to keep in sync costs more than it protects.
+
+packaging<27
+Pillow<13
+requests<3
+aiohttp<4
+typing_extensions<5
+colorama<0.5
+numpy<3

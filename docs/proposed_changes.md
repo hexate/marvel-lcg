@@ -523,7 +523,7 @@ own codebase and standards. Do not treat it as a scoped estimate for this fork.
 
 | ID | Item | Severity | Status |
 | --- | --- | --- | --- |
-| C1 | No pinned dependency versions, `requirements.txt` lists bare package names. A lockfile or version floors would make builds reproducible. | Medium | PROPOSED |
+| C1 | No pinned dependency versions, `requirements.txt` lists bare package names. A lockfile or version floors would make builds reproducible. | Medium | **DONE**, upper bounds at the next major of each, verified by installing into a clean venv. Floors deliberately omitted, see below |
 | C2 | No CI. Repo has `unit_test/` and `game/test/` but nothing runs them automatically. | Medium | **DONE**, `.github/workflows/tests.yml`: 66 tests on push and PR, plus a client type check on TypeScript 5 and 7 |
 | C3 | Compiled JS is gitignored and must be built before first run; there is no build script wrapping the Python + TypeScript steps. | Low | PROPOSED |
 
@@ -565,8 +565,8 @@ maintains a module blocklist (`subprocess`, `webbrowser`, `win32api`, …).
 
 | ID | Item | Severity | Status |
 | --- | --- | --- | --- |
-| D1 | Assess whether `command_validation.py`'s blocklist approach is sound, or whether it is bypassable (blocklists usually are). This governs the safety of the whole custom-card ecosystem. | High | PROPOSED, needs audit |
-| D2 | A3 above (the `crashs\\dl` guard) is part of this surface, the downloaded-save safety break does not fire on POSIX. | Medium | PROPOSED |
+| D1 | Assess whether `command_validation.py`'s blocklist approach is sound, or whether it is bypassable (blocklists usually are). This governs the safety of the whole custom-card ecosystem. | High | **DONE**, the audit is F6: bypassable, one payload in eight blocked, and the endpoint it guards is network-facing. Gated in `pr/gate-debug-endpoint`, reported as issue #7. Card scripts remain fully trusted by design, as the README says |
+| D2 | A3 above (the `crashs\\dl` guard) is part of this surface, the downloaded-save safety break does not fire on POSIX. | Medium | **DONE**, same fix as A3: `IsUntrustedScenePath` normalises separators |
 
 ---
 
