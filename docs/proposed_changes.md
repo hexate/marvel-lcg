@@ -941,7 +941,7 @@ and the file name was most of why anyone believed otherwise.
 | --- | --- | --- |
 | F6a | Gate `/debug` on loopback or a real password | **DONE**, `pr/gate-debug-endpoint`, reported upstream as [issue #7](https://github.com/irefrixs/marvel-lcg/issues/7) (U10) |
 | F6b | Rename `command_validation.py` and its docstring so it stops implying a security control | PROPOSED |
-| F6c | The same no-password-means-authenticated hole applies to **every** route using `IsAuthenticate`, not just `/debug`. Tracked as J2, and it is worth more than its Medium rating | PROPOSED |
+| F6c | The same no-password-means-authenticated hole applies to **every** route using `IsAuthenticate`, not just `/debug` | **DECIDED 2026-08-10: do not fail closed.** Re-rated Medium. Fix is an auto-generated password on a non-loopback bind, deferred as a feature |
 
 ---
 
@@ -954,7 +954,7 @@ web auth, save integrity. Ordered by how much they matter.
 | --- | --- | --- | --- | --- |
 | J1 | Bare `except:` can silently drop a card ability | `game/card/face/effect/face_effect.py:55` | Medium (see measurement) | **DONE**, `pr/narrow-effect-filter-except` |
 | J2 | `/authenticate` issues a cookie without checking the password, and 500s on a malformed body. **Not a bypass**, ✓ VERIFIED: the check happens later in `IsAuthenticate` and a wrong guess is refused | `engine/network/web_server.py:254` | Medium | **DONE**: verifies, 401/400, constant-time compare, warns when serving off-machine with no password |
-| F6c | `IsAuthenticate` returns `True` for every caller when no password is configured, which is the shipped default, so every `*Security` route is open to anyone who can reach the port. The real exposure behind J2 | `engine/network/web_server.py:81` | **High** | PROPOSED, needs a decision: failing closed breaks multiplayer for anyone who never set a password |
+| F6c | `IsAuthenticate` returns `True` for every caller when no password is configured, which is the shipped default, so every `*Security` route is open to anyone who can reach the port. The real exposure behind J2 | `engine/network/web_server.py:81` | Medium, was High | **DECIDED**, not failing closed. See the F6 section for the reasoning and the auto-generated-password design that replaces it |
 | J3 | Save checksums default to ignored, and load proceeds on mismatch | `engine/lib/json.py:179` | Medium | **DONE** for the bug: `"Restrict"` now refuses a mismatch. Whether scenes should move from `"Warn"` to `"Restrict"` is a decision, see below |
 | J4 | `JobManager.Simultaneous` is a sequential loop | `engine/job/manager.py:76` | Medium | PROPOSED |
 | J5 | `RemoveJob` check-then-act race from worker threads | `engine/job/manager.py:43` | Low | PROPOSED |
@@ -1100,6 +1100,33 @@ is configured, which is the shipped default. That is the real exposure, it appli
 `*Security` route, and the fix is a decision rather than a patch, since refusing would break
 multiplayer for everyone who has not set a password. `/debug` is already gated separately because
 it reaches `exec`.
+
+**Decided 2026-08-10: do not fail closed. Re-rated from High to Medium.**
+
+What the risk is, after F6a. An unauthenticated stranger who can reach the port can no longer
+execute code. What remains is reading game state and submitting inputs through `/post`, so this is
+griefing and privacy rather than compromise, and it only exists once someone has deliberately
+exposed the port. That is a Medium.
+
+Why not fail closed. Refusing non-loopback requests without a password breaks the thing the game is
+for. The devlog tells people to play four-player with friends, nothing in the setup suggests a
+password is load-bearing, and the first symptom would be friends meeting a login page for a game
+that worked yesterday. People answer that by downgrading or by hunting for the setting that turns it
+off. A control the normal workflow has to defeat is not a control.
+
+What to build instead, when features are back on the table. If the server binds a non-loopback
+address and no password is configured, generate one and print it with the join URL in the startup
+output the host is already reading. Localhost keeps working with no password and no configuration,
+so solo play is untouched. Friends get a URL and a short password, which is the model Jupyter uses
+for exactly this problem. No change is needed below that: an auto-generated password simply fills
+`hash_password` and the existing cookie flow works.
+
+Regenerate it per run rather than persisting it. A stored secret in a config file people copy
+around is how these leak, and re-sharing costs a sentence.
+
+Deferred deliberately: it is a feature, not a hardening of existing behaviour, and it wants a small
+UI touch to be worth anything, since a password printed only to a console the host may not be
+watching is half a solution. Roughly an hour when the time comes.
 
 Untouched: unsalted MD5, plain HTTP, the one-year cookie that never rotates.
 
