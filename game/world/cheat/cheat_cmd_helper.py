@@ -408,6 +408,19 @@ def Sets(card_id: str):
 
 ################################################################################
 #
+def IsUntrustedScenePath(scene_path: str) -> bool:
+    """Did this scene come from the internet rather than from this machine?
+
+    Downloaded crash saves land under `crashs/dl`, and a scene can carry debug commands that
+    `RunCheat` will `exec`, so those get a break first. The test used to be a literal
+    `"crashs\\dl"`, which is only ever how the path looks on Windows: on macOS and Linux the
+    separator is `/`, the test never matched, and the break in front of `exec` quietly never
+    happened on the platforms this fork runs on.
+    """
+    return "crashs/dl" in scene_path.replace("\\", "/")
+
+################################################################################
+#
 def RunCheat(current_world: 'World', commands: Sequence[str], player_id: int):
     global world, cheat, puzzle
     world   = current_world
@@ -475,7 +488,7 @@ if val != None and not Test.is_in_test:
     Log.Debug(f'{{val}}')
 """
             try:
-                if "crashs\\dl" in world.scene.path:
+                if IsUntrustedScenePath(world.scene.path):
                     """This save is download from internet, please make sure it is safe enough"""
                     Debug.DebugBreak()
                 exec(cmd)

@@ -3,7 +3,9 @@
 /public/js/**/*.js
 /public/js/**/*.js.map
 /assets
-/save_*.json
+# `save_*` misses `save.json`, which is exactly what the debug /save command writes with no
+# argument (game/cheat/cheat.py:126).
+/save*.json
 /crash.json
 /crash.log
 /statistics.json

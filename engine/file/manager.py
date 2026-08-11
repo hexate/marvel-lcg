@@ -164,7 +164,15 @@ class FileManager:
     @staticmethod
     def FormatPath(path: str) -> str:
         normalized_path = os.path.normpath(path)
-        if normalized_path[1] == ":":
+        # The drive-letter test is how this recognised "already rooted, leave it alone", so on
+        # POSIX every absolute path fell through and got "./" pasted on the front, turning
+        # "/Users/x" into "./Users/x". `os.path.isabs` asks the question the drive letter was
+        # standing in for. The length guard matters too: `[1]` raised IndexError on any path
+        # shorter than two characters, which includes "/".
+        if os.path.isabs(normalized_path):
+            pass
+        elif len(normalized_path) >= 2 and normalized_path[1] == ":":
+            # A Windows path being handled on a POSIX machine, which os.path.isabs will not catch.
             pass
         elif not normalized_path.startswith('.'):
             # Ensure the path starts with './'

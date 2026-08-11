@@ -16,7 +16,10 @@ class Coverage:
     @staticmethod
     def GetKeyName(fn: Callable[..., Any]):
         name = GetFuncLines(fn, True)
-        if name.startswith("cards\\pack\\"):
+        # The path comes from os.path.relpath, so it carries the platform's separator. Comparing
+        # against a hardcoded backslash meant this matched nothing at all on macOS and Linux, and
+        # card-script coverage silently counted zero rather than reporting an error.
+        if name.replace("\\", "/").startswith("cards/pack/"):
             key = name
             return key
         else:
