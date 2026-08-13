@@ -1118,12 +1118,19 @@ class AbilityFactoryDoAttack:
         ]
 
         if cannot_trigger_defense_ability != False:
-            if cannot_trigger_defense_ability == True and which_unit == "Attached":
+            # "Attached" is not a CardType: it is commented out of CARD_TYPE_PREFIX
+            # (game/ability/condition/card_type.py:21), so this branch could never be taken and
+            # every caller fell through to the assert below. The attached-identity literal is
+            # "AttachedIdentity", which is what the two sibling factories match on
+            # (UnitCannotAttackTarget above, UnitCannotThwartTarget in thwart.py:264).
+            if which_unit == "AttachedIdentity":
                 check_player = "AttachedPlayer"
-            elif which_unit:
-                assert isinstance(which_unit, CardFinder)
+            elif isinstance(which_unit, CardFinder):
                 check_player = PlayerFinder(which_unit)
             else:
+                # A plain literal or CardFace class ("Character", Unit2, None) restricts every
+                # character, so no player may trigger a defense ability. Asserting here instead
+                # made Tracking Display and Rollin', Rollin' unloadable.
                 check_player = "AnyPlayer"
             def check_attacker2(effect: 'Effect', message: 'Message.CheckEffectCondition') -> bool:
                 return Condition.CheckWhichCard(who_attacker, message.GetAttacker(), effect)
