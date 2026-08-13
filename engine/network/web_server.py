@@ -47,22 +47,45 @@ class WebServer:
     ################################################################################
     #
     @final
+    def NoStore(self, response: web.Response) -> web.Response:
+        """A guard page describes the state of one request, so it must never be cached.
+
+        `ReadFile` stamps `HeaderCache` on every release build. That is right for card art and
+        wrong here: a client that cached the version-mismatch page under a card's URL kept
+        serving it for a year, long after the mismatch it was reporting had been resolved.
+        """
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    @final
     def LoadHtmlAuthenticate(self):
-        return self.ReadFile('./public/authenticate.html')
+        return self.NoStore(self.ReadFile('./public/authenticate.html'))
 
     @final
     def LoadHtmlCleanCache(self):
-        return self.ReadFile('./public/clean_cache.html')
+        return self.NoStore(self.ReadFile('./public/clean_cache.html'))
 
     ################################################################################
     #
     @final
+    def RefuseResource(self, status: int, reason: str) -> web.Response:
+        """Refuse a request without pretending to be the thing it asked for.
+
+        The routes behind this guard serve images and `save_local`, never pages. Answering them
+        with the guard page meant a 200 whose body was HTML: nothing downstream could tell that
+        from success. The browser cached it under the card's URL, and `save_local` reported the
+        page text as the path it had saved to.
+        """
+        return web.Response(text=f"{reason}\n", status=status,
+                            headers={'Cache-Control': 'no-store'})
+
+    @final
     def AddNonAwaitGetSecurity(self, path: str, handle: HandleNonAsyncType):
         async def new_handle(request: web.Request) -> web.StreamResponse:
             if not self.IsAuthenticate(request):
-                return self.LoadHtmlAuthenticate()
+                return self.RefuseResource(401, "not authenticated")
             elif not self.IsVersionMatch(request):
-                return self.LoadHtmlCleanCache()
+                return self.RefuseResource(409, "client version does not match the server")
             else:
                 return await TaskManager.ToThread(handle, request)
         self.web_app.router.add_get(path, new_handle)
