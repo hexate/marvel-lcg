@@ -40,7 +40,19 @@ class RunPuzzle:
             for face in Worlds.GetEncounterDeckCards(self.world) + Worlds.GetEncounterDiscardPileCards(self.world):
                 if face.IsName(card):
                     return face
-            # found_card = self.world.FindCardOnField(name=card)
+
+            # Cards already in play. `self.world.FindCardOnField` does not exist -- the search
+            # lives on `Worlds` and takes an effect -- so the line this replaces could not have
+            # been uncommented as written. Without it nothing in play is ever found by name, and
+            # every such lookup fell through to CreateCard below, which generates a *duplicate*
+            # into the aside deck and leaves the real card untouched. That made `Damage('Rhino')`
+            # a silent no-op and made ChangeForm crash, because an identity generated outside a
+            # player has no owner and Identity.GetInfoDict asserts on that while rendering.
+            # check_all_face also matches the hidden side, so ChangeForm('Spider-Man') finds the
+            # card while it is still showing Peter Parker.
+            for face in Worlds.GetOnFieldCards(self.debug_rule):
+                if face.IsName(card, check_all_face=True):
+                    return face
 
             if found_card:
                 return found_card
