@@ -49,8 +49,10 @@ export class HoverCard{
             }
         }
 
-        static set(card_div: HTMLElement, is_log=true) {
+        static set(card_div: HTMLElement, is_log=true, is_boost=false) {
             CenterPreview.has_image = true
+            // Toggled rather than added, or a boost flip would leave every later reveal marked.
+            CenterPreview.preview_center.classList.toggle('boost-flip', is_boost)
             let bg_image = card_div.style.getPropertyValue('--bg-image-true')
             // HoverCard.setTilt(card_div, false, true)
             HoverCard.set2(card_div, bg_image)
@@ -80,7 +82,7 @@ export class HoverCard{
     }
 
     static getPreview(): HTMLElement {
-        if( CardAnimation.animation_name == "center_flip" ) {
+        if( CardAnimation.isCenterFlip() ) {
             return HoverCard.center_preview.preview_center
         }
         if( HoverCard.using_left ) {

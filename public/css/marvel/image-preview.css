@@ -282,3 +282,40 @@ body.hold-alt .image-preview-text{
     pointer-events: all;
     cursor: pointer;
 }
+
+/*****************************************************************************
+* Boost flip
+*
+* A boost card takes the same centre preview as a revealed card, so without this the two read
+* identically: same motion, same position, opposite consequences. A revealed card stays on the
+* board and is now your problem, a boost card has already been counted and discarded.
+*
+* This labels the event rather than asserting a value. The card's own boost icons are already
+* drawn into `.info_pay`, and the resolved contribution can differ from the printed one, so a
+* number here could be a lie. The ribbon sits at the top edge to cover as little of the card as
+* possible, since the point of the pause is that you can still read it.
+*/
+.image-preview.boost-flip {
+    outline-color: rgb(230, 125, 34);
+}
+
+.image-preview.boost-flip::after {
+    content: "BOOST";
+
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+
+    text-align: center;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 1.6rem;
+    letter-spacing: .6rem;
+    text-indent: .6rem;
+
+    color: #fff;
+    background: rgba(230, 125, 34, .92);
+    box-shadow: 0 2px 10px #000a;
+    padding: .15rem 0;
+}
