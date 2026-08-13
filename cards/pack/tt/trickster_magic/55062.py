@@ -16,7 +16,10 @@ def GetAbilities() -> Sequence['Ability']:
         *AbilityFactory.UnitCannotDefend(
             "AttachedAlly",
             Villain,
-            cannot_trigger_defense_ability=True
+            # Only the attached ally is restricted, not its controller, so there is no
+            # player-level ban on defense abilities here. The UnitCannotAttackTarget call above
+            # already adds none for the attack half.
+            cannot_trigger_defense_ability=False
         ),
         AbilityFactory.PlayerActionToDiscardThis(
             AbilityType.AlterEgoAction,
