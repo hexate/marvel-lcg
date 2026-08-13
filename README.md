@@ -1,5 +1,23 @@
 The open-source of Marvel LCG digital version on [ITCH](https://irefrixs.itch.io/marvel-lcg)
 
+## About this fork
+
+This is [hexate/marvel-lcg](https://github.com/hexate/marvel-lcg), a fork of
+[irefrixs/marvel-lcg](https://github.com/irefrixs/marvel-lcg). You are reading the `stable` branch,
+which is the upstream game plus a stabilization pass: crash fixes, a working save, a replay-independent
+test suite, and a run script. See [CHANGELOG.md](CHANGELOG.md) for what changed and why.
+
+`master` is left as an exact mirror of upstream and is not where the fork's work lives. Fixes offered
+back upstream are cut as separate `pr/*` branches so each is a readable one-commit diff. Branch layout
+is in [docs/proposed_changes.md](docs/proposed_changes.md).
+
+Start the game with `./play.sh`, which is documented in [the install guide](docs/install_guide.md).
+
+| Tracker | Contents |
+| --- | --- |
+| [Proposed changes](docs/proposed_changes.md) | Defects found in the existing code, with the reasoning and what was decided |
+| [Proposed features](docs/proposed_features.md) | New features and improvements for the fork |
+
 ## Documentation
 
 | Guide                                                          | Description                       |

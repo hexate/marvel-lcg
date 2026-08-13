@@ -98,3 +98,17 @@ Issues [#4](https://github.com/irefrixs/marvel-lcg/issues/4),
 [#6](https://github.com/irefrixs/marvel-lcg/issues/6) and
 [#7](https://github.com/irefrixs/marvel-lcg/issues/7). Contributions are kept on `pr/*` branches
 cut from `upstream/master` so each one is a readable diff on its own.
+
+### Branches
+
+`master` is a deliberate mirror of `upstream/master` and is never committed to. It stays pinned so
+that every `compare/master...pr/x` link posted in an upstream issue keeps showing what it showed
+when it was written.
+
+`stable` is the fork's trunk: the stabilized game, and what you actually run. New work is cut from
+it as `feat/<topic>`. Proposed features are tracked in
+[docs/proposed_features.md](docs/proposed_features.md), the same way defects are tracked in
+[docs/proposed_changes.md](docs/proposed_changes.md).
+
+`work/engine-audit` is retired at `aababf0`. It is the stabilization line that became `stable`, kept
+only as history.

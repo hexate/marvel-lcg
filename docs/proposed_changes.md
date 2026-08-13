@@ -226,12 +226,30 @@ another contributor (`z00lus`) is already maintaining a divergent fork with his 
 
 | Branch | Purpose | Upstream? |
 | --- | --- | --- |
-| `master` | tracks `upstream/master`, never committed to directly |, |
-| `work/engine-audit` | fork integration: docs, tooling, direction | never |
+| `master` | tracks `upstream/master`, never committed to directly | no |
+| `stable` | the fork's trunk. Everything stabilized, and what you actually run | no |
+| `feat/<topic>` | one new feature or improvement, cut from `stable` | maybe, see below |
 | `pr/<topic>` | one contribution, cut fresh from `upstream/master` | yes |
+| `work/engine-audit` | retired at `aababf0`. The stabilization line, kept as history | never |
 
-A `pr/*` branch must be based **directly on `upstream/master`**, never stacked on
-`work/engine-audit` — otherwise its diff carries unrelated fork commits and stops being readable.
+`master` is pinned to `upstream/master` on purpose and must stay there. Every `compare/master...pr/x`
+link posted in an upstream issue reads against it, so moving it silently rewrites what those links
+show. `stable` exists so the fork has a trunk without spending that.
+
+A `pr/*` branch must be based **directly on `upstream/master`**, never stacked on `stable`. Stacking
+it there carries unrelated fork commits into the diff and stops it being readable, which is the
+whole point of cutting it separately.
+
+Feature work starts from `stable`:
+
+```sh
+git checkout -b feat/<topic> stable
+```
+
+Assume fork-only. Upstream declared sunset on 2026-08-10 and takes urgent bugfixes case by case, so
+a feature is not a candidate unless it is small, self-contained and fixes something rather than
+adding to it. When one does qualify, cut a separate `pr/*` branch from `upstream/master` and
+cherry-pick, exactly as below. Do not offer a `feat/*` branch upstream directly.
 
 ```sh
 git fetch upstream
