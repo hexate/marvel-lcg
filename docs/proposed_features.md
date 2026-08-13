@@ -39,8 +39,55 @@ relitigated every time the branch comes up.
 | --- | --- | --- | --- | --- | --- |
 | N1 | **Auto-generate a password when binding to a non-loopback address.** `IsAuthenticate` returns `True` for every caller when no password is configured, which is the shipped default, so every `*Security` route is open to anyone who can reach the port | Carried over from F6c, which was closed as "not failing closed" precisely because the real fix is a feature. Failing closed would break four-player play for everyone who never set a password, so the exposure was accepted rather than fixed. Generating one on a non-loopback bind and printing it at startup closes the hole without breaking the default local case | ? | Arguably yes, it repairs something | PROPOSED |
 
+| N2 | **Make a boost card visibly different from a card entering play.** When the villain attacks or schemes it flips encounter cards for their boost icons. Those cards add to the attack or scheme and are discarded immediately, but they currently animate and land like a card being revealed into play | Found from play: "it looks as if it's being drawn to place on the board". Not a cosmetic nitpick, the two events have opposite consequences. One is a permanent threat you now have to deal with, the other is a number that has already been applied and is gone. Reading the board wrongly costs you real decisions | Small for the first slice | Probably not, it is an addition rather than a repair | PROPOSED |
+
 Nothing else is tracked yet. This document was created on 2026-08-13, when `stable` became the
-fork's trunk, and is waiting for the first features to be written into it.
+fork's trunk.
+
+## N2: a boost card and a revealed card look the same
+
+The cause is specific rather than a general lack of polish. In `public/js/marvel/card_animation.ts`
+the two events are mapped to the same animation:
+
+```ts
+"AfterCardsMovedToRevealingArea_Text"   : "center_flip",
+"AfterCardsMovedToBoostingArea_Text"    : "center_flip",
+```
+
+and `public/js/marvel/cards.ts:545` pushes the `area_boost` descriptors into
+`print_cards_objs['area-play']`, so a boost card is rendered into the play-area container as well.
+The two things a player is trying to tell apart are identical in both motion and position.
+
+Nothing needs inventing on the server. `world.area_boosting` is already its own area,
+`AfterCardsMovedToBoostingArea_Text` is already its own message, and
+`WhenCardWouldGainBoostIcons_Text` already has its own animation slot, `target2_boost`. The
+information is all present and the client is throwing it away.
+
+Options, cheapest first. The first two are the slice worth doing before judging the rest.
+
+1. **Split the animation.** Give the boosting-area message its own entry instead of sharing
+   `center_flip`, and move the card toward the villain or scheme it is feeding rather than to centre
+   stage. One map entry and one keyframe.
+2. **Float the value.** `change-value.css` already renders `data-value` through `::after` with a
+   rise-and-fade. Firing it on boost resolution puts a `+2` on the card without building a new
+   mechanism.
+3. **Draw it as spent, not played.** Desaturate or dim the card while it is in the boosting area, so
+   its appearance contradicts its position instead of reinforcing it.
+4. **Distinguish a star boost.** Some boosts do more than add a number: Tiger Shark's gives the
+   villain a tough status, Weapons Runner's puts itself into play engaged with you. Those outlive
+   the flip and deserve different treatment from a card contributing only icons.
+5. **A distinct sound.** The presentation layer already carries a sound name per message. Needs an
+   asset.
+6. **Accumulate the total on the target.** Villain ATK visibly going 2, 2+1, 3. The most informative
+   and the most work, because the intermediate value has to be surfaced rather than just the final
+   one.
+7. **Give the boosting area its own container.** Fixes the position problem at its root rather than
+   compensating with motion and colour, but it touches layout, so it is the last resort rather than
+   the first move.
+
+Worth checking before building anything: `pause_when_reveal_or_boost` already ships on by default.
+If its prompt currently reads the same for both cases, naming the boost and its value there may
+capture much of the benefit for almost nothing.
 
 ## Decision log
 
