@@ -376,3 +376,51 @@ body.hold-alt .image-preview-text{
     box-shadow: 0 2px 10px #000a;
     padding: .15rem 0;
 }
+
+/*****************************************************************************
+* Enters play
+*
+* The counterpart to the boost ribbon. A revealed encounter card either stays on the board or
+* resolves and is gone, and those want different answers. This marks the permanent ones rather
+* than dimming the temporary ones, so a treachery looks exactly as it always did.
+*
+* Bottom edge, so it can never collide with BOOST along the top, and a different colour from the
+* encounter orange, which now means boost. The four types listed are the ones that stay:
+* treacheries and obligations resolve and are discarded.
+*
+* Scoped to the centre preview deliberately. `show()` adds the type classes to whichever preview
+* is in use, so without the id this would also band every card you merely hover over.
+*
+* `:not(.boost-flip)` matters more than it looks. Boost cards come off the encounter deck, so a
+* minion or a side scheme flipped for its icons is the common case rather than a rare one. While a
+* card is boosting it is boosting, whatever type it prints.
+*
+* Sits inside the 4.5vh the per-type rules above leave clear at the bottom of the text box.
+*/
+#image-preview-div-center .image-preview:not(.boost-flip):is(.type-minion,
+    .type-encounter-side-scheme, .type-attachment, .type-environment) {
+    outline-color: rgb(46, 134, 171);
+}
+
+#image-preview-div-center .image-preview:not(.boost-flip):is(.type-minion,
+    .type-encounter-side-scheme, .type-attachment, .type-environment)::after {
+    content: "ENTERS PLAY";
+
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3;
+
+    text-align: center;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 1.1rem;
+    letter-spacing: .3rem;
+    text-indent: .3rem;
+
+    color: #fff;
+    background: rgba(46, 134, 171, .92);
+    box-shadow: 0 -2px 10px #000a;
+    padding: .15rem 0;
+}
