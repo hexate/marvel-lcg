@@ -49,10 +49,27 @@ export class HoverCard{
             }
         }
 
+        static boost_icons = document.querySelector('#image-preview-div-center .image-preview-boost') as HTMLElement
+
         static set(card_div: HTMLElement, is_log=true, is_boost=false) {
             CenterPreview.has_image = true
             // Toggled rather than added, or a boost flip would leave every later reveal marked.
             CenterPreview.preview_center.classList.toggle('boost-flip', is_boost)
+            // Lift the card's own boost icons onto the preview rather than rendering our own. They
+            // are already the right glyphs and the right count, and `.info_pay` is where `cards.ts`
+            // puts them. Cleared on a normal reveal so they cannot linger.
+            let icons = ""
+            if( is_boost ) {
+                icons = card_div.querySelector('.info_pay')?.innerHTML ?? ""
+                if( !icons ) {
+                    // `.info_pay` is only filled while a card renders its info, which has not
+                    // necessarily happened for one that arrived face down. The descriptor carries
+                    // the count either way, so rebuild from that rather than show nothing.
+                    const boost = Cards.getCard(Number(card_div.dataset.id!))?.info['boost_const'] ?? 0
+                    icons = "<div class='icon-boost'></div>".repeat(boost)
+                }
+            }
+            CenterPreview.boost_icons.innerHTML = icons
             let bg_image = card_div.style.getPropertyValue('--bg-image-true')
             // HoverCard.setTilt(card_div, false, true)
             HoverCard.set2(card_div, bg_image)

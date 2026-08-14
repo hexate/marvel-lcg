@@ -299,6 +299,60 @@ body.hold-alt .image-preview-text{
     outline-color: rgb(230, 125, 34);
 }
 
+/* Greys the art out to say "already spent". Done as an overlay rather than `filter` on the element,
+   because a filter desaturates the whole subtree and would take the icons and the ribbon with it.
+   The flat tint is a fallback for anywhere `backdrop-filter` is not honoured. */
+.image-preview.boost-flip::before {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+
+    backdrop-filter: grayscale(.9) brightness(.55);
+    background: rgba(20, 20, 20, .25);
+}
+
+/* The flipped card's own boost icons, lifted onto the preview at a size you can read across the
+   room. Populated by `CenterPreview.set`. */
+.image-preview-boost {
+    position: absolute;
+    /* Starts below the ribbon rather than behind it. At `inset: 0` a second row of icons rides up
+       under the ribbon and is clipped by it, which reads as damage rather than design. */
+    inset: 5vh 0 0 0;
+    z-index: 2;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Wraps because the count is not bounded by anything the client controls. Four icons at this
+       size are wider than the card, and overflow is hidden, so without this the outer ones would
+       be silently clipped and the player would read the wrong number. */
+    flex-wrap: wrap;
+    gap: 1vh;
+    padding: 0 2vh;
+    box-sizing: border-box;
+
+    pointer-events: none;
+    font-size: 9vh;
+}
+
+/* Plenty of encounter cards print no boost icons at all. Those still grey out, but an empty row
+   must not sit there looking like a rendering failure. */
+.image-preview-boost:empty {
+    display: none;
+}
+
+.image-preview-boost .icon-boost::before {
+    content: "B";
+
+    color: #bd293c;
+    --outline: rgb(20, 20, 20);
+    text-shadow: 2px 0 var(--outline), -2px 0 var(--outline),
+                 0 2px var(--outline), 0 -2px var(--outline),
+                 0 0 12px rgba(0, 0, 0, .8);
+}
+
 .image-preview.boost-flip::after {
     content: "BOOST";
 
@@ -306,6 +360,9 @@ body.hold-alt .image-preview-text{
     left: 0;
     right: 0;
     top: 0;
+    /* Above the dimming layer. Without this the ribbon sits at z-index auto, the grey-out paints
+       over it, and the orange it exists to be is desaturated away. */
+    z-index: 3;
 
     text-align: center;
     font-family: monospace;
