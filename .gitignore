@@ -9,7 +9,12 @@
 /crash.json
 /crash.log
 /statistics.json
+# Decks you built are player data. `deck/starter/` is the shipped set and stays tracked; anything
+# else under `deck/` is yours. The bare `/deck/*.json` only covered the top level, so moving a deck
+# into a subfolder silently started offering it up for commit.
 /deck/*.json
+/deck/custom/
+/deck/temp/
 /launch-debug.json
 /replays/**/*.json
 /replays_*/
