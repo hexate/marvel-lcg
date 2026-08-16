@@ -3,7 +3,7 @@
 Running log of every proposed change to this codebase and its status. Add new items to the
 table; do not delete rows — move them to `Done` or `Rejected` and keep the rationale.
 
-**Last updated:** 2026-08-10
+**Last updated:** 2026-08-16
 
 ## Status legend
 
@@ -985,7 +985,39 @@ web auth, save integrity. Ordered by how much they matter.
 | J15 | **A failed art download becomes permanent, and hides a card that is changing the rules.** `LoadImage` ends at `ImageCreator.CreateNoImage` and then `Cache.SetCache(file_name, image_data)`, so the generated placeholder is cached in memory under the card's own name for the life of the process. Nothing retries, because the next call returns from `Cache.cache` at the top of the function. One 3-second timeout and that card stays blank for the whole session. Worse, `if SAVE_EMPTY_IMAGE.value and not is_time_out` writes the placeholder to disk as `{card_id}.jpg`: only `requests.exceptions.Timeout` sets `is_time_out`, so a CDN 404, a DNS failure or a reset connection all persist a fake JPEG that is byte-indistinguishable from real art, and `FindImageFile` then reports the card satisfied forever. ✓ VERIFIED: `assets/cache/90001.jpg` is byte-identical to the generated placeholder (`cdeafa0e…`, 2035 bytes) while `assets/pics/90001.jpg` holds the real 20 KB art, so the write branch has already fired here and only the folder search order hides it | `engine/file/cache.py:186-197` | Medium, user-reachable | **DONE**. A definitive miss is recorded as a `{name}.no_art` marker, which the three lookups ignore because they only read `.webp`/`.jpg`/`.png`; a transient failure is recorded nowhere and retried, capped per name, with a run-wide give-up after 10 consecutive failures so a dead network is not retried per card; timeout 3s to 10s. ✓ VERIFIED: 8 tests, all 8 confirmed to fail against the old policy re-applied to the same file |
 | J16 | **`DrawText` cannot draw text, so `show_image_text` is a no-op and every placeholder is a blank colour swatch.** The loop that appends to `lines` is commented out (it called `draw.textsize`, removed in Pillow 10), `current_line` is initialised to `""` and never reassigned, so `if current_line` is false, `lines` stays empty and the draw loop at the end never runs. `words` is computed and unused. Every caller gets an unmodified image back. `launch.json` ships `show_image_text: true`, so the intended behaviour is a card rendered as its name, type and text, which would make J15 self-explaining instead of a mystery | `engine/lib/image_creator.py:96-122` | Low alone, Medium with J15 | **DONE**. Ported the loop to `draw.textlength`, and kept source newlines as line breaks since card text carries them and `split()` on all whitespace lost them. ✓ VERIFIED: `01153` now renders its name, type and full text; 4 new tests, each confirmed to fail with the draw suppressed again; safe suite 80 tests |
 | J17 | **The version guard answers image routes with an HTML page at 200, and that page is then cached for a year.** `AddNonAwaitGetSecurity` serves images and `save_local`, never pages, but on a stale or missing `app_version` cookie it returns `LoadHtmlCleanCache()`. That goes through `ReadFile`, which stamps `HeaderCache` on release builds, and `build.py:5` sets `release = True` unconditionally. So one image request made during a version mismatch puts 4,483 bytes of HTML into the browser cache under a card's own URL with `max-age=31536000`, and nothing ever asks again. Restarting the server cannot help, because the server is correct. ✓ VERIFIED against the running server: `GET /stunned` with a stale cookie returns 200 `text/html` 4,483 bytes, the same URL with a current cookie returns 200 `image/jpeg` 6,192 bytes, and both carry `public, max-age=31536000`. Found from play, as a Stunned card that would not draw and stayed blank across new games and server restarts. This is J15 on the other side of the wire, a transient failure made permanent by a cache, and J12/J13 in shape, a route answering 200 with something that is not what was asked for | `engine/network/web_server.py:60`, `engine/network/web_server.py:50-55` | Medium, user-reachable | **DONE**, commit `03cbed4`. Guard pages go out `no-store`, and the resource routes refuse with 401 or 409 and a plain-text body instead of a page. 5 tests, each confirmed to fail against the old headers. Not yet verified against a running server, which needs a restart |
+| J18 | **The only route that issues the `app_version` cookie is cached for a year, so a browser that loses the cookie can never get it back and is locked out of the game.** `handle_get_version` is the sole `set_cookie('app_version', ...)` in the codebase (`web_server.py:328`), and the same response is deliberately sent as `image/jpeg` with `HeaderCache`, commented "Hack, make browser treat it as images and store in cache". Once that response is in the browser cache, every later fetch is served locally, `Set-Cookie` never runs, and `IsVersionMatch` fails at `web_server.py:187` on the missing cookie. Every guarded route then answers with the mismatch page. The route itself is fine, registered `need_auth=False, need_check_version=False`, so nothing on the server refuses: the client simply stops asking. **The recovery path in the UI does not recover.** `public/clean_cache.html` binds "Try Reloading (Bypass Cache)" to `window.location.reload(true)` alone, with the `get_version()` call commented out directly above it, and `reload`'s force parameter is non-standard and ignored by current browsers, so the button reloads into the same wall forever. ✓ VERIFIED 2026-08-16 in Chrome against the running server: a fresh tab on `127.0.0.1:2345` served the Version Mismatch page, and its load-time `/get_version` fetch reported `transferSize: 0` with `encodedBodySize: 10`, a cache hit. A forced `fetch('/get_version', {cache:'reload'})` returned 200 `0.5.9.201r`, after which the guarded CSS route returned real CSS instead of the guard page, and a hard reload loaded the launcher. Same root as J17, `build.py:5` forcing `release = True` and stamping a year of caching on a response that carries state, but the other half of it: J17 cached the refusal, this caches the thing that lifts the refusal | `engine/network/web_server.py:324-334`, `public/clean_cache.html` | Medium, user-reachable, no working recovery in the UI | PROPOSED |
 | J9 | **DONE.** `-no_<flag>` on the command line was silently ignored for any already-declared variable. `ParseArguments` writes the stripped name into `instance_command` but then calls `InitVariable(key)` with the `no_` prefix still attached, so the lookup misses `variable_dict` and nothing re-reads the value. The positive form works, because there the key matches. ✓ VERIFIED: `-no_disable_numpy_random` left the flag at its default, which is how the F10 tests nearly measured the wrong backend. Two-line fix, strip before the lookup | `engine/config.py:153-163` | Medium, silent | **DONE**, two tests, one per form |
+
+### J18: the cookie route caches itself out of existence
+
+Two parts, and only the second is obvious.
+
+The button is the easy half. Uncomment the `get_version()` call in the `reloadButton` handler in
+`public/clean_cache.html` and await it before reloading, so the click actually refetches the cookie
+rather than trusting `reload(true)`, which has not forced anything in years. That alone turns a
+permanent lockout into one click.
+
+The caching is the half that needs a decision first. The `image/jpeg` content type and the
+`HeaderCache` header are labelled a hack in the source, so they were done on purpose, and the reason
+is ✗ UNVERIFIED. The plausible one is saving a round trip on every page load. Whatever it was, a
+response whose entire job is to issue a `Set-Cookie` cannot be cached and still do that job, so the
+right fix is `no-store` on this route the way J17 put `no-store` on the guard pages. Worth
+establishing the original intent before changing it, because if something downstream depends on
+`/get_version` being a cache hit, that dependency is the actual bug.
+
+There is a third option, and the pieces for it are already sitting in the tree unwired.
+`Lib.cookie.setString` at `public/js/marvel/lib.ts:90` is typed to accept exactly one name,
+`"app_version"`, and nothing in the client ever calls it. ✓ VERIFIED, the only `setString` hits in
+`public/js/marvel/` are the definition and its `getString` neighbour. Meanwhile `get_version()`
+fetches the version string and throws it away except for a `console.log`. So the client already has
+a function whose only possible purpose is to write this cookie, and the value to write, and never
+connects them. Having the client set the cookie from the fetched text would survive the response
+being cached, since it does not depend on a header surviving the cache. Whether that was the
+original plan is ✗ UNVERIFIED, but it reads like a half-finished one.
+
+Worth noting what this cost in practice: it is invisible. The server is correct, restarting it
+changes nothing, and the page tells the player to clear their cache while offering a button that
+cannot. Nothing in the UI distinguishes it from the game being broken.
 
 ### J15/J16: a blank card that was silently changing the rules
 
