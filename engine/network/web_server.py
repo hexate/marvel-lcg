@@ -322,9 +322,17 @@ class WebServer:
             return response
 
         async def handle_get_version(request: web.Request) -> web.Response:
-            # response = web.Response(text=Ver.ui_version_str)
-            # Hack, make browser treat it as images and store in cache
-            response = web.Response(body=Ver.ui_version_str, content_type='image/jpeg', headers=self.HeaderCache)
+            # This response exists to issue the `app_version` cookie below, so it must never be
+            # cached. It used to be sent as `image/jpeg` under `HeaderCache`, commented "Hack, make
+            # browser treat it as images and store in cache", which worked exactly as described and
+            # thereby broke the thing it was serving: a stored copy is replayed from the browser's
+            # cache without `Set-Cookie`, so a client that lost the cookie could never get another
+            # one, and `IsVersionMatch` refused every route from then on. Restarting the server does
+            # not help, because the server is not what is wrong. J18.
+            #
+            # The jpeg content type only existed to buy the caching, so it goes with it, back to
+            # the plain-text response on the line that hack replaced.
+            response = self.NoStore(web.Response(text=Ver.ui_version_str))
             response.set_cookie(
                 'app_version',
                 Ver.ui_version_str,

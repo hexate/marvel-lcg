@@ -56,7 +56,15 @@
 
     <script>
         async function get_version(params) {
-            const response_version = await fetch(`/get_version`);
+            // `cache: 'reload'` is the whole fix, not a precaution. This response is the only
+            // thing that sets the `app_version` cookie, and it used to be served with a year of
+            // cache headers, so a browser that had it stored answered this fetch out of its own
+            // cache, `Set-Cookie` never ran, and the cookie could never be obtained. The page then
+            // refused every route forever and told the player to clear their cache.
+            //
+            // The server no longer sends those headers, but that only helps a browser that has not
+            // already stored the old response. This forces the network for the ones that have.
+            const response_version = await fetch(`/get_version`, { cache: 'reload' });
             const version_text = await response_version.text()
             return version_text
         }
@@ -112,9 +120,15 @@
     </div>
 
     <script>
-        document.getElementById('reloadButton').addEventListener('click', function() {
-            // get_version()
-            window.location.reload(true)
+        document.getElementById('reloadButton').addEventListener('click', async function() {
+            // The `get_version()` call was commented out here, which left the button doing nothing
+            // but `reload(true)`. That argument is non-standard and current browsers ignore it, so
+            // the one control offered for this situation reloaded straight back into it.
+            //
+            // Fetching first is what actually recovers: it forces the network, which re-issues the
+            // cookie. Awaited, or the reload races the `Set-Cookie`.
+            await get_version()
+            window.location.reload()
         });
     </script>
 </body>

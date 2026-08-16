@@ -10,6 +10,12 @@ help, because nothing is wrong on the server.
 Worse, the guard answered *image* routes with that page at status 200. A 200 is a successful
 answer, so there was nothing for the browser, or for `save_local`, to treat as a failure.
 
+A third defect, J18, found later in a browser and belonging in the same file: the route that issues
+the `app_version` cookie was itself cached for a year, deliberately, as `image/jpeg`. A cached copy
+is replayed without `Set-Cookie`, so a client that lost the cookie could never obtain another and
+every guarded route refused it from then on. Same shape as the two above, and the same header at
+fault: J17 cached the refusal, J18 cached the thing that lifts it.
+
 `game/` cannot be imported on its own because of a circular import, so `import engine` comes first.
 """
 import asyncio
@@ -95,6 +101,49 @@ class TestResourceRoutesRefuseInsteadOfAnsweringWithAPage(unittest.TestCase):
         self.assertEqual(response.status, 401)
         self.assertNotIn('html', response.content_type)
         self.assertEqual(response.headers['Cache-Control'], 'no-store')
+
+
+def _version_route():
+    """The `/get_version` handler, reached the way it is actually registered."""
+    server = WebServer()
+    server.AddDefaultGet()
+    for route in server.web_app.router.routes():
+        if route.resource and route.resource.canonical == '/get_version':
+            return route.handler
+    raise AssertionError("no route registered at /get_version")
+
+
+class TestTheVersionCookieRouteIsNeverCached(unittest.TestCase):
+    """J18. This route's only job is issuing a cookie, and a cached response cannot do that."""
+
+    def test_the_cookie_route_is_not_cacheable(self):
+        response = asyncio.run(_version_route()(_FakeGetRequest()))
+
+        self.assertEqual(response.headers['Cache-Control'], 'no-store',
+                         "a stored copy is replayed without Set-Cookie, so the cookie it exists "
+                         "to issue can never be obtained again")
+
+    def test_the_cookie_is_still_issued(self):
+        """The header change must not cost the thing the route is for."""
+        response = asyncio.run(_version_route()(_FakeGetRequest()))
+
+        cookie = response.cookies.get('app_version')
+        self.assertIsNotNone(cookie, "the route stopped issuing the cookie it exists to issue")
+        self.assertEqual(cookie.value, str(Ver.ui_version_str))
+        self.assertEqual(cookie['path'], '/', "a narrower path would not be sent to guarded routes")
+
+    def test_the_route_answers_a_client_that_has_no_cookie_yet(self):
+        """The recovery cannot be behind the guard it recovers from.
+
+        Registered `need_check_version=False` for this reason. Putting the version guard on this
+        route would refuse exactly the clients that need it and leave no way back in at all.
+        """
+        response = asyncio.run(_version_route()(_FakeGetRequest()))
+
+        self.assertEqual(response.status, 200,
+                         "the only route that can hand out the cookie refused a client for not "
+                         "having it")
+        self.assertIn(str(Ver.ui_version_str), response.text)
 
 
 if __name__ == "__main__":
