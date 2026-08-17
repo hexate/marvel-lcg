@@ -258,89 +258,40 @@
     background-color: #fff;
 }
 
-/* Rollover preview: every card in the set, at a glance.
+/* Rollover preview: the one card under the pointer, big enough to read.
  *
- * The badge and its panel answer "what does this set do", which needs reading. This answers "what
- * is in it", which does not. Hovering a set shows all of its art at once so you can sweep across
- * the row and recognise sets without clicking into any of them.
+ * The cards on this screen are 100x140, which is too small to read anything on. Hovering any of
+ * them, in any section, shows that card and only that card at a readable size. Whole-set contents
+ * are the badge's job, not this one's.
  *
- * Fixed and appended to the body rather than nested in the thumbnail. Putting it inside the button
- * is what widened every card when the badge went in, and a panel is far bigger than a badge.
+ * Fixed and appended to the body rather than nested in the thumbnail. Nesting is what widened
+ * every card when the badge went in, and this is far bigger than a badge.
  */
-.set-hover-preview {
+.card-hover-preview {
     position: fixed;
     z-index: 900;
 
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    align-content: flex-start;
-
-    max-width: min(46rem, 92vw);
-    max-height: 60vh;
-    overflow: hidden;
-
-    padding: 0.5rem;
-
-    background-color: rgba(12, 12, 12, 0.96);
-    border: 1px solid #666;
-    border-radius: 0.4rem;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.8);
+    border-radius: 0.5rem;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.9);
 
     /* The pointer is over the thumbnail, not this. Letting it take the pointer would end the
      * hover that opened it and flicker. */
     pointer-events: none;
 }
 
-.set-hover-preview[hidden] {
+.card-hover-preview[hidden] {
     display: none;
 }
 
-.set-hover-title {
-    flex-basis: 100%;
-    margin-bottom: 0.15rem;
-    font-size: 0.9rem;
-    font-weight: bold;
-    color: #fff;
-}
-
-.set-hover-title span {
-    font-weight: normal;
-    color: #999;
-}
-
-.set-hover-card {
-    position: relative;
-    flex: 0 0 auto;
-}
-
-.set-hover-card img {
+/* Fixed portrait box. Every card image the CDN serves is portrait, 710x1030, including the ones
+ * printed landscape like main schemes: the game rotates those in play rather than shipping rotated
+ * art. So there is no landscape case to handle here. */
+.card-hover-preview img {
     display: block;
-    width: 132px;
-    height: 185px;
-    border-radius: 0.25rem;
+    width: 320px;
+    height: 448px;
+    border-radius: 0.5rem;
     background-color: #000;
-}
-
-/* Copy count, for the sets that run two or three of a card. */
-.set-hover-card b {
-    position: absolute;
-    right: 3px;
-    bottom: 3px;
-
-    padding: 0 0.25rem;
-    font-size: 0.8rem;
-    color: #fff;
-    background-color: rgba(0, 0, 0, 0.85);
-    border: 1px solid #999;
-    border-radius: 0.2rem;
-}
-
-.set-hover-more {
-    flex-basis: 100%;
-    font-size: 0.8rem;
-    font-style: italic;
-    color: #999;
 }
 
 @media (max-width: 720px) {
