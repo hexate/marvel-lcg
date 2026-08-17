@@ -146,5 +146,46 @@ class TestTheVersionCookieRouteIsNeverCached(unittest.TestCase):
         self.assertIn(str(Ver.ui_version_str), response.text)
 
 
+class TestCodeIsNotCachedLikeAnAsset(unittest.TestCase):
+    """Card art never changes for a given id; a stylesheet changes every time you edit it.
+
+    Both used to go out under the same year-long header, so every UI change was invisible until
+    someone hard reloaded, and the obvious reading of that is that the change did not work.
+    """
+
+    def test_markup_styles_and_scripts_revalidate(self):
+        server = WebServer()
+
+        for path in ('/public/scene.html', '/public/css/menu/style.css',
+                     '/public/js/marvel/hover.js', '/public/js/marvel/hover.ts',
+                     '/public/js/marvel/hover.js.map', '/data/cards.json'):
+            with self.subTest(path=path):
+                header = server.CacheHeaderFor(path)
+                self.assertNotIn('max-age=31536000', header['Cache-Control'],
+                                 f"{path} was cached for a year, so editing it changes nothing "
+                                 f"the browser will show you")
+
+    def test_card_art_and_fonts_still_cache_hard(self):
+        """The cache is worth having for these: re-fetching art is the slow thing it prevents."""
+        server = WebServer()
+
+        for path in ('/01109.jpg', '/public/fonts/ChampionsIcons.ttf', '/assets/sounds/x.mp3'):
+            with self.subTest(path=path):
+                self.assertIn('max-age=31536000', server.CacheHeaderFor(path)['Cache-Control'])
+
+    def test_the_split_is_by_extension_not_mime_type(self):
+        """`.ts` is `video/mp2t` to `MimeType` and `.map` is not known at all.
+
+        A MIME-based split would hand both the asset cache, which is backwards for source that
+        changes constantly.
+        """
+        server = WebServer()
+
+        self.assertEqual(server.CacheHeaderFor('/a/b/hover.ts'),
+                         server.CacheHeaderFor('/a/b/hover.js'))
+        self.assertEqual(server.CacheHeaderFor('/a/b/hover.js.map'),
+                         server.CacheHeaderFor('/a/b/hover.js'))
+
+
 if __name__ == "__main__":
     unittest.main()

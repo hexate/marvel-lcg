@@ -11,6 +11,7 @@ from engine.file import FileManager
 import hashlib
 import hmac
 import ipaddress
+import os
 
 CATEGORY_NAME = "WEB"
 
@@ -18,11 +19,34 @@ SOUND_FOLDERS   = ConfigVariables.Folders('sound_folders', ["./assets/sounds/"])
 IMAGE_FOLDERS   = ConfigVariables.Folders('image_folders')
 TEXTURE_FOLDER  = ConfigVariables.Folder('texture_folder')
 CACHE_MAX_AGE   = ConfigVariables.Int('cache_max_age', 31536000)
+"""How long a browser may keep an asset that never changes once written.
+
+Card art is content addressed: the picture for a card id is the same picture forever, and fetching
+it again is the slow thing this cache exists to prevent. Fonts and audio are the same. A year is
+right for these.
 """
+
+CACHE_MAX_AGE_CODE = ConfigVariables.Int('cache_max_age_code', 0)
+"""How long a browser may keep markup, styles and scripts.
+
+These change every time you edit one, so the year above was actively harmful: a CSS change stayed
+invisible until someone thought to hard reload, and the obvious reading of that is that the change
+did not work. Cost real time more than once.
+
+0 means the browser revalidates before using its copy, which is what you want while developing.
+Raise it for a deployment where the files are not moving.
+
 one hour:   3600
 one day:    86400
 one week:   604800
 one year:   31536000
+"""
+
+CODE_EXTENSIONS = ('.html', '.css', '.js', '.ts', '.map', '.json')
+"""Keyed off the extension rather than the MIME type on purpose.
+
+`MimeType` calls `.ts` `video/mp2t` and has no entry for `.map`, so a MIME-based split would hand
+both of those the year-long asset cache, which is exactly backwards for the two of them.
 """
 
 PASSWORD            = ConfigVariables.Str('password', "")
@@ -43,9 +67,23 @@ class WebServer:
             self.hash_password = None
 
         WebServer.HeaderCache = {'Cache-Control': f'public, max-age={CACHE_MAX_AGE.value}'}
+        # `no-cache` does not mean "do not cache". It means the browser may keep the file but has
+        # to check with us before using it, which is the behaviour that keeps an edit visible on a
+        # plain reload. `max-age=0` is spelled out separately only so a non-zero setting still
+        # works the obvious way.
+        WebServer.HeaderCacheCode = (
+            {'Cache-Control': 'no-cache'} if CACHE_MAX_AGE_CODE.value <= 0
+            else {'Cache-Control': f'public, max-age={CACHE_MAX_AGE_CODE.value}'})
 
     ################################################################################
     #
+    @final
+    def CacheHeaderFor(self, file_path: str) -> Dict[str, str]:
+        """Long cache for things that never change, short for things you are editing."""
+        return self.HeaderCacheCode \
+            if os.path.splitext(file_path)[1].lower() in CODE_EXTENSIONS \
+            else self.HeaderCache
+
     @final
     def NoStore(self, response: web.Response) -> web.Response:
         """A guard page describes the state of one request, so it must never be cached.
@@ -254,7 +292,7 @@ class WebServer:
             data = read_file(found_path, True)
             mime_type = MimeType.GetMimeType(file_path)
             if Build.release:
-                header = self.HeaderCache
+                header = self.CacheHeaderFor(file_path)
             else:
                 header = {}
             # Every file here is written as UTF-8, but text was served with no charset at all, so
@@ -267,7 +305,10 @@ class WebServer:
         except Exception as exc:
             Log.Debug(CATEGORY_NAME, f"{file_path=}")
             Log.FailedTrace(CATEGORY_NAME, exc)
-            return web.Response(status=404, headers=self.HeaderCache)
+            # A miss is not an asset. Under the old header a mistyped stylesheet path 404'd once
+            # and then kept 404ing from the browser's own cache for a year, long after the file
+            # was in place. Same shape as J17, one bad moment made permanent by a cache header.
+            return web.Response(status=404, headers={'Cache-Control': 'no-store'})
 
     @final
     def Run(self, ip: str, port: int, name: str="") -> None:
