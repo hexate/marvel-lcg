@@ -202,15 +202,29 @@
 
 /* The badge that opens all this, sat in the corner of a set's thumbnail. It is deliberately not
  * the thumbnail itself: left-click still selects the set for play, so reading about a set can
- * never change your setup by accident. */
-.set-info-badge {
+ * never change your setup by accident.
+ *
+ * Scoped through the container ids on purpose, and it has to stay that way. `style.css` styles
+ * `#encounter-sets button` and `#modular-sets button`, and this badge is a button inside those, so
+ * those rules match it too. A bare `.set-info-badge` loses to them on specificity, which left the
+ * badge `position: relative` with a 2px margin: in flow, widening every thumbnail by 22px and
+ * pushing the row past the right edge of the card art. Keep the ids, or that comes back.
+ */
+#encounter-sets .set-info-badge,
+#modular-sets .set-info-badge {
     position: absolute;
     left: 3px;
     top: 3px;
     z-index: 2;
 
+    /* Beat the inherited `display: inline-flex` and `margin: 2px` from the button rules above,
+     * both of which put this back in the layout. */
+    display: block;
+    margin: 0;
+
     width: 1.15rem;
     height: 1.15rem;
+    min-height: 0;
     padding: 0;
 
     font-family: serif;
@@ -218,6 +232,7 @@
     font-weight: bold;
     font-style: italic;
     line-height: 1;
+    text-align: center;
 
     cursor: pointer;
     color: #fff;
@@ -232,13 +247,100 @@
 /* Shown on hover or keyboard focus so the thumbnails stay clean, but never hidden from keyboards. */
 #modular-sets button:hover .set-info-badge,
 #encounter-sets button:hover .set-info-badge,
-.set-info-badge:focus {
+#modular-sets .set-info-badge:focus,
+#encounter-sets .set-info-badge:focus {
     opacity: 1;
 }
 
-.set-info-badge:hover {
+#modular-sets .set-info-badge:hover,
+#encounter-sets .set-info-badge:hover {
     color: #000;
     background-color: #fff;
+}
+
+/* Rollover preview: every card in the set, at a glance.
+ *
+ * The badge and its panel answer "what does this set do", which needs reading. This answers "what
+ * is in it", which does not. Hovering a set shows all of its art at once so you can sweep across
+ * the row and recognise sets without clicking into any of them.
+ *
+ * Fixed and appended to the body rather than nested in the thumbnail. Putting it inside the button
+ * is what widened every card when the badge went in, and a panel is far bigger than a badge.
+ */
+.set-hover-preview {
+    position: fixed;
+    z-index: 900;
+
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-content: flex-start;
+
+    max-width: min(46rem, 92vw);
+    max-height: 60vh;
+    overflow: hidden;
+
+    padding: 0.5rem;
+
+    background-color: rgba(12, 12, 12, 0.96);
+    border: 1px solid #666;
+    border-radius: 0.4rem;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.8);
+
+    /* The pointer is over the thumbnail, not this. Letting it take the pointer would end the
+     * hover that opened it and flicker. */
+    pointer-events: none;
+}
+
+.set-hover-preview[hidden] {
+    display: none;
+}
+
+.set-hover-title {
+    flex-basis: 100%;
+    margin-bottom: 0.15rem;
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.set-hover-title span {
+    font-weight: normal;
+    color: #999;
+}
+
+.set-hover-card {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.set-hover-card img {
+    display: block;
+    width: 132px;
+    height: 185px;
+    border-radius: 0.25rem;
+    background-color: #000;
+}
+
+/* Copy count, for the sets that run two or three of a card. */
+.set-hover-card b {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+
+    padding: 0 0.25rem;
+    font-size: 0.8rem;
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.85);
+    border: 1px solid #999;
+    border-radius: 0.2rem;
+}
+
+.set-hover-more {
+    flex-basis: 100%;
+    font-size: 0.8rem;
+    font-style: italic;
+    color: #999;
 }
 
 @media (max-width: 720px) {

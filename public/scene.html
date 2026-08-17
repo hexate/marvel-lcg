@@ -776,8 +776,121 @@ const SetDetail = (() => {
 })()
 
 function openSetDetail(setFile, setName, encounters) {
+    // The badge stops its click from reaching the thumbnail, which is what keeps a set from being
+    // selected by accident, but it also means the thumbnail's own hide-on-click never runs. Clear
+    // the rollover art here so every path into the detail panel leaves it behind.
+    SetHover.hide()
     SetDetail.show(setFile, setName, encounters)
 }
+
+/* Rollover preview of a whole set.
+ *
+ * Only the art, and only on hover. The badge panel is for reading a set; this is for recognising
+ * one while sweeping the row, which is most of what you do on this screen.
+ */
+const SetHover = (() => {
+    const SHOW_AFTER_MS = 260   // long enough that crossing the row does not strobe panels
+    // A guard, not a routine path: the largest set shipped is 9 unique cards, so this does not
+    // currently trigger. It is here so a future set cannot turn a glance into a wall of art.
+    const MAX_CARDS = 24
+
+    let panel = null
+    let timer = 0
+
+    function build() {
+        panel = document.createElement('div')
+        panel.className = 'set-hover-preview'
+        panel.hidden = true
+        document.body.appendChild(panel)
+    }
+
+    /** Keep the panel on screen: prefer below the thumbnail, flip or clamp when it would spill. */
+    function place(anchor) {
+        const a = anchor.getBoundingClientRect()
+        panel.style.left = '0px'
+        panel.style.top = '0px'
+        const p = panel.getBoundingClientRect()
+
+        let left = a.left
+        if (left + p.width > innerWidth - 8) left = innerWidth - p.width - 8
+        if (left < 8) left = 8
+
+        let top = a.bottom + 8
+        if (top + p.height > innerHeight - 8) top = a.top - p.height - 8
+        if (top < 8) top = 8
+
+        panel.style.left = `${Math.round(left)}px`
+        panel.style.top = `${Math.round(top)}px`
+    }
+
+    function show(anchor, setName, encounters) {
+        if (!panel) build()
+
+        const order = []
+        const copies = new Map()
+        for (const raw of encounters) {
+            const code = String(raw).split(',')[0]
+            if (!copies.has(code)) { copies.set(code, 0); order.push(code) }
+            copies.set(code, copies.get(code) + 1)
+        }
+
+        const shown = order.slice(0, MAX_CARDS)
+        const total = encounters.length
+        panel.replaceChildren()
+
+        const title = document.createElement('div')
+        title.className = 'set-hover-title'
+        title.textContent = setName
+        const count = document.createElement('span')
+        count.textContent = ` ${total} card${total === 1 ? '' : 's'}`
+        title.appendChild(count)
+        panel.appendChild(title)
+
+        for (const code of shown) {
+            const cell = document.createElement('div')
+            cell.className = 'set-hover-card'
+            const img = document.createElement('img')
+            img.src = code
+            img.alt = code
+            cell.appendChild(img)
+            if (copies.get(code) > 1) {
+                const n = document.createElement('b')
+                n.textContent = `x${copies.get(code)}`
+                cell.appendChild(n)
+            }
+            panel.appendChild(cell)
+        }
+
+        // Say so rather than silently showing a subset.
+        if (order.length > shown.length) {
+            const more = document.createElement('div')
+            more.className = 'set-hover-more'
+            more.textContent = `and ${order.length - shown.length} more, open the badge for the full set`
+            panel.appendChild(more)
+        }
+
+        panel.hidden = false
+        place(anchor)
+    }
+
+    function hide() {
+        clearTimeout(timer)
+        if (panel) panel.hidden = true
+    }
+
+    /** Wire one set thumbnail. */
+    function attach(button, setName, encounters) {
+        button.addEventListener('mouseenter', () => {
+            clearTimeout(timer)
+            timer = setTimeout(() => show(button, setName, encounters), SHOW_AFTER_MS)
+        })
+        button.addEventListener('mouseleave', hide)
+        // Do not leave art floating over the detail panel or a selection.
+        button.addEventListener('click', hide)
+    }
+
+    return { attach, hide }
+})()
 
 async function createSets() {
     const response = await fetch(`list_encounter_sets?`);
@@ -828,6 +941,8 @@ async function createSets() {
             return false
         }
         div.appendChild(info)
+
+        SetHover.attach(div, j['name'] || text, j['encounters'])
 
         div.onclick = () => {
             div.classList.toggle('click')
