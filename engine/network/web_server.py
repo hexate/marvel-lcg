@@ -257,7 +257,13 @@ class WebServer:
                 header = self.HeaderCache
             else:
                 header = {}
-            return web.Response(body=data, content_type=mime_type, headers=header)
+            # Every file here is written as UTF-8, but text was served with no charset at all, so
+            # the browser had to guess and fell back to latin-1. Six of the thirteen pages carry no
+            # `<meta charset>` of their own, and on those any non-ASCII character rendered mojibake
+            # (a "·" separator arriving as "Â·"). Saying it in the header fixes all of them at once
+            # and does not depend on each page remembering to.
+            charset = 'utf-8' if mime_type.startswith('text/') else None
+            return web.Response(body=data, content_type=mime_type, charset=charset, headers=header)
         except Exception as exc:
             Log.Debug(CATEGORY_NAME, f"{file_path=}")
             Log.FailedTrace(CATEGORY_NAME, exc)
