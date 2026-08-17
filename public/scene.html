@@ -6,6 +6,19 @@
     <title>New Game</title>
     <link rel="stylesheet" href="/public/css/menu/style.css">
     <link rel="stylesheet" href="/public/css/font-awesome.css">
+    <link rel="stylesheet" href="/public/css/menu/set-detail.css">
+    <!-- Resource icons inside card text. `icon.css` names the family but does not declare it,
+         because the game page gets the @font-face from `marvel.css`, which this page does not
+         load. Declared here rather than dragging in the whole game stylesheet. -->
+    <link rel="stylesheet" href="/public/css/marvel/icon.css">
+<style>
+    @font-face {
+        font-family: 'marvel-icons';
+        src: url('/public/fonts/ChampionsIcons.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+    }
+</style>
 <style>
     * {
         --card--width: 100px;
@@ -547,6 +560,225 @@ async function createScenarios() {
 
 <script>
 
+/* Encounter set detail
+ *
+ * A set was a single 100x140 thumbnail of its first card. This shows the whole set at a size you
+ * can read, with each card's type, traits, stats and full rules text, so you can tell what a set
+ * does before committing to it.
+ *
+ * There is no written description of a set anywhere in the data, only a name and a list of card
+ * ids, so "how it works" is composed from the cards themselves rather than invented.
+ */
+const SetDetail = (() => {
+    /** Cards are fetched once and kept, since sets share cards and reopening is common. */
+    const cache = new Map()
+
+    let overlay = null
+    let titleEl = null
+    let summaryEl = null
+    let listEl = null
+    let lastFocused = null
+
+    // Tokens the icon font actually has a glyph for. Anything else is shown as a word, because a
+    // missing glyph renders as a blank box and reads as a bug.
+    const ICONS = new Set([
+        'mental', 'physical', 'energy', 'wild', 'boost', 'per_hero', 'hazard',
+        'crisis', 'acceleration', 'amplify', 'consequential', 'cost', 'unique',
+    ])
+
+    // Stats worth surfacing, in the order a player reads them off a card.
+    const STAT_ORDER = [
+        'Cost', 'HP', 'ATK', 'SCH', 'THW', 'DEF', 'REC',
+        'Boost', 'StartingThreat', 'TargetThreat', 'EscalationThreat',
+        'Toughness', 'Retaliate', 'Guard', 'Quickstrike', 'Steady', 'Surge', 'Hinder', 'Incite',
+        'Hazard', 'Acceleration', 'Amplify', 'Crisis', 'Stage',
+    ]
+
+    function escapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    }
+
+    /** Card text ships with `<b>`/`<i>` markup and `[resource]` tokens, so it goes in as HTML.
+     *  The source is the local card database that already drives the game, not user input. */
+    function renderText(text) {
+        if (!text) return ''
+        return String(text).replace(/\[\[?([a-z_]+)\]?\]/g, (whole, token) => {
+            if (ICONS.has(token)) return `<span class="icon-${token}"></span>`
+            if (token === 'star') return '★'
+            return `<span class="set-detail-chip">${escapeHtml(token.replaceAll('_', ' '))}</span>`
+        })
+    }
+
+    /** "2 minions, 2 treacheries, 1 attachment", from the actual card types in the set. */
+    function describeComposition(cards) {
+        const LABELS = {
+            Minion: ['minion', 'minions'],
+            Treachery: ['treachery', 'treacheries'],
+            SideScheme: ['side scheme', 'side schemes'],
+            MainScheme: ['main scheme', 'main schemes'],
+            Attachment: ['attachment', 'attachments'],
+            Environment: ['environment', 'environments'],
+            Obligation: ['obligation', 'obligations'],
+            Villain: ['villain', 'villains'],
+        }
+        const counts = new Map()
+        for (const card of cards) {
+            const type = card.paper && card.paper.type ? card.paper.type : 'card'
+            counts.set(type, (counts.get(type) || 0) + card.copies)
+        }
+        const parts = []
+        for (const [type, n] of [...counts.entries()].sort((a, b) => b[1] - a[1])) {
+            const label = LABELS[type] || [type.toLowerCase(), type.toLowerCase() + 's']
+            parts.push(`${n} ${n === 1 ? label[0] : label[1]}`)
+        }
+        return parts.join(' · ')
+    }
+
+    function build() {
+        overlay = document.createElement('div')
+        overlay.className = 'set-detail-overlay'
+        overlay.hidden = true
+        overlay.setAttribute('role', 'dialog')
+        overlay.setAttribute('aria-modal', 'true')
+
+        const dialog = document.createElement('div')
+        dialog.className = 'set-detail-dialog'
+        // Clicking the backdrop closes; clicks inside must not bubble up into that.
+        dialog.onclick = (event) => event.stopPropagation()
+
+        const header = document.createElement('div')
+        header.className = 'set-detail-header'
+
+        titleEl = document.createElement('div')
+        titleEl.className = 'set-detail-title'
+
+        summaryEl = document.createElement('div')
+        summaryEl.className = 'set-detail-summary'
+
+        const close = document.createElement('button')
+        close.className = 'set-detail-close'
+        close.type = 'button'
+        close.textContent = '✕'
+        close.setAttribute('aria-label', 'Close')
+        close.onclick = hide
+
+        header.append(titleEl, summaryEl, close)
+
+        listEl = document.createElement('div')
+        listEl.className = 'set-detail-list'
+
+        dialog.append(header, listEl)
+        overlay.appendChild(dialog)
+        overlay.onclick = hide
+        document.body.appendChild(overlay)
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !overlay.hidden) hide()
+        })
+    }
+
+    async function fetchCard(code) {
+        if (cache.has(code)) return cache.get(code)
+        const response = await fetch(`get_card_json?${code}`)
+        // A card the database does not know is worth showing as such rather than dropping the row
+        // silently, which would misreport the size of the set.
+        const paper = response.ok ? await response.json() : null
+        cache.set(code, paper)
+        return paper
+    }
+
+    function cardRow(entry) {
+        const paper = entry.paper
+        const row = document.createElement('div')
+        row.className = 'set-detail-card'
+
+        const img = document.createElement('img')
+        // Deliberately not `loading="lazy"`. These rows are built detached and appended in one go,
+        // and a lazy image whose src is set before it is in the document never gets observed: the
+        // request simply never starts, so every card past the first stayed blank even in view.
+        // A set is a handful of cards and the art is the reason this panel exists, so load it.
+        img.src = entry.code
+        img.alt = paper ? paper.name : entry.code
+        row.appendChild(img)
+
+        const body = document.createElement('div')
+        body.className = 'set-detail-card-body'
+
+        if (!paper) {
+            body.innerHTML = `<div class="set-detail-card-name">${escapeHtml(entry.code)}</div>`
+                + `<div class="set-detail-empty">This card is not in the card database.</div>`
+            row.appendChild(body)
+            return row
+        }
+
+        const copies = entry.copies > 1
+            ? ` <span class="set-detail-copies">x${entry.copies}</span>` : ''
+        const stats = STAT_ORDER
+            .filter((key) => paper.desc && paper.desc[key] !== undefined)
+            .map((key) => `<span><b>${escapeHtml(key)}</b> ${escapeHtml(paper.desc[key])}</span>`)
+            .join('')
+
+        body.innerHTML =
+            `<div class="set-detail-card-name">${escapeHtml((paper.name || '').replace(/^\*\s*/, ''))}${copies}</div>`
+            // Types are stored camel-cased ("SideScheme"), which uppercases into one run.
+            + (paper.type
+                ? `<div class="set-detail-type">${escapeHtml(paper.type.replace(/([a-z])([A-Z])/g, '$1 $2'))}</div>`
+                : '')
+            + (paper.traits && paper.traits.length
+                ? `<div class="set-detail-traits">${escapeHtml(paper.traits.join(' · '))}</div>` : '')
+            + (stats ? `<div class="set-detail-stats">${stats}</div>` : '')
+            + (paper.text
+                ? `<div class="set-detail-text">${renderText(paper.text)}</div>`
+                : `<div class="set-detail-empty">No rules text.</div>`)
+
+        row.appendChild(body)
+        return row
+    }
+
+    function hide() {
+        if (!overlay || overlay.hidden) return
+        overlay.hidden = true
+        if (lastFocused && lastFocused.focus) lastFocused.focus()
+        lastFocused = null
+    }
+
+    async function show(setFile, setName, encounters) {
+        if (!overlay) build()
+        lastFocused = document.activeElement
+
+        // Collapse duplicates into copy counts: a set lists a repeated card once per copy.
+        const order = []
+        const copies = new Map()
+        for (const raw of encounters) {
+            const code = String(raw).split(',')[0]
+            if (!copies.has(code)) { copies.set(code, 0); order.push(code) }
+            copies.set(code, copies.get(code) + 1)
+        }
+
+        titleEl.textContent = setName
+        const total = encounters.length
+        summaryEl.textContent = `${total} card${total === 1 ? '' : 's'}, loading…`
+        listEl.replaceChildren()
+        overlay.hidden = false
+
+        const entries = await Promise.all(order.map(async (code) => (
+            { code, copies: copies.get(code), paper: await fetchCard(code) }
+        )))
+
+        summaryEl.textContent = `${total} card${total === 1 ? '' : 's'}`
+            + (describeComposition(entries) ? ` · ${describeComposition(entries)}` : '')
+        listEl.replaceChildren(...entries.map(cardRow))
+        listEl.scrollTop = 0
+    }
+
+    return { show, hide }
+})()
+
+function openSetDetail(setFile, setName, encounters) {
+    SetDetail.show(setFile, setName, encounters)
+}
+
 async function createSets() {
     const response = await fetch(`list_encounter_sets?`);
     if (!response.ok) {
@@ -579,6 +811,24 @@ async function createSets() {
         div.setAttribute('data-name', text)
         div.setAttribute('data-display', `${j['encounters'][0]} ${text}`)
         div.appendChild(img)
+
+        // Reading about a set must never change your setup, so this is its own control rather than
+        // a second meaning for clicking the thumbnail. `stopPropagation` keeps the button's own
+        // select handler from firing underneath it.
+        const info = document.createElement('button')
+        info.className = 'set-info-badge'
+        info.type = 'button'
+        info.textContent = 'i'
+        info.title = `What is in ${j['name'] || text}?`
+        info.setAttribute('aria-label', `Show the cards in ${j['name'] || text}`)
+        info.onclick = (event) => {
+            event.stopPropagation()
+            event.preventDefault()
+            openSetDetail(text, j['name'] || text, j['encounters'])
+            return false
+        }
+        div.appendChild(info)
+
         div.onclick = () => {
             div.classList.toggle('click')
             for( let name of ['standard', 'expert'] ) {

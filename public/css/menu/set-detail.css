@@ -1,0 +1,253 @@
+/* Encounter set detail
+ *
+ * The setup screen showed one 100x140 thumbnail per set, of that set's first card only. You could
+ * not see the other cards, read any rules text, or tell what a set actually does before choosing
+ * it. This is the panel that answers that.
+ *
+ * Sizing follows the same contract as the game over screen: the overlay is exactly the viewport,
+ * the dialog is capped against it, and the card list is the one part allowed to overflow, so it is
+ * the one part that scrolls. Nothing here is sized from its own content, which is what let that
+ * screen push its controls off the edges.
+ */
+
+.set-detail-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+
+    background-color: rgba(0, 0, 0, 0.75);
+}
+
+.set-detail-overlay[hidden] {
+    display: none;
+}
+
+.set-detail-dialog {
+    display: grid;
+    /* header, then the scrolling list. `minmax(0, 1fr)` so the list shrinks rather than pushing
+     * the dialog past the cap above it. */
+    grid-template-rows: auto minmax(0, 1fr);
+
+    width: min(60rem, 100%);
+    max-height: 100%;
+    min-height: 0;
+
+    background-color: #1c1c1c;
+    border: 1px solid #555;
+    border-radius: 0.5rem;
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.8);
+    color: #ddd;
+}
+
+.set-detail-header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 0.5rem 1rem;
+
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #555;
+}
+
+.set-detail-title {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #fff;
+    line-height: 1.2;
+}
+
+/* What the set is made of, counted from the cards themselves. There is no curated description of
+ * a set anywhere in the data, so this is the honest substitute: the composition, stated plainly. */
+.set-detail-summary {
+    grid-column: 1;
+    font-size: 0.95rem;
+    color: #aaa;
+    line-height: 1.5;
+}
+
+.set-detail-close {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+
+    align-self: start;
+    width: 2rem;
+    height: 2rem;
+
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+
+    color: #ddd;
+    background-color: #333;
+    border: 1px solid #666;
+    border-radius: 0.25rem;
+}
+
+.set-detail-close:hover {
+    color: #000;
+    background-color: #bbb;
+}
+
+.set-detail-list {
+    overflow: auto;
+    overscroll-behavior: contain;
+    min-height: 0;
+
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.set-detail-card {
+    display: grid;
+    /* The image column is the whole point of this panel, so it gets a fixed readable width and the
+     * text takes the rest. Collapses to one column when there is no room for both. */
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 1rem;
+
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #3a3a3a;
+}
+
+.set-detail-card:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.set-detail-card img {
+    width: 200px;
+    height: 280px;
+    border-radius: 0.4rem;
+    background-color: #000;
+    object-fit: contain;
+}
+
+.set-detail-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.set-detail-card-name {
+    font-size: 1.15rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.set-detail-copies {
+    font-weight: normal;
+    color: #f0a000;
+}
+
+.set-detail-type {
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #7fb2d8;
+}
+
+.set-detail-traits {
+    font-size: 0.85rem;
+    font-style: italic;
+    color: #c0a060;
+}
+
+.set-detail-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+    color: #ccc;
+}
+
+.set-detail-stats span b {
+    color: #fff;
+}
+
+/* Card text is authored with markup and resource tokens, so it is inserted as HTML. It comes from
+ * the local card database that this build already trusts to drive the game, not from user input. */
+.set-detail-text {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    color: #ddd;
+}
+
+.set-detail-text b {
+    color: #fff;
+}
+
+/* Tokens the icon font has no glyph for, so the word is shown rather than a raw `[bracket]`. */
+.set-detail-chip {
+    display: inline-block;
+    padding: 0 0.3rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #1c1c1c;
+    background-color: #b0b0b0;
+    border-radius: 0.2rem;
+}
+
+.set-detail-empty {
+    color: #999;
+    font-style: italic;
+}
+
+/* The badge that opens all this, sat in the corner of a set's thumbnail. It is deliberately not
+ * the thumbnail itself: left-click still selects the set for play, so reading about a set can
+ * never change your setup by accident. */
+.set-info-badge {
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    z-index: 2;
+
+    width: 1.15rem;
+    height: 1.15rem;
+    padding: 0;
+
+    font-family: serif;
+    font-size: 0.85rem;
+    font-weight: bold;
+    font-style: italic;
+    line-height: 1;
+
+    cursor: pointer;
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.75);
+    border: 1px solid #bbb;
+    border-radius: 50%;
+
+    opacity: 0;
+    transition: opacity 0.15s, background-color 0.15s;
+}
+
+/* Shown on hover or keyboard focus so the thumbnails stay clean, but never hidden from keyboards. */
+#modular-sets button:hover .set-info-badge,
+#encounter-sets button:hover .set-info-badge,
+.set-info-badge:focus {
+    opacity: 1;
+}
+
+.set-info-badge:hover {
+    color: #000;
+    background-color: #fff;
+}
+
+@media (max-width: 720px) {
+    .set-detail-card {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .set-detail-card img {
+        width: 160px;
+        height: 224px;
+    }
+}
