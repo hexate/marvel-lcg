@@ -1,0 +1,178 @@
+/******************************************************************************
+* v2 layout
+*
+* Loaded instead of `marvel/scene.css` and `marvel/pos-area.css`. Everything else about the board,
+* all the card faces, icons, info panels and effects, is the v1 CSS unchanged: the look is not what
+* is being rebuilt here, the geometry is.
+*
+* What changed and why
+* --------------------
+* v1 draws the board on a fixed 1920x1080 canvas and scales it with a JS `transform`, sized to
+* `min(vw/1920, vh/1080)`. That is uniform, so on any viewport that is not 16:9 the leftover axis
+* becomes empty bars. Measured on a 1512x723 window: 1285px of board in a 1512px viewport, 227px
+* wasted, about 15% of the screen.
+*
+* v2 keeps the same coordinate system, because the animation and hit-testing code speaks it, but
+* stops expressing it in hard pixels. One scene unit becomes a fraction of the container's block
+* size, so the browser does the scaling continuously and there is nothing to recompute.
+*
+* Consequences worth knowing:
+*
+*   - No JS runs to size the board. `Scene.init` returns early under v2. That removes a whole class
+*     of bug: a JS-measured scale can go stale against the real viewport, and did, which is what
+*     made the board look broken during the layout audit.
+*   - Height still governs card size, so cards are exactly the size they are in v1 at the same
+*     window height. Width is free, and the extra space goes to the board.
+*   - `dvh` rather than `vh` so a mobile toolbar sliding away does not crop the board.
+*/
+
+/******************************************************************************
+* The container
+*
+* `container-type: size` is what makes `cqb` mean anything, and it requires a definite size, so
+* the height is stated rather than inherited. It goes here and not on `html`/`body`: making the
+* root a container is a documented way to get surprising layout, and a zero-height container
+* silently hides everything inside it.
+*/
+#camera {
+    position: fixed;
+    inset: 0;
+
+    /* v1 sets these to the fixed canvas size and then scales. Both must be cleared, and the
+     * transform too, or the inline style JS used to write would still be sitting here. */
+    width: auto;
+    height: 100dvh;
+    transform: none;
+
+    container-type: size;
+    container-name: board;
+
+    transform-origin: top left;
+    overflow: hidden;
+}
+
+#scene {
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(#333, #111);
+
+    /* Two scene units, one per axis. This split is the whole idea.
+     *
+     * The board was authored on a 1920x1080 canvas, so a coordinate of 210 means 210/1080 down and
+     * 1880 means 1880/1920 across. Keeping both numbers meaningful means every `--x`/`--y` in the
+     * markup and in `pos-area` carries over unchanged.
+     *
+     *   --su   block axis, from the container height. Drives every SIZE.
+     *   --sux  inline axis, from the container width. Drives horizontal POSITION only.
+     *
+     * Sizing from one axis and positioning across the other is what gets the space back without
+     * distorting anything. Cards keep their printed proportions because their width and height both
+     * come from `--su`. The board spreads to fill the window because the gaps between columns come
+     * from `--sux`. v1 could not do this: one uniform transform had to serve both, so a window that
+     * was not 16:9 paid for it in empty bars.
+     *
+     * Change either number below and the board rescales; nothing else knows the dimensions. */
+    --scene-rows: 1080;
+    --scene-cols: 1920;
+    --su:  calc(100cqb / var(--scene-rows));
+    --sux: calc(100cqi / var(--scene-cols));
+}
+
+/******************************************************************************
+* Card metrics
+*
+* v1 hardcodes 127x176 px. Same numbers, same proportions, now in scene units so they track the
+* container instead of the screen's pixel grid.
+*/
+#scene {
+    --card-height: calc(176 * var(--su));
+    --card-width: calc(127 * var(--su));
+    --font-size: calc(26 * var(--su));
+    --border-size: var(--font-size);
+}
+
+/******************************************************************************
+* Coordinate consumers
+*
+* Every one of these is a v1 rule that multiplied a unitless scene coordinate by `1px`. They are
+* re-stated against the two axis units instead: `--sux` across, `--su` down. This is the complete
+* set, so if a card lands in the wrong place under v2, a missing one of these is the first thing
+* to check.
+*/
+#scene .card {
+    --left: calc(var(--x) * var(--sux));
+    --top:  calc(var(--y) * var(--su));
+}
+
+#scene .card.active,
+#scene .card.activating {
+    --top: calc(var(--y) * var(--su) + var(--card-height) * .25);
+}
+
+#scene .card.active.up,
+#scene .card.activating.up {
+    --top: calc(var(--y) * var(--su) - var(--card-height) * .75);
+}
+
+#scene .deck {
+    left: calc(var(--x) * var(--sux));
+    top:  calc(var(--y) * var(--su));
+}
+
+#scene .area::after {
+    top:   calc(var(--y) * var(--su));
+    left:  calc(var(--x) * var(--sux));
+    width: calc(var(--width) * var(--sux));
+}
+
+/******************************************************************************
+* Areas
+*
+* The vertical stack is unchanged from v1: these are the same numbers `pos-area.css` uses, and the
+* board reads the same top to bottom. Only the unit is different.
+*/
+#area-schemes-main,
+#area-schemes-side,
+#scene .area {
+    top: 0 !important;
+    left: 0 !important;
+    position: absolute;
+    width: 0 !important;
+    height: 0 !important;
+    right: unset !important;
+}
+
+#scene .area .card {
+    --z: 1;
+}
+
+#player-all-engaged-minions { --y: 210; }
+#player-all-allies          { --y: 410; }
+#player-all-supports        { --y: 605; }
+#player-all-area-hero       { --y: 795; }
+#player-all-hand-cards      { --y: 975; }
+
+.area-center {
+    margin: 0;
+}
+
+#area-villain      { --y: 10; }
+#area-schemes-main { --y: 80; }
+#area-schemes-side { --y: 280; }
+
+/* Horizontal placement is where the extra space actually shows up. Because `--sux` is a fraction
+ * of the width, these coordinates keep their meaning at any window size: 50 stays a small inset
+ * from the left, 1880 stays hard against the right, and the gap between them grows. */
+#area-play {
+    --y: 350;
+    --x: 50;
+    margin: 0;
+}
+
+#area-schemes-main,
+#area-schemes-side {
+    /* Unchanged from v1. It lands 1880/1920 across, so it stays against the right edge at any
+     * width, which the earlier attempt to compute an offset could not do: CSS cannot divide a
+     * length by a length, so that declaration computed to nothing. */
+    --x: 1880;
+}

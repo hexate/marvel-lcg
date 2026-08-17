@@ -1,0 +1,38 @@
+/******************************************************************************
+* Layout version switch
+*
+* Small corner control that flips between the original board and v2, keeping the same game and
+* seat. Two layouts are only useful if comparing them is one click.
+*
+* Deliberately outside the board container: it is chrome, in real screen pixels, so it stays the
+* same size no matter what the board is doing. That is also the reason it does not use the scene
+* units the rest of v2 is built on.
+*/
+#layout-version-switch {
+    position: fixed;
+    left: 6px;
+    bottom: 6px;
+    z-index: 2000;
+
+    padding: 0.1rem 0.45rem;
+
+    font-family: monospace;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    text-decoration: none;
+
+    color: #bbb;
+    background-color: rgba(0, 0, 0, 0.7);
+    border: 1px solid #555;
+    border-radius: 0.2rem;
+
+    /* Present but not competing with the game. */
+    opacity: 0.35;
+    transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+
+#layout-version-switch:hover {
+    opacity: 1;
+    color: #fff;
+    border-color: #999;
+}

@@ -7,7 +7,8 @@
         "*.d.ts", // Include declaration files
         "lib/*.ts",
         "module/**/*.ts",
-        "marvel/**/*.ts"
+        "marvel/**/*.ts",
+        "marvel2/**/*.ts" // v2 layout, selected with `?v2` on the board URL
     ],
     "compilerOptions": {
         /* Visit https://aka.ms/tsconfig to read more about this file */

@@ -11,10 +11,23 @@ CATEGORY_NAME = "WEB"
 class GameServerFiles(GameServerBase):
 
     async def handle_marvel(self, request: web.Request) -> web.StreamResponse:
+        """The board, or the menu when there is nothing in the query string.
+
+        The rebuilt layout is the default. `v1` asks for the original one back.
+
+        This is a flag on the existing board URL rather than a route of its own because everything
+        else in the query string still has to work: `hot_seat`, `p=0`, `3d_scene` and the rest. So
+        `/?hot_seat` and `/?hot_seat&v1` are the same game and the same seat, drawn two ways, which
+        is what makes them comparable.
+
+        `v2` is still accepted and still means v2. It is redundant now that v2 is the default, but
+        any link or bookmark written while it was opt-in keeps working.
+        """
         if request.query_string == '':
             return self.ReadFile('./public/main.html')
-        else:
+        if 'v1' in request.query:
             return self.ReadFile('./public/marvel.html')
+        return self.ReadFile('./public/marvel2.html')
 
     async def handle_players_404(self, request: web.Request) -> web.StreamResponse:
         player = request.match_info.get('player')

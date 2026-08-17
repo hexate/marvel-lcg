@@ -5,7 +5,24 @@ import { HoverCard } from './hover.js';
 export class Scene {
     static scale: number = 0
 
+    /** Whether the rebuilt layout is in charge, which it is unless asked otherwise.
+     *
+     *  Must agree with the server, which picks the page from the same flag, and with
+     *  `marvel2/layout.ts`. If they ever disagree the page and its script disagree about which
+     *  layout is on screen, so keep the rule in one shape: v2 unless `v1` is present. */
+    static isV2(): boolean {
+        return !new URLSearchParams(location.search).has('v1')
+    }
+
     static init() {
+        // v2 lets CSS own the scale, so none of this may run: the transform and the inline
+        // left/top below would fight the container-query layout and win, because inline styles
+        // beat stylesheets. See `public/js/marvel2/layout.ts`.
+        if (Scene.isV2()) {
+            document.getElementById('camera')!.style.display = 'unset'
+            return
+        }
+
         // Adjust scale on DOMContentLoaded
         document.addEventListener('DOMContentLoaded', () => {
             adjustSceneScale()
