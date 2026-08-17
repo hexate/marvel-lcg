@@ -18,10 +18,11 @@ const V2_FLAG = 'v2'
 
 export class Layout2 {
 
-    /** Must match `handle_marvel` on the server and `Scene.isV2`, or the page and the script
-     *  disagree about which layout is on screen. */
+    /** Read from the page rather than the URL, for the same reason as `Scene.isV2`: the server
+     *  chose the page, so the page is the only thing that knows which layout is on screen. Asking
+     *  the URL is a second opinion that can disagree with the first. */
     static isActive(): boolean {
-        return !new URLSearchParams(location.search).has(V1_FLAG)
+        return document.body?.dataset.layout === 'v2'
     }
 
     /** The same board URL with the layout flipped, so switching keeps the game and the seat. */

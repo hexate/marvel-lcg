@@ -171,8 +171,75 @@
 
 #area-schemes-main,
 #area-schemes-side {
-    /* Unchanged from v1. It lands 1880/1920 across, so it stays against the right edge at any
-     * width, which the earlier attempt to compute an offset could not do: CSS cannot divide a
-     * length by a length, so that declaration computed to nothing. */
-    --x: 1880;
+    /* v1 uses 1880, which is where the card's LEFT edge goes. A card is 127 wide, so 1880 + 127 is
+     * 2007 against a 1920 canvas: the column hangs 87 units off the right in v1 too, and gets
+     * clipped. Measured 1595px against a 1512px viewport before any of this changed, so it is not
+     * something v2 introduced.
+     *
+     * Since the coordinate is ours here, it is set so the card lands inside the edge instead:
+     * 1920 - 127 - 20 leaves a 20 unit margin. Put it back to 1880 to match v1 exactly. */
+    --x: 1773;
+}
+
+/******************************************************************************
+* Coordinate consumers, part two: the ones the first pass missed
+*
+* Two distinct misses, both found from the board pushing content off the lower right.
+*
+* 1. Pseudo-elements. `.deck::after` carries the card-count label and positions itself from the
+*    same `--x`/`--y`, but a rule on `.deck` does not reach `::after`, so those were still
+*    multiplying by a raw `1px`. Under v1 the transform shrank that by ~0.72 and it landed on the
+*    board; under v2 nothing shrinks it, so a deck at `--x: 1700` put its label at 1700 real pixels
+*    and off the edge of a 1512px window. `#area-advanced`, `#nemesis-pool` and `#victory-display`
+*    are the ones far enough right to disappear.
+*
+* 2. Offsets losing to specificity. v1 nudges activating and selected cards with rules like
+*    `.deck.player-deck .card.activating:not(.moving)` (0,0,4,0). The v2 base rule is
+*    `#scene .card` (0,1,1,0), and an id beats any number of classes, so those nudges were being
+*    overridden into nothing rather than converted. They are restated here at a specificity that
+*    wins, which is why every selector below is prefixed with `#scene`.
+*
+* The general lesson for anything added later: overriding a var that other rules also set means
+* inheriting their whole specificity fight, not just their arithmetic.
+*/
+
+/* Deck labels. Mirrors deck.css:118-120 and 148-150, same formulas, converted units. */
+#scene .deck.deck-change-size:not(.clicked)::after,
+#scene .deck:not(.clicked):hover::after {
+    top:  calc(var(--y) * var(--su) + var(--card-height) - 2.5 * var(--font-size));
+    left: calc(var(--x) * var(--sux));
+}
+
+#scene .player-deck.deck.deck-change-size::after,
+#scene .player-deck.deck:not(.clicked):hover::after {
+    top: calc(var(--y) * var(--su));
+}
+
+/* Debug outline, off by default (`content` is commented out in v1) but converted so it is not
+ * wrong the day someone switches it on. Mirrors pos-deck.css:117-119. */
+#scene .deck::before {
+    top:  calc(var(--y) * var(--su));
+    left: calc(var(--x) * var(--sux));
+}
+
+/* A card lifting out of a deck. Mirrors card-active.css:36-47. */
+#scene .deck.player-deck            .card.activating:not(.moving),
+#scene .deck.encounter-discard-pile .card.activating:not(.moving),
+#scene .deck.encounter-deck         .card.activating:not(.moving) {
+    --left: calc(var(--x) * var(--sux) + var(--card-width) * .25);
+}
+
+#scene .deck.encounter-discard-pile .card.activating:not(.moving),
+#scene .deck.encounter-discard-pile .card.selected:not(.moving) {
+    --top: calc(var(--y) * var(--su) + var(--card-height) * .25);
+}
+
+#scene .deck.player-deck .card.activating:not(.moving) {
+    --top: calc(var(--y) * var(--su) - var(--card-height) * .75);
+}
+
+/* A card fanned out of a deck while choosing. Mirrors card-select.css:160-162. */
+#scene .deck .card.selected:not(.moving) {
+    --select-index: 0;
+    --left: calc(var(--x) * var(--sux) + (var(--card-width) + 2px) * (var(--select-index) + 1));
 }

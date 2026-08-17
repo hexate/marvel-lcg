@@ -5,13 +5,16 @@ import { HoverCard } from './hover.js';
 export class Scene {
     static scale: number = 0
 
-    /** Whether the rebuilt layout is in charge, which it is unless asked otherwise.
+    /** Whether the rebuilt layout is in charge.
      *
-     *  Must agree with the server, which picks the page from the same flag, and with
-     *  `marvel2/layout.ts`. If they ever disagree the page and its script disagree about which
-     *  layout is on screen, so keep the rule in one shape: v2 unless `v1` is present. */
+     *  Read from the page, not the URL. The server decides which page to send; if this asked the
+     *  URL instead it would be a second, independent opinion, and the two can disagree. They did:
+     *  a cached v1 page opened at a v2 URL had this return true, so the guard below skipped v1's
+     *  scaling on a page that needs it, and the board rendered unscaled and half off screen.
+     *
+     *  The page that was actually served is the only thing that knows the answer. */
     static isV2(): boolean {
-        return !new URLSearchParams(location.search).has('v1')
+        return document.body?.dataset.layout === 'v2'
     }
 
     static init() {
