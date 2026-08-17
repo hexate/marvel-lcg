@@ -7,18 +7,6 @@
     <link rel="stylesheet" href="/public/css/menu/style.css">
     <link rel="stylesheet" href="/public/css/font-awesome.css">
     <link rel="stylesheet" href="/public/css/menu/set-detail.css">
-    <!-- Resource icons inside card text. `icon.css` names the family but does not declare it,
-         because the game page gets the @font-face from `marvel.css`, which this page does not
-         load. Declared here rather than dragging in the whole game stylesheet. -->
-    <link rel="stylesheet" href="/public/css/marvel/icon.css">
-<style>
-    @font-face {
-        font-family: 'marvel-icons';
-        src: url('/public/fonts/ChampionsIcons.ttf') format('truetype');
-        font-weight: normal;
-        font-style: normal;
-    }
-</style>
 <style>
     * {
         --card--width: 100px;
@@ -579,37 +567,6 @@ const SetDetail = (() => {
     let listEl = null
     let lastFocused = null
 
-    // Tokens the icon font actually has a glyph for. Anything else is shown as a word, because a
-    // missing glyph renders as a blank box and reads as a bug.
-    const ICONS = new Set([
-        'mental', 'physical', 'energy', 'wild', 'boost', 'per_hero', 'hazard',
-        'crisis', 'acceleration', 'amplify', 'consequential', 'cost', 'unique',
-    ])
-
-    // Stats worth surfacing, in the order a player reads them off a card.
-    const STAT_ORDER = [
-        'Cost', 'HP', 'ATK', 'SCH', 'THW', 'DEF', 'REC',
-        'Boost', 'StartingThreat', 'TargetThreat', 'EscalationThreat',
-        'Toughness', 'Retaliate', 'Guard', 'Quickstrike', 'Steady', 'Surge', 'Hinder', 'Incite',
-        'Hazard', 'Acceleration', 'Amplify', 'Crisis', 'Stage',
-    ]
-
-    function escapeHtml(value) {
-        return String(value == null ? '' : value)
-            .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-    }
-
-    /** Card text ships with `<b>`/`<i>` markup and `[resource]` tokens, so it goes in as HTML.
-     *  The source is the local card database that already drives the game, not user input. */
-    function renderText(text) {
-        if (!text) return ''
-        return String(text).replace(/\[\[?([a-z_]+)\]?\]/g, (whole, token) => {
-            if (ICONS.has(token)) return `<span class="icon-${token}"></span>`
-            if (token === 'star') return '★'
-            return `<span class="set-detail-chip">${escapeHtml(token.replaceAll('_', ' '))}</span>`
-        })
-    }
-
     /** "2 minions, 2 treacheries, 1 attachment", from the actual card types in the set. */
     function describeComposition(cards) {
         const LABELS = {
@@ -688,52 +645,50 @@ const SetDetail = (() => {
         return paper
     }
 
-    function cardRow(entry) {
+    function cardCell(entry) {
         const paper = entry.paper
-        const row = document.createElement('div')
-        row.className = 'set-detail-card'
+        const cell = document.createElement('div')
+        cell.className = 'set-detail-card'
+
+        const art = document.createElement('div')
+        art.className = 'set-detail-card-art'
 
         const img = document.createElement('img')
-        // Deliberately not `loading="lazy"`. These rows are built detached and appended in one go,
-        // and a lazy image whose src is set before it is in the document never gets observed: the
-        // request simply never starts, so every card past the first stayed blank even in view.
-        // A set is a handful of cards and the art is the reason this panel exists, so load it.
+        // Deliberately not `loading="lazy"`. These cells are built detached and appended in one
+        // go, and a lazy image whose src is set before it is in the document never gets observed:
+        // the request simply never starts, so every card past the first stayed blank even in view.
         img.src = entry.code
         img.alt = paper ? paper.name : entry.code
-        row.appendChild(img)
+        img.title = 'Hover to read'
+        art.appendChild(img)
 
-        const body = document.createElement('div')
-        body.className = 'set-detail-card-body'
+        if (entry.copies > 1) {
+            const n = document.createElement('span')
+            n.className = 'set-detail-copies'
+            n.textContent = `x${entry.copies}`
+            art.appendChild(n)
+        }
+        cell.appendChild(art)
 
-        if (!paper) {
-            body.innerHTML = `<div class="set-detail-card-name">${escapeHtml(entry.code)}</div>`
-                + `<div class="set-detail-empty">This card is not in the card database.</div>`
-            row.appendChild(body)
-            return row
+        const name = document.createElement('div')
+        name.className = 'set-detail-card-name'
+        name.textContent = paper ? (paper.name || '').replace(/^\*\s*/, '') : entry.code
+        cell.appendChild(name)
+
+        if (paper && paper.type) {
+            const type = document.createElement('div')
+            type.className = 'set-detail-type'
+            // Types are stored camel-cased ("SideScheme"), which uppercases into one run.
+            type.textContent = paper.type.replace(/([a-z])([A-Z])/g, '$1 $2')
+            cell.appendChild(type)
+        } else if (!paper) {
+            const missing = document.createElement('div')
+            missing.className = 'set-detail-empty'
+            missing.textContent = 'Not in the card database'
+            cell.appendChild(missing)
         }
 
-        const copies = entry.copies > 1
-            ? ` <span class="set-detail-copies">x${entry.copies}</span>` : ''
-        const stats = STAT_ORDER
-            .filter((key) => paper.desc && paper.desc[key] !== undefined)
-            .map((key) => `<span><b>${escapeHtml(key)}</b> ${escapeHtml(paper.desc[key])}</span>`)
-            .join('')
-
-        body.innerHTML =
-            `<div class="set-detail-card-name">${escapeHtml((paper.name || '').replace(/^\*\s*/, ''))}${copies}</div>`
-            // Types are stored camel-cased ("SideScheme"), which uppercases into one run.
-            + (paper.type
-                ? `<div class="set-detail-type">${escapeHtml(paper.type.replace(/([a-z])([A-Z])/g, '$1 $2'))}</div>`
-                : '')
-            + (paper.traits && paper.traits.length
-                ? `<div class="set-detail-traits">${escapeHtml(paper.traits.join(' · '))}</div>` : '')
-            + (stats ? `<div class="set-detail-stats">${stats}</div>` : '')
-            + (paper.text
-                ? `<div class="set-detail-text">${renderText(paper.text)}</div>`
-                : `<div class="set-detail-empty">No rules text.</div>`)
-
-        row.appendChild(body)
-        return row
+        return cell
     }
 
     function hide() {
@@ -768,7 +723,7 @@ const SetDetail = (() => {
 
         summaryEl.textContent = `${total} card${total === 1 ? '' : 's'}`
             + (describeComposition(entries) ? ` · ${describeComposition(entries)}` : '')
-        listEl.replaceChildren(...entries.map(cardRow))
+        listEl.replaceChildren(...entries.map(cardCell))
         listEl.scrollTop = 0
     }
 
@@ -811,11 +766,14 @@ const CardHover = (() => {
     /** A card image, as opposed to the pack box art that shares these containers. */
     function cardCodeOf(el) {
         if (!el || el.tagName !== 'IMG') return null
-        if (el.closest('.card-hover-preview') || el.closest('.set-detail-overlay')) return null
+        if (el.closest('.card-hover-preview')) return null
         const src = el.getAttribute('src')
         // Box art is a path (`/sets/1. Core Set`); a card is a bare id (`01094`, `24049a`).
         if (!src || src.includes('/')) return null
         return src
+        // Note the set panel is deliberately not excluded here: rolling over the cards inside it
+        // is how you read them, now that the panel shows the set at a glance rather than inline
+        // text. Only the preview itself is excluded, or it would re-trigger on its own image.
     }
 
     /** Beside the card if it fits, otherwise flipped or clamped, but never off screen. */
