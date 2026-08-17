@@ -121,10 +121,25 @@ class GameServerGet(GameServerBase):
         return self.ReadJsonFile(TransText.translate_file)
 
     async def get_card_json(self, request: web.Request) -> web.Response:
+        """One card by id or name, as JSON.
+
+        `Paper` is a dataclass, and `json_response` cannot serialize one, so every call to this
+        route answered 500. Nothing in the client used it, which is why that went unnoticed.
+
+        `FindCardPaper` asserts rather than returning None for a card it does not know, so an
+        unknown id would also have come back as a 500. That is a bad request, not a server fault.
+        """
+        from dataclasses import asdict
         from cards.database import CardsDB
+
         name = request.rel_url.query_string
-        paper = CardsDB.FindCardPaper(name)
-        return web.json_response(paper)
+        if not name:
+            return web.Response(status=400, text="expected a card id or name in the query string")
+        try:
+            paper = CardsDB.FindCardPaper(name)
+        except AssertionError:
+            return web.Response(status=404, text=f"no card {name!r}")
+        return web.json_response(asdict(paper))
 
     async def get_completion_rate(self, request: web.Request) -> web.Response:
         return web.Response(text=str(self.game.statistics.completion_rate))
