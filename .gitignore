@@ -1,4 +1,6 @@
 /.vscode/**
+# Finder writes these into any folder you open, at any depth, so no leading slash.
+.DS_Store
 **/*.pyc
 /public/js/**/*.js
 /public/js/**/*.js.map
