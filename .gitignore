@@ -20,7 +20,7 @@
 /replays_*/
 /out/
 /.venv/
-# Written into the repo root by unit_test/test_task.py::test_zip_cards
+# Written into the repo root by tools/package.py zip
 /cards-*.zip
 # Test run output. `-test` sets test_result_file to this (engine/engine.py:27).
 /test_results.*

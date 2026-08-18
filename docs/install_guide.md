@@ -74,6 +74,8 @@ have put a scene in `replays/min_test/`, the replay suite runs too:
 py -m unittest unit_test.test_all.TestMain.test_min
 ```
 
-Do not run `py -m unittest discover unit_test`. It would also execute `unit_test/test_task.py`,
-which is not a test: it bumps the version in `build.py`, makes a git commit, and writes a zip into
-the repository root. `tools/run_tests.py` skips it for you and says so.
+`py -m unittest discover unit_test` is safe to run as well. It used to execute
+`unit_test/test_task.py`, which was not a test: it bumped the version in `build.py`, made a git
+commit, and wrote a zip into the repository root. Those chores are `tools/package.py` now, which
+takes an explicit subcommand, so no discovery can reach them. Discovery still picks up `test_all`,
+which needs the recorded games described above; `tools/run_tests.py` skips that one for you.
