@@ -22,6 +22,10 @@ export class Scene {
         // left/top below would fight the container-query layout and win, because inline styles
         // beat stylesheets. See `public/js/marvel2/layout.ts`.
         if (Scene.isV2()) {
+            // v2 draws at 1:1, so scene coordinates are already screen pixels. `hover.ts` scales by
+            // this to place the card preview, and the initial 0 silently collapsed those to the
+            // scene's origin. There is no transform to divide out, so the factor is 1.
+            Scene.scale = 1
             document.getElementById('camera')!.style.display = 'unset'
             return
         }

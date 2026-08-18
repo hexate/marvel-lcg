@@ -243,3 +243,44 @@
     --select-index: 0;
     --left: calc(var(--x) * var(--sux) + (var(--card-width) + 2px) * (var(--select-index) + 1));
 }
+
+/******************************************************************************
+* Coordinate consumers, part three: raw pixel coordinates
+*
+* The first two passes converted rules that multiplied a variable by `1px`. These are different:
+* they write a scene coordinate as a literal pixel value, so grepping for `* 1px` never found them.
+*
+* Under v1 the camera transform shrank every one of these by ~0.72 and they landed on the board.
+* v2 has no transform, so they were being taken at face value. `--top: 905px !important` on hand
+* hover is the one that showed: on hover the hand jumped to 905 real pixels, below the bottom of an
+* 812px window, then snapped back when the hover ended, so moving between cards made it jitter.
+*
+* `!important` is matched with `!important` where v1 used it, because that is the only way to win.
+*/
+
+/* Hand, raised on hover. Mirrors card-hand.css:15-18. */
+#scene #player-all-hand-cards:hover .card {
+    --top: calc(905 * var(--su)) !important;
+}
+
+/* A card pulled out to be looked at. Mirrors card-look-at.css:1-6. */
+#scene .card.looking-at {
+    --top:  calc(450 * var(--su));
+    --left: calc(200 * var(--sux) + var(--look-at-index) * (var(--card-width) + 5px));
+}
+
+/* Cards fanned out of a deck while choosing. Mirrors card-select.css:169-176. */
+#scene .deck-top.deck .card.selected:not(.moving) {
+    --top: calc(10 * var(--su));
+}
+
+#scene .player-deck.deck .card.selected:not(.moving) {
+    --top: calc(900 * var(--su));
+}
+
+/* The expanded deck browser. Mirrors deck.css:37-40. These are insets from the scene edges rather
+ * than a coordinate, so they take the inline unit on both sides. */
+#scene .deck.clicked {
+    left:  calc(300 * var(--sux)) !important;
+    right: calc(150 * var(--sux)) !important;
+}
