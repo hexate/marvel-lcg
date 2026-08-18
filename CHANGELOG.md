@@ -66,6 +66,12 @@ Security:
 - `tools/run_tests.py` runs everything self-contained, on a clean clone, with one command. It skips
   `unit_test/test_task.py`, which is not a test: it bumps the version, makes a git commit and
   writes a zip into the repository root.
+- The version bump commits only `build.py`. It ran `git add build.py` and then a bare `git commit`,
+  which takes everything already staged, so bumping with unrelated work in the index put that work
+  in the `Package version` commit. It also read both git exit codes through `os.system` and
+  discarded them, so a rejected commit left `build.py` rewritten and reported success. Git failures
+  now raise and the file is rolled back, and the current version is read from the file rather than
+  the imported class, which a stale `__pycache__` entry could report one version behind.
 - `tools/rng_parity_check.py` measures any MT19937 implementation against numpy operation by
   operation.
 - Dependencies are bounded at the next major of each package, so a new release cannot break an
