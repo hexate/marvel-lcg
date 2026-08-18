@@ -67,14 +67,20 @@
 
 #game-over-message {
     display: grid;
-    /* title, subtitle, scrolling stats, actions */
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    /* title, subtitle, stats, actions.
+     *
+     * The stats row is `minmax(0, auto)`, not `1fr`. `1fr` made it claim every spare pixel, so a
+     * one-row table sat in a tall empty grey box; v1 used `height: fit-content` and shrank to its
+     * content. `auto` sizes to the table, and the `0` floor still lets the row shrink when the
+     * table is longer than the panel, at which point the container's `overflow: auto` scrolls. */
+    grid-template-rows: auto auto minmax(0, auto) auto;
+    align-content: center;
     justify-items: center;
     gap: 0.5rem;
 
     /* A grid item's automatic minimum size is its content, which would push the stats table back
-     * out through the bottom of the panel. `minmax(0, 1fr)` above and this together are what let
-     * the table scroll instead of growing. */
+     * out through the bottom of the panel. The `0` floor in the row above and this together are
+     * what let the table scroll instead of growing. */
     min-height: 0;
     width: 100%;
 }
