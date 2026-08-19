@@ -422,7 +422,11 @@ export class HoverCard{
             }
 
             Lib.game.removeTypeClasses(preview_div)
-            Lib.game.addTypeClass(preview_div, type)
+            // The name matters for a status card and only for a status card: `addTypeClass` appends
+            // it to give `type-status-card-stunned` and friends, which is how the drawn faces in
+            // `marvel2/status-cards.css` tell the three apart. The board card has always passed it
+            // (`cards.ts`); the preview never did, so it only ever got the generic class.
+            Lib.game.addTypeClass(preview_div, type, name)
             // HoverCard.preview_name.innerText = name
         } else {
             // if( !UI.hold_ctrl ) {

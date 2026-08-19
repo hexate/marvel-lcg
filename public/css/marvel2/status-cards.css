@@ -1,0 +1,87 @@
+/******************************************************************************
+* Status cards, drawn instead of photographed
+*
+* `assets/textures/stunned.webp` and its two siblings are 149x95, against 715x1035 for every real
+* card. At board size that is fine. In the centre preview, which is about 509x367 CSS pixels and
+* twice that in device pixels, it is a 6 to 7x upscale and it is the worst-looking thing on the
+* board (N3).
+*
+* These three cards are a colour, a word and a rule. Nothing about them needs a photograph, so this
+* draws them: crisp at any size, no asset to source, and the palette is ours to change. Tracked as
+* N9, chosen over sourcing higher-resolution art.
+*
+* Loaded only by `marvel2.html`, so v1 keeps the textures and stays the reference.
+*
+* The per-status classes already exist. `Lib.game.addTypeClass` has always appended the card name
+* for a `StatusCard`, giving `type-status-card-stunned` and friends alongside `type-status-card`.
+* Only the preview was dropping it, because `HoverCard.show` called that helper without the name.
+*/
+
+.image-preview.type-status-card-stunned {
+    --status-a: #f3c53f;
+    --status-b: #6b4a02;
+    --status-edge: #f3c53f;
+    --status-label: "STUNNED";
+}
+
+.image-preview.type-status-card-confused {
+    --status-a: #b06fd6;
+    --status-b: #3c1155;
+    --status-edge: #b06fd6;
+    --status-label: "CONFUSED";
+}
+
+.image-preview.type-status-card-tough {
+    --status-a: #c9d2da;
+    --status-b: #2c3540;
+    --status-edge: #c9d2da;
+    --status-label: "TOUGH";
+}
+
+/* The face. `background-image` rather than `background` so the blend mode and sizing set on
+   `.image-preview` still apply, and the photograph is replaced rather than layered over. */
+.image-preview:is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough) {
+    background-image: radial-gradient(circle at 50% 38%, var(--status-a), var(--status-b) 72%);
+    outline-color: var(--status-edge);
+}
+
+/* The word. `::before` deliberately, because `::after` carries the BOOST and ENTERS PLAY ribbons
+   and a status card must never have to compete with them for the same box. */
+.image-preview:is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough)::before {
+    content: var(--status-label, "");
+
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    font-family: monospace;
+    font-weight: bold;
+    /* `vh`, like the boost icons above it, because the preview itself is sized in `vh` and so the
+       word tracks the card at every window size and under `body.hold-alt`. */
+    font-size: 7vh;
+    letter-spacing: .8vh;
+    text-indent: .8vh;
+
+    color: #fff;
+    text-shadow: 0 .4vh .8vh rgba(0, 0, 0, .75);
+    pointer-events: none;
+}
+
+/******************************************************************************
+* The same word on a turned card
+*
+* A status card sets `--rotate-times: 1` (`card.css`), so the preview turns a quarter and the word
+* turns with it. This is the treatment the two ribbons already use, for the reason given there: a
+* counter-rotation would turn the box back as well, and the box has to stay over the card. Laying
+* the text out vertically leaves the box alone and only changes the direction the line runs.
+*/
+@container style(--rotate-times: 1) {
+    .image-preview:is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough)::before {
+        writing-mode: vertical-rl;
+        rotate: 180deg;
+    }
+}

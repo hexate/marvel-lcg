@@ -41,8 +41,70 @@ relitigated every time the branch comes up.
 | N1 | **Auto-generate a password when binding to a non-loopback address.** `IsAuthenticate` returns `True` for every caller when no password is configured, which is the shipped default, so every `*Security` route is open to anyone who can reach the port | Carried over from F6c, which was closed as "not failing closed" precisely because the real fix is a feature. Failing closed would break four-player play for everyone who never set a password, so the exposure was accepted rather than fixed. Generating one on a non-loopback bind and printing it at startup closes the hole without breaking the default local case | ? | Arguably yes, it repairs something | PROPOSED |
 | N2 | **Make a boost card visibly different from a card entering play.** When the villain attacks or schemes it flips encounter cards for their boost icons. Those cards add to the attack or scheme and are discarded immediately, but they currently animate and land like a card being revealed into play | Found from play: "it looks as if it's being drawn to place on the board". Not a cosmetic nitpick, the two events have opposite consequences. One is a permanent threat you now have to deal with, the other is a number that has already been applied and is gone. Reading the board wrongly costs you real decisions | Small for the first slice | Probably not, it is an addition rather than a repair | IN PROGRESS, first slice landed 2026-08-13, see the work log below |
 
+| N3 | **Status card art is 149x95.** `stunned.webp`, `confused.webp` and `tough.webp` in `assets/textures/` are 149x95 and about 4kb each, against 715x1035 for every real card in `assets/cache/`. They are found by `Cache.FindImageFile`, which searches the texture folder for `.webp`, so these are in use rather than missing | Blown up to the centre preview they are a 6 to 7x upscale. Status cards are landscape and render rotated, so the preview is roughly 509x367 CSS pixels, about 1018x734 on a 2x display. Q raised this first and it is the worst-looking thing on the board | Small if the art can be sourced, none of it is code | No, fork art | **SUPERSEDED by N9.** Q chose to draw them rather than source art, so the 149x95 files stay where they are and v1 keeps using them |
+| N4 | **The board is one flat radial gradient.** `layout.css:57` is the whole surface: `radial-gradient(#333, #111)` | It reads as an empty dark rectangle rather than a table. v2 already owns this line, so it is the cheapest visual change available and the one with the widest effect | Small | No | **IN PROGRESS.** The first slice landed 2026-08-19 and it was not the gradient: the hard line across the board was `.player-background`, `top: 40%` with a flat fill marking the current seat, and it is feathered now. The palette and any texture are still open |
+| N5 | **The player's half is vertically cramped.** Allies, supports, hero and hand are one column at `--y` 410, 605, 795 and 975. A card is 176 tall, so the gaps are 19, 14 and 4 units. The last is about 3 real pixels | Q asked for space between the hero row and the hand specifically, which is the 4. v2 already sets these coordinates and already deviates from v1 deliberately (`--x: 1773` against v1's 1880), so re-spacing is in bounds rather than a fork of the layout | Small, but see the trap below | No | **DONE** 2026-08-19. Board rows to an even 14 and 29 before the hand, by moving minions to 200, allies to 390, supports to 580 and the hero to 770. The hand and the 905 hover literal are deliberately untouched, so what you can see of your hand at rest is unchanged. Modest by construction: six rows of 176 is 1056 of 1080, so there was slack to move and none to hand out |
+| N6 | **Cards have no depth.** A board card carries no shadow of its own and does not lift on hover; the only `box-shadow` in the preview is a flat `-5px 0 10px` | Depth is most of what separates a modern card game from a web page with pictures on it, and it is the cheapest way to make the board feel physical | Small | No | PROPOSED |
+| N7 | **Typography is three unrelated stacks.** 12 rules use bare `monospace`, 7 use `'Segoe UI', Tahoma, Geneva, Verdana`, one uses `Circular, -apple-system, ...` and one uses `"Inter"`, none of which ships | Bare `monospace` is whatever the browser picks, which is Courier on some machines and is most of why the chrome looks dated. One stack and one scale would change the feel more than any single colour | Small to medium | No | PROPOSED |
+| N8 | **The chrome is unstyled next to the board.** Side bar, history, prompts and buttons are flat fills with hard edges. `--font-size-out` only started scaling with the window on 2026-08-19 (J25), so this was never worth doing before | Now that it scales, the chrome is the largest remaining surface that does not match the board | Medium | No | PROPOSED |
+| N9 | **Status cards as markup instead of a bitmap.** The alternative to N3 rather than a companion to it: draw Stunned, Confused and Tough in the DOM from the card data, the way `.image-preview-boost` already draws boost icons | Crisp at every size with no asset to source, themeable, and it sidesteps the question of where higher-resolution official art would come from. Costs a rendering path the other cards do not use | Medium | No | **DONE** 2026-08-19, Q's choice over N3. `public/css/marvel2/status-cards.css`, loaded only by `marvel2.html`. Cost almost nothing in the end: `Lib.game.addTypeClass` has always appended the card name for a `StatusCard`, so `type-status-card-stunned` and friends already existed on board cards, and only `HoverCard.show` was dropping the name when it classed the preview. One argument fixed that. The face is a radial gradient per status with the word over it, sized in `vh` so it tracks the preview, and it takes the same `vertical-rl` plus `180deg` the ribbons use so the word stays upright through the card's quarter turn. Scope: the centre and side previews only. The board card keeps the texture, which is adequate at 97x135 and is where v1 and v2 still agree |
+
 Nothing else is tracked yet. This document was created on 2026-08-13, when `stable` became the
 fork's trunk.
+
+## The look and feel plan, 2026-08-19
+
+Asked for by Q: v2 is functional but plain. Ordered by what changes the most per unit of work, not
+by how interesting it is. Everything here is v2 only and none of it touches the coordinate system
+that J19 to J26 were about, with the single exception noted under N5.
+
+### First, because it is cheap and nothing else depends on it
+
+**N3, the status card art.** This one is worth restating because the cause is not what it looks
+like. The art is not being generated and it is not missing: `assets/textures/stunned.webp` and its
+two siblings exist, are found, and are simply 149x95. Every other card on the board is 715x1035.
+Replacing three files fixes it with no code at all, and nothing else in this plan is that cheap.
+The open question is where higher-resolution art comes from, which is why N9 exists as the way out
+if the answer is nowhere.
+
+**N4, the board surface.** One line, `layout.css:57`. Worth doing early because every other visual
+change is judged against whatever is behind it, so changing it later re-opens decisions. A flat
+gradient reads as absence; almost anything with structure reads as a table. `assets/textures/`
+already ships a `sets` folder and a `mask.svg`, so there may be usable material there before
+anything new has to be made.
+
+**N5, the vertical rhythm.** The numbers are `#player-all-allies` 410, `#player-all-supports` 605,
+`#player-all-area-hero` 795, `#player-all-hand-cards` 975, all in `layout.css`. The hand
+deliberately overflows the bottom by 71 and rises on hover, so it is not simply a matter of moving
+everything down.
+
+**The trap in N5, and it is a real one.** `layout.css:327` raises the hand to `calc(905 * var(--su))`
+on hover, a literal that mirrors `card-hand.css:16`. It is 70 units above the hand's resting 975.
+Move the hand row without moving that number and the hover either stops lifting or lurches, which
+is exactly the bug that was fixed on 2026-08-16. Any change to the hand's `--y` has to move the 905
+by the same amount.
+
+### Then, because they compound
+
+**N6, depth.** Card shadow, a hover lift, and a stronger shadow on whatever is active. This is
+where the board stops looking flat. It pairs with N4: a shadow needs a surface to fall on.
+
+**N7, typography.** Pick one stack and one scale. The board is already full of numbers that need to
+be read at a glance, so this is legibility as much as style.
+
+**N8, the chrome.** Left until after N4, N6 and N7 because it should be styled to match the board
+rather than the board to match it.
+
+### Deliberately not proposed
+
+The v1 layout. It is the reference the fork is measured against and the thing to fall back to when
+v2 misbehaves, which it did five times this week. Restyling both doubles the work and removes the
+control.
+
+The card faces themselves. They are the printed cards and should stay that way.
+
+A theme system. Worth having once there are two themes worth switching between, and premature
+before that.
 
 ## N2: a boost card and a revealed card look the same
 
@@ -207,6 +269,8 @@ broken layout and is not. Set `animation: none` on the div before reading any ge
 
 | Date | Change |
 | --- | --- |
+| 2026-08-19 | Started the plan. N5 and N9 done, N4's first slice done, N3 superseded by Q choosing to draw the status cards rather than source art. Two things worth carrying forward. A board that looks empty is probably not broken: a client that joins mid-game and idles never gets the render messages that assign `--x`/`--y`, so every card falls to the origin, and v1 does the same. `MoveCard.resetAreaXY` per area lays it out locally without touching the game. And the turn banner is not overlapping the minions, it is `#message-overlay`, a full-width 75% black strip at z-index 9999 that dims whatever is behind it, which is currently a row of drones. |
+| 2026-08-19 | Added N3 to N9 and the look and feel plan, at Q's request. Grounded rather than brainstormed: the status card complaint turned out to have a specific and cheap cause, 149x95 source art where every other card is 715x1035, and the cramped feel Q described measures as a 4 unit gap between the hero row and the hand against a 176 unit card. Nothing in the plan touches the scene coordinate system, apart from N5 moving area `--y` values, which is what those variables are for. |
 | 2026-08-19 | Closed the boost icon row, the last of N2's rotation gaps. Everything the centre preview draws over a rotated card now reads upright. What is left on N2 is the option list, not the rotation: 2 as a floating value, 4, 5, 6, 7, and the `pause_when_reveal_or_boost` prompt-text check. |
 | 2026-08-18 | Closed the rotated-scheme half of N2's known gaps. Both ribbons stay on the card's visual bottom and top edges and read upright at a quarter turn, keyed on `--rotate-times` rather than the card type. The boost icon row is still untreated and is now the open half. |
 | 2026-08-18 | Upstream answered the three open issues. Nothing in them touches N1 or N2 directly, but the "upstream-shaped?" column can stop being a live question: he conceded the technical point on two of them and confirmed the third as a real bug, and acted on none. The honest default for this document is now no, without the case-by-case caveat. Reasoning in section 0 of [proposed_changes.md](proposed_changes.md). |
