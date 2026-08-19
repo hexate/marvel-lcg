@@ -22,6 +22,7 @@
     --status-b: #6b4a02;
     --status-edge: #f3c53f;
     --status-label: "STUNNED";
+    --status-rule: "When this character attacks, discard this instead of attacking.";
 }
 
 .image-preview.type-status-card-confused {
@@ -29,6 +30,7 @@
     --status-b: #3c1155;
     --status-edge: #b06fd6;
     --status-label: "CONFUSED";
+    --status-rule: "When this character thwarts, discard this instead of thwarting.";
 }
 
 .image-preview.type-status-card-tough {
@@ -36,6 +38,7 @@
     --status-b: #2c3540;
     --status-edge: #c9d2da;
     --status-label: "TOUGH";
+    --status-rule: "When this character would take damage, discard this instead.";
 }
 
 /* The face. `background-image` rather than `background` so the blend mode and sizing set on
@@ -51,23 +54,60 @@
     content: var(--status-label, "");
 
     position: absolute;
-    inset: 0;
+    /* Upper 55%, so the rule line below has room. */
+    inset: 0 0 45% 0;
+    z-index: 2;
+
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+
+    font-weight: bold;
+    /* `vh`, like the boost icons above it, because the preview itself is sized in `vh` and so the
+       word tracks the card at every window size and under `body.hold-alt`. */
+    font-size: 5.4vh;
+    letter-spacing: .6vh;
+    text-indent: .6vh;
+
+    color: #fff;
+    text-shadow: 0 .4vh .8vh rgba(0, 0, 0, .75);
+    pointer-events: none;
+}
+
+/******************************************************************************
+* What it does
+*
+* Q asked for the rule as well as the name. It cannot come from the card data: all three carry
+* `text: null` in `cards.json`, which is why the generated placeholder never had anything to draw
+* either. So the wording lives here, phrased from what the engine actually does rather than quoted
+* from the printed card.
+*
+* `::after` is free on these three. It carries the BOOST and ENTERS PLAY ribbons elsewhere, but
+* neither selector matches a status card: `type-status-card` is not in the ENTERS PLAY list, and a
+* status card is never dealt off the encounter deck so it cannot be boost-flipped. `:not(.boost-flip)`
+* is there anyway, because that guarantee is the kind that quietly stops being true.
+*/
+.image-preview:not(.boost-flip):is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough)::after {
+    content: var(--status-rule, "");
+
+    position: absolute;
+    /* Lower 45% of the card, under the name. */
+    inset: 55% 0 0 0;
     z-index: 2;
 
     display: flex;
     justify-content: center;
     align-items: center;
+    text-align: center;
+    padding-inline: 6%;
+    box-sizing: border-box;
 
-    font-family: monospace;
-    font-weight: bold;
-    /* `vh`, like the boost icons above it, because the preview itself is sized in `vh` and so the
-       word tracks the card at every window size and under `body.hold-alt`. */
-    font-size: 7vh;
-    letter-spacing: .8vh;
-    text-indent: .8vh;
+    font-size: 2.3vh;
+    line-height: 1.35;
+    font-weight: 600;
 
-    color: #fff;
-    text-shadow: 0 .4vh .8vh rgba(0, 0, 0, .75);
+    color: rgba(255, 255, 255, .92);
+    text-shadow: 0 .2vh .5vh rgba(0, 0, 0, .8);
     pointer-events: none;
 }
 
@@ -80,8 +120,21 @@
 * the text out vertically leaves the box alone and only changes the direction the line runs.
 */
 @container style(--rotate-times: 1) {
+    /* A quarter turn clockwise sends the card's local left edge to the top of the screen and its
+       local right edge to the bottom, so the two halves swap axis: the name takes the local left
+       55% to sit visually on top, and the rule the local right 45% to sit under it. */
     .image-preview:is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough)::before {
+        inset: 0 45% 0 0;
         writing-mode: vertical-rl;
         rotate: 180deg;
+    }
+
+    .image-preview:not(.boost-flip):is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough)::after {
+        inset: 0 0 0 55%;
+        writing-mode: vertical-rl;
+        rotate: 180deg;
+        /* `padding-inline` follows the writing mode, so the same declaration keeps the rule clear
+           of the card's ends in either orientation. */
+        padding-inline: 6%;
     }
 }

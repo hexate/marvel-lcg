@@ -59,8 +59,7 @@ body {
 .image-preview-name,
 .image-preview.boost-flip::after,
 #image-preview-div-center .image-preview:not(.boost-flip):is(.type-minion,
-    .type-encounter-side-scheme, .type-attachment, .type-environment)::after,
-.image-preview:is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough)::before {
+    .type-encounter-side-scheme, .type-attachment, .type-environment)::after {
     font-family: var(--font-mono);
 }
 
@@ -78,7 +77,15 @@ body {
 #area-schemes-side .card:not(.facedown).type-player-side-scheme .face .info::after,
 #area-schemes-side .card:not(.facedown).type-encounter-side-scheme .face .info::after,
 #area-schemes-main .card:not(.facedown).type-main-scheme .face .info::after,
-span:has( + span.icon-acceleration-token) {
+span:has( + span.icon-acceleration-token),
+/* The prompt box is the running commentary on the game, and reads as prose rather than as terminal
+   output. Q asked for it specifically: monospace made the centre of the screen look like a console.
+   Its `---` decorations do not need a fixed pitch, they are just rules either side of a sentence. */
+#prompt-box-container,
+#prompt-text,
+/* The drawn status faces, name and rule alike. They are a designed card face, not a readout. */
+.image-preview:is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough)::before,
+.image-preview:is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough)::after {
     font-family: var(--font-ui);
 }
 
