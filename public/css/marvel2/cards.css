@@ -1,0 +1,48 @@
+/******************************************************************************
+* v2 card depth
+*
+* The premise this started from was wrong and the correction is worth keeping: board cards are not
+* flat. `card-face.css` gives a card in play `4px 8px 8px / .38`, a card in a pile `1px 4px 9px /
+* .33`, and a hovered card `8px 16px 16px / .25`, all transitioned. The depth is there.
+*
+* What is broken is which box carries it. Hover scales `.face .image` by `--this-scale`, 1.15, and
+* leaves `.card` and `.face` at their original size: measured on an engaged minion, the art grows
+* from 97.2x134.8 to 111.8x155 while the face stays 97.2x134.8. The shadow is on the face, so a
+* hovered card grows out of its own shadow and the shadow ends up drawn inside the art rather than
+* under it. The lift reads as the card flattening.
+*
+* So this moves the shadow onto the element that actually scales, which is also the one carrying
+* the rounded corners, so it traces the silhouette at every size. Nothing clips it: there is no
+* `overflow` anywhere on the card chain.
+*
+* Two changes of value while the shapes are otherwise preserved. The offsets are in `--su` rather
+* than pixels, so the shadow tracks the card instead of staying a fixed size while the board
+* rescales. And a hovered card no longer fades: v1 takes it from .38 to .25, which on a dark board
+* is close to invisible, and a lifted card should cast a deeper shadow, not a fainter one. It also
+* gains about 15% for free, since a shadow on a scaled element scales with it.
+*/
+
+/* Off the box that does not move. */
+#scene .card .face {
+    box-shadow: none;
+}
+
+/* A card in a pile sits nearly flat, as it did. */
+#scene .deck .card .face .image {
+    box-shadow: calc(1 * var(--su)) calc(4 * var(--su)) calc(9 * var(--su)) rgba(0, 0, 0, .45);
+}
+
+/* A card in play stands off the board. */
+#scene .area .card .face .image {
+    box-shadow: calc(3 * var(--su)) calc(7 * var(--su)) calc(10 * var(--su)) rgba(0, 0, 0, .5);
+}
+
+#scene .area .card:hover .face .image {
+    box-shadow: calc(4 * var(--su)) calc(12 * var(--su)) calc(16 * var(--su)) rgba(0, 0, 0, .58);
+}
+
+/* `card-face.css` transitions the shadow on `.face`, which no longer has one. Same timing, moved
+   to the element that does, so the lift and its shadow arrive together. */
+#scene .card .face .image {
+    transition: box-shadow var(--anime-move-time) linear;
+}
