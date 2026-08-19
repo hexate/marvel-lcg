@@ -287,13 +287,17 @@ class Auto {
     if (!hand.length) return false;
     this.handIx = ((this.handIx || 0) + 1) % hand.length;
     const c = hand[this.handIx];
-    const before = this.fingerprint();
+    const size = hand.length;
     c.click(); await sleep(600);
     // A played card usually opens a decision: pay resources, pick a target. Let the next step
     // handle it, but confirm here when the game is already satisfied.
     const ok = document.querySelector('#btn-ok');
     if (vis(ok)) { ok.click(); await sleep(700); }
-    return this.fingerprint() === before ? false : 'hand:' + this.handIx;
+    // Success is the card leaving hand, not the screen changing. Selecting a card it cannot pay
+    // for also changes the screen, and reading that as progress is how one game spent 54 steps and
+    // 18 hand plays inside a single turn without the board moving.
+    const after = document.querySelectorAll('#player-all-hand-cards .card').length;
+    return after < size ? 'hand:' + this.handIx : false;
   }
 
   /** Back out of a decision that cannot be completed.
@@ -367,7 +371,12 @@ class Auto {
    */
   board() {
     const num = el => { const m = ((el && el.textContent) || '').match(/\d+/); return m ? +m[0] : null; };
-    const identity = document.querySelector('#player-all-area-hero .card');
+    // The hero area holds the identity AND every upgrade attached to it, so taking the first card
+    // there gets whichever happens to be first in the DOM. Once an upgrade landed that was the
+    // upgrade, which has no health and no form, so `heroHp` read null and `alterEgo` read false
+    // forever after. An identity is the card in that area with a printed health.
+    const identity = [...document.querySelectorAll('#player-all-area-hero .card')]
+      .find(c => c.querySelector('.health'));
     // The scheme's "threat/limit" is generated content on `.info::after`, so it is invisible to
     // textContent and the first version of this read an empty string and concluded there was no
     // scheme pressure at all. That made the policy think attacking was always safe.
@@ -399,8 +408,12 @@ class Auto {
     // Attacking requires hero form, so getting out of alter-ego early is worth more than any single
     // action. Under real threat pressure the alter-ego side is the wrong place to be at all.
     if (/change form/.test(l)) return b.alterEgo ? (pressure < 0.7 ? 92 : 45) : 12;
-    if (/^thwart/.test(l))     return pressure >= 0.5 ? 100 : 58;
-    if (/^attack/.test(l))     return pressure >= 0.8 ? 50 : 96;
+    // Thwarting wins the right to keep playing; attacking is what eventually wins the game, and
+    // in that order. Half the limit was far too patient: against a 7-threat scheme that ticks up
+    // every villain phase, a single "when revealed" treachery took a comfortable 3 to a losing 7
+    // between two of our turns, and the run had spent that turn attacking.
+    if (/^thwart/.test(l))     return pressure >= 0.3 ? 100 : 70;
+    if (/^attack/.test(l))     return pressure >= 0.3 ? 45 : 96;
     // Only worth a turn when the damage is actually dangerous; recovering at full health wastes it.
     if (/^recover/.test(l))    return (b.alterEgo && b.heroHp !== null && b.heroHp <= 5) ? 88 : 18;
     if (/^defense/.test(l))    return 32;
@@ -430,7 +443,9 @@ class Auto {
     // opening and closing the same menu: one game logged ten `ability` steps in a row without the
     // board changing, because clicking toggles and the toggle itself moves the fingerprint.
     this.tried = this.tried || new Set();
-    const identityFirst = c => ((c.parentElement && c.parentElement.id) || '').includes('area-hero') ? 0 : 1;
+    // Same reasoning as `board`: prefer the actual identity, which is where the basic actions live,
+    // rather than anything that happens to sit in the hero area.
+    const identityFirst = c => c.querySelector('.health') ? 0 : 1;
     const card = marked
       .filter(c => !this.tried.has(c.dataset.id))
       .sort((x, y) => identityFirst(x) - identityFirst(y))[0];
@@ -443,9 +458,39 @@ class Auto {
     return this.fingerprint() === before ? false : 'ability';
   }
 
+  /** Has anything that matters actually changed?
+   *
+   *  Deliberately coarser than `fingerprint`, which counts selections and highlights and so moves
+   *  every time a card is merely clicked. This only moves when the game does.
+   */
+  progressMark() {
+    const b = this.board();
+    return [b.villainHp, b.threat, b.alterEgo, b.minions,
+            document.querySelectorAll('#player-all-hand-cards .card').length].join('|');
+  }
+
   async step() {
     // Ordered by how specific the gesture is. `ladder` rotates the starting point when the screen
     // stops responding, so an unrecognised mode still gets the other gestures tried against it.
+    // A turn with nothing left to give should end rather than be picked at. Without this the
+    // ladder keeps finding something clickable, and a single turn ran to 54 steps while the
+    // villain sat at 11 health: every gesture "worked" and none of them did anything.
+    const mark = this.progressMark();
+    if (mark !== this.lastMark) {
+      this.lastMark = mark;
+      this.idle = 0;
+      // Something happened, so abilities that were dead a moment ago may not be now. Holding the
+      // list until end of turn left runs with a single marked card they had already tried and
+      // nothing else to do.
+      this.tried = new Set();
+    } else {
+      this.idle = (this.idle || 0) + 1;
+    }
+    if (this.idle > 8) {
+      const ended = await this.endTurn();
+      if (ended) { this.idle = 0; return ended; }
+    }
+
     const acts = [
       () => this.unpause(), () => this.options(), () => this.pay(), () => this.targets(),
       () => this.useAbility(), () => this.playHand(), () => this.confirm(), () => this.endTurn(),
