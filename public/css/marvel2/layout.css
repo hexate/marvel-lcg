@@ -78,6 +78,23 @@
 }
 
 /******************************************************************************
+* The current player's half
+*
+* `.player-background` marks whose turn it is by tinting the bottom 60% of the scene, one colour
+* per seat (`player.css:22-33`). The tint is worth keeping. The edge is not: `top: 40%` with a flat
+* background paints a straight horizontal line the full width of the board, which reads as a seam
+* between two surfaces rather than as one surface that is lit.
+*
+* Masking the top fifth turns the line into a fade. Nothing else changes: the seat colours, the
+* radial shape and the coverage are all still `player.css`, and v1 keeps the hard edge because this
+* is scoped to `#scene`, which beats the two-class rule there.
+*/
+#scene .player-background {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 22%);
+}
+
+/******************************************************************************
 * The canvas, and the one thing outside the board that scales with it
 *
 * These sit on the root rather than on `#scene` so that elements outside `#camera` can reach them.
@@ -200,10 +217,24 @@
     --z: 1;
 }
 
-#player-all-engaged-minions { --y: 210; }
-#player-all-allies          { --y: 410; }
-#player-all-supports        { --y: 605; }
-#player-all-area-hero       { --y: 795; }
+/* The player's half is one column, and v1's spacing of it was uneven and ran out at the bottom.
+ * A card is 176 tall, and the gaps between these rows were 24, 24, 19, 14 and finally 4, so the
+ * hero row and the hand were three real pixels apart at a 1512x827 board while the rows above had
+ * six times that.
+ *
+ * The board is nearly full: six rows of 176 is 1056 of the 1080 available, so there is no slack to
+ * hand out. These numbers take the gap from between the board rows, where it was uneven and not
+ * doing anything, and give it to the one place a gap means something. The hand is your own zone
+ * rather than part of the board, so it gets the separation and the board rows get an even 14.
+ *
+ * The hand itself is deliberately not moved. It overflows the bottom edge by 71 and rises on hover,
+ * and `--top: calc(905 * var(--su))` further down is that resting position minus 70. Moving the row
+ * without moving the 905 by the same amount is what made the hand lurch on 2026-08-16. Leaving both
+ * alone keeps the amount of hand you can see at rest exactly as it was. */
+#player-all-engaged-minions { --y: 200; }
+#player-all-allies          { --y: 390; }
+#player-all-supports        { --y: 580; }
+#player-all-area-hero       { --y: 770; }
 #player-all-hand-cards      { --y: 975; }
 
 .area-center {
