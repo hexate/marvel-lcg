@@ -32,6 +32,34 @@ export class Scene {
             // collapsed the preview position to the scene's origin.
             Scene.scale = 1
             document.getElementById('camera')!.style.display = 'unset'
+
+            // The preview panels still have to be measured, even though v2 has no scale to
+            // compute. `HoverCard.onMouseMove` chooses which side to show a card preview on by
+            // testing the hovered card against `rect_left` and `rect_right`, and the only thing
+            // that ever refreshed those was `adjustSceneScale`, which is exactly what this branch
+            // skips. The class initialiser measures once at module load, before the panels are
+            // laid out, so on their own they stay at zero, and a zero-size rect at the origin can
+            // never overlap: the preview would sit on one side whatever card was hovered.
+            //
+            // The panels live outside `#camera` and are sized in `vh`, so there is no unit to
+            // convert here. They only need measuring once the layout exists, and again whenever
+            // the window changes it.
+            //
+            // Registered unconditionally, the way the v1 branch below does it, and deliberately
+            // not behind a `readyState === 'loading'` check. This module is loaded with
+            // `type="module"`, which defers, so it executes at readyState `'interactive'`: such a
+            // check takes its else branch and measures immediately, which is still too early and
+            // reads zeros. A listener added during `'interactive'` has not missed the event.
+            // `'complete'` is the one case where it has, which only arises on a late dynamic
+            // import, so that measures on the spot instead.
+            //
+            // `addEventListener` rather than `window.onresize =`, which is what the v1 branch
+            // uses, so this cannot quietly replace another handler.
+            if (document.readyState === 'complete') {
+                HoverCard.updateRect()
+            }
+            document.addEventListener('DOMContentLoaded', () => HoverCard.updateRect())
+            window.addEventListener('resize', () => HoverCard.updateRect())
             return
         }
 
