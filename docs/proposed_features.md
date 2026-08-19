@@ -172,17 +172,42 @@ was re-checked in the same session because the base rules moved from `padding: .
 `padding-block: .15rem` so the padding follows the writing mode: still `horizontal-tb`, still the
 bottom band, still 2.4px block padding and 0 inline. No change.
 
-Two limits, both deliberate. Only a quarter turn is handled; at two or three the card is upside down
-or on its other side, which needs the same work again and only happens if a player rotates the centre
-preview by hand. And `.image-preview-boost`, the row of lifted boost icons, is a child of the same
-rotating element and has had no equivalent treatment, so on a rotated boost card the icons should
-still run down the screen's right edge with each glyph on its side. ? INFERRED from reading the CSS,
-not seen rendered.
+One limit remains, and it is deliberate. Only a quarter turn is handled; at two or three the card is
+upside down or on its other side, which needs the same work again and only happens if a player
+rotates the centre preview by hand.
+
+### The boost icons, closed 2026-08-19
+
+The row of lifted icons was the other half of this and is now done. It was written up as inferred
+from reading, and the reading was right: ✓ VERIFIED before the change as three icons 165px apart
+down the screen and 0px apart across it, each one on its side.
+
+`.image-preview-boost` is a real element rather than a pseudo, but it is a child of the card and so
+it turned with it. The same pair fixes it, doing two jobs instead of one. `writing-mode: vertical-rl`
+turns the flex container's inline axis vertical, so `flex-direction: row` lays the icons out along
+the axis the card's own turn maps to the screen's horizontal, and the `180deg` both brings each icon
+upright and reverses the run so it reads left to right. `justify-content` and `align-items` needed no
+change, because they follow the axes rather than the screen. The 5vh clearance moves with the ribbon
+it exists to clear: the base keeps it off the top because BOOST sits there, and under a quarter turn
+BOOST is on the card's left edge, so the clearance is too. The base `padding: 0 2vh` becomes
+`padding-inline`, for the same reason the ribbons' padding did.
+
+✓ VERIFIED in Chrome on the rotated card at three, five, six and ten icons, and unrotated at three,
+five and six. Rotated, the row runs across the screen left to right, five fit on one line where the
+portrait card wraps at four, and the wrap still stacks rows down the screen. Every icon stays inside
+the card box in all seven cases, which is what the wrap exists to guarantee. The unrotated case is
+unchanged.
+
+Worth knowing for the next person measuring this preview: `#image-preview-div-center` runs a
+`rotateY(90deg)` to `rotateY(0)` flip, and in a background tab it sits at 90deg, edge on. Every
+descendant then reports a zero-width rect and a single shared position, which looks exactly like a
+broken layout and is not. Set `animation: none` on the div before reading any geometry.
 
 ## Decision log
 
 | Date | Change |
 | --- | --- |
+| 2026-08-19 | Closed the boost icon row, the last of N2's rotation gaps. Everything the centre preview draws over a rotated card now reads upright. What is left on N2 is the option list, not the rotation: 2 as a floating value, 4, 5, 6, 7, and the `pause_when_reveal_or_boost` prompt-text check. |
 | 2026-08-18 | Closed the rotated-scheme half of N2's known gaps. Both ribbons stay on the card's visual bottom and top edges and read upright at a quarter turn, keyed on `--rotate-times` rather than the card type. The boost icon row is still untreated and is now the open half. |
 | 2026-08-18 | Upstream answered the three open issues. Nothing in them touches N1 or N2 directly, but the "upstream-shaped?" column can stop being a live question: he conceded the technical point on two of them and confirmed the third as a real bug, and acted on none. The honest default for this document is now no, without the case-by-case caveat. Reasoning in section 0 of [proposed_changes.md](proposed_changes.md). |
 | 2026-08-16 | Recorded the three N2 commits that landed on 2026-08-13 but were never written up, and moved N2 to IN PROGRESS. Added IN PROGRESS to the legend, since a feature with seven options was always going to need it. |

@@ -330,7 +330,10 @@ body.hold-alt .image-preview-text{
        be silently clipped and the player would read the wrong number. */
     flex-wrap: wrap;
     gap: 1vh;
-    padding: 0 2vh;
+    /* Logical, not `padding: 0 2vh`. This pads the ends of the row, and the rotated variant below
+       turns the row onto the other axis, where `padding-inline` follows it and a physical padding
+       would pad the sides instead. */
+    padding-inline: 2vh;
     box-sizing: border-box;
 
     pointer-events: none;
@@ -481,5 +484,26 @@ body.hold-alt .image-preview-text{
         writing-mode: vertical-rl;
         rotate: 180deg;
         box-shadow: 2px 0 10px #000a;
+    }
+
+    /* The lifted boost icons, which are a real element rather than a ribbon but rotate for the
+     * same reason: they are a child of the card. Left alone they ran down the screen with each
+     * icon on its side, ✓ VERIFIED as three icons 165px apart vertically and 0px apart
+     * horizontally before this rule.
+     *
+     * The same pair does the work here, and it does two jobs rather than one. `vertical-rl` turns
+     * the flex container's inline axis vertical, so `flex-direction: row` lays the icons out along
+     * the axis that the card's own turn maps to the screen's horizontal, and the `180deg` both
+     * brings the icons upright and reverses the run so it reads left to right. `justify-content`
+     * and `align-items` need no change: they follow the axes rather than the screen.
+     *
+     * The clearance moves with the ribbon. The base keeps 5vh off the top because BOOST sits
+     * there; under a quarter turn BOOST is on the card's left edge, so the clearance is too.
+     */
+    #image-preview-div-center .image-preview-boost {
+        inset: 0 0 0 5vh;
+
+        writing-mode: vertical-rl;
+        rotate: 180deg;
     }
 }
