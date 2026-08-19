@@ -1,9 +1,9 @@
 /******************************************************************************
 * v2 typography
 *
-* Three unrelated stacks were in play, and none of them ships. The only fonts this project actually
-* carries are `ChampionsIcons.ttf` as `marvel-icons` and FontAwesome, both icon fonts, so every
-* piece of text resolves to whatever the operating system happens to offer:
+* Three unrelated stacks were in play, and none of them ships. The only fonts this project carries
+* are ChampionsIcons as `marvel-icons` and FontAwesome, both icon fonts, so every piece of text
+* resolves to whatever the operating system happens to offer:
 *
 *   - `monospace`, bare, on `body` in `marvel.css`. That is the app-wide default, which is why most
 *     of the rules that "set" monospace elsewhere are only restating what they already inherit.
@@ -17,12 +17,19 @@
 *   - `"Inter"` on notifications, immediately overridden by `monospace` on the next line, so it has
 *     never rendered.
 *
-* Two tokens replace all of that. Monospace stays the default on purpose: the board leans on it,
-* the turn banner's `---` rules only line up in it, and it is a deliberate part of how the game
-* reads. What changes is that it stops being the browser's guess.
+* **Revised at Q's request:** the first pass kept monospace as the default on the theory that the
+* board leaned on it deliberately. Playing it says otherwise. A proportional face reads better at
+* every size the game uses, and almost nothing here is tabular: the prompt is prose, the log is
+* prose, the buttons are labels. So the default is now the reading face, and fixed pitch is kept
+* only where it is doing a job.
 *
-* The proportional stack is kept for the card overlays that already used one, because numbers in
-* counters and health pips are denser and more legible proportional at those sizes.
+* Where it is still doing a job:
+*
+*   - The debug menus and the card debug text, which are code-like output and line up in columns.
+*   - Numbers that have to align in place, which is a different problem and does not need a
+*     monospace face at all: `font-variant-numeric: tabular-nums` gives fixed-width digits inside
+*     the proportional font, so counters stop jittering as they count without the text around them
+*     turning into Courier.
 *
 * Nothing here touches `marvel-icons` or FontAwesome, and nothing overrides an `!important`.
 */
@@ -35,35 +42,26 @@
     --font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-/* The default, for everything that inherits rather than declaring: notifications, the prompt box,
-   the side bar's own box. */
+/* The default for everything that inherits rather than declaring. */
 body {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
 }
 
-/* And every place that declares bare `monospace` explicitly, which has to be restated rather than
+/* And every place that declared bare `monospace` explicitly, which has to be restated rather than
    left to inherit. An explicit declaration beats an inherited value no matter how good the
-   inherited one is, so setting `body` alone reaches none of these. Verified the hard way: after the
-   first pass `body` and the side bar had moved and `.card` and the previews had not.
+   inherited one is, so setting `body` alone reaches none of these. Verified the hard way on the
+   first pass: `body` and the side bar moved and `.card` and the previews did not.
    `image-preview.css` is shared with v1, so its three are overridden here rather than edited. */
 .card,
-.card .debug-text,
 .deck.clicked::after,
 #ex-buttons .button,
 .side-bar > .button,
-.debug-right-menu,
-.debug-right-menu details,
-.debug-right-menu button,
-.debug-right-menu details button,
 .image-preview-text,
 .image-preview-name,
 .image-preview.boost-flip::after,
 #image-preview-div-center .image-preview:not(.boost-flip):is(.type-minion,
-    .type-encounter-side-scheme, .type-attachment, .type-environment)::after {
-    font-family: var(--font-mono);
-}
-
-/* The overlays that deliberately use a proportional face. Same selectors as v1, same intent. */
+    .type-encounter-side-scheme, .type-attachment, .type-environment)::after,
+/* The overlays that already used a proportional face in v1, now on the same stack as the rest. */
 .player-discard-pile .card.highlight-effect .face .bind-image-info::after,
 .additional-discard-pile .card.highlight-effect .face .bind-image-info::after,
 #player-all-hand-cards .card.highlight-effect .face .bind-image-info::after,
@@ -78,19 +76,48 @@ body {
 #area-schemes-side .card:not(.facedown).type-encounter-side-scheme .face .info::after,
 #area-schemes-main .card:not(.facedown).type-main-scheme .face .info::after,
 span:has( + span.icon-acceleration-token),
-/* The prompt box is the running commentary on the game, and reads as prose rather than as terminal
-   output. Q asked for it specifically: monospace made the centre of the screen look like a console.
-   Its `---` decorations do not need a fixed pitch, they are just rules either side of a sentence. */
+#option-buttons > .button,
+/* The prompt box is the running commentary on the game and reads as prose. */
 #prompt-box-container,
 #prompt-text,
-/* The drawn status faces, name and rule alike. They are a designed card face, not a readout. */
+/* The drawn status faces, name and rule alike. A designed card face, not a readout. */
 .image-preview:is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough)::before,
 .image-preview:is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough)::after {
     font-family: var(--font-ui);
 }
 
-/* The one rule that reached for a font nobody has. Its fallback was already the system face; this
-   says so. */
-#option-buttons > .button {
-    font-family: var(--font-ui);
+/******************************************************************************
+* Where fixed pitch still earns its place
+*
+* Debug surfaces only. These are code-like output where columns line up and a proportional face
+* would be actively worse.
+*/
+.card .debug-text,
+.debug-right-menu,
+.debug-right-menu details,
+.debug-right-menu button,
+.debug-right-menu details button {
+    font-family: var(--font-mono);
+}
+
+/******************************************************************************
+* Numbers that have to hold still
+*
+* The counters change while you watch them: card counts on a pile, health and stats on a card, the
+* scheme's threshold. In a proportional face the digits are different widths, so a number reflows
+* as it changes and the eye reads movement that is not there. `tabular-nums` fixes the digit width
+* without touching the face, which is the part a monospace font was being used for and the only
+* part worth keeping.
+*/
+.deck.clicked::after,
+.deck.deck-change-size:not(.clicked)::after,
+.deck:not(.clicked):hover::after,
+.card .face .info,
+.card .face .info .infinite_health,
+.card .face .info:not(:has(> .infinite_health)) .health,
+.change-value::after,
+#area-schemes-side .card:not(.facedown).type-player-side-scheme .face .info::after,
+#area-schemes-side .card:not(.facedown).type-encounter-side-scheme .face .info::after,
+#area-schemes-main .card:not(.facedown).type-main-scheme .face .info::after {
+    font-variant-numeric: tabular-nums;
 }

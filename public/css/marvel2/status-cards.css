@@ -22,7 +22,7 @@
     --status-b: #6b4a02;
     --status-edge: #f3c53f;
     --status-label: "STUNNED";
-    --status-rule: "When this character attacks, discard this instead of attacking.";
+    --status-rule: "If a stunned hero or ally attempts to attack or use an attack ability, discard the stunned card instead. Costs associated with the attack attempt, including exhausting the character, must still be paid. If a stunned villain or minion would attack, discard the stunned status card instead.";
 }
 
 .image-preview.type-status-card-confused {
@@ -30,7 +30,7 @@
     --status-b: #3c1155;
     --status-edge: #b06fd6;
     --status-label: "CONFUSED";
-    --status-rule: "When this character thwarts, discard this instead of thwarting.";
+    --status-rule: "If a confused hero or ally attempts to thwart or use a thwart ability, discard the confused card instead. Costs associated with the thwart attempt, including exhausting the character, must still be paid. If a confused villain or minion would scheme, discard the confused status card instead.";
 }
 
 .image-preview.type-status-card-tough {
@@ -38,7 +38,7 @@
     --status-b: #2c3540;
     --status-edge: #c9d2da;
     --status-label: "TOUGH";
-    --status-rule: "When this character would take damage, discard this instead.";
+    --status-rule: "If a character with a tough status card would take any amount of damage, prevent all of that damage and discard the tough status card instead.";
 }
 
 /* The face. `background-image` rather than `background` so the blend mode and sizing set on
@@ -54,8 +54,8 @@
     content: var(--status-label, "");
 
     position: absolute;
-    /* Upper 55%, so the rule line below has room. */
-    inset: 0 0 45% 0;
+    /* Upper 30%. The rule is a full Rules Reference paragraph, so it gets the larger share. */
+    inset: 0 0 70% 0;
     z-index: 2;
 
     display: flex;
@@ -65,9 +65,9 @@
     font-weight: bold;
     /* `vh`, like the boost icons above it, because the preview itself is sized in `vh` and so the
        word tracks the card at every window size and under `body.hold-alt`. */
-    font-size: 5.4vh;
-    letter-spacing: .6vh;
-    text-indent: .6vh;
+    font-size: 4.4vh;
+    letter-spacing: .5vh;
+    text-indent: .5vh;
 
     color: #fff;
     text-shadow: 0 .4vh .8vh rgba(0, 0, 0, .75);
@@ -91,20 +91,20 @@
     content: var(--status-rule, "");
 
     position: absolute;
-    /* Lower 45% of the card, under the name. */
-    inset: 55% 0 0 0;
+    /* Lower 70% of the card, under the name. */
+    inset: 30% 0 0 0;
     z-index: 2;
 
     display: flex;
     justify-content: center;
     align-items: center;
     text-align: center;
-    padding-inline: 6%;
+    padding-inline: 7%;
     box-sizing: border-box;
 
-    font-size: 2.3vh;
-    line-height: 1.35;
-    font-weight: 600;
+    font-size: 2.05vh;
+    line-height: 1.4;
+    font-weight: 500;
 
     color: rgba(255, 255, 255, .92);
     text-shadow: 0 .2vh .5vh rgba(0, 0, 0, .8);
@@ -124,17 +124,17 @@
        local right edge to the bottom, so the two halves swap axis: the name takes the local left
        55% to sit visually on top, and the rule the local right 45% to sit under it. */
     .image-preview:is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough)::before {
-        inset: 0 45% 0 0;
+        inset: 0 70% 0 0;
         writing-mode: vertical-rl;
         rotate: 180deg;
     }
 
     .image-preview:not(.boost-flip):is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough)::after {
-        inset: 0 0 0 55%;
+        inset: 0 0 0 30%;
         writing-mode: vertical-rl;
         rotate: 180deg;
         /* `padding-inline` follows the writing mode, so the same declaration keeps the rule clear
            of the card's ends in either orientation. */
-        padding-inline: 6%;
+        padding-inline: 7%;
     }
 }
