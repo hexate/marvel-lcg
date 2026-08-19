@@ -317,3 +317,23 @@
     left:  calc(300 * var(--sux)) !important;
     right: calc(150 * var(--sux)) !important;
 }
+
+/* The same panel's vertical placement. Mirrors deck.css:69-77, which the pass above missed while
+ * converting the horizontal half of the very same rules: insets from the scene edges again, block
+ * axis this time, so `--su`.
+ *
+ * The two rules are kept apart rather than merged because their specificities are load bearing.
+ * v1 lets `.deck.encounter-discard-pile.clicked` and `.deck-top.deck.clicked` (0,0,3,0) beat
+ * `.deck.clicked` (0,0,2,0), which is how a pile that opens downward from the top wins over the
+ * default of sitting on the bottom. Prefixing both with `#scene` raises them together and keeps
+ * that order intact. */
+#scene .deck.encounter-discard-pile.clicked,
+#scene .deck-top.deck.clicked {
+    top: calc(185 * var(--su));
+    bottom: unset;
+}
+
+#scene .deck.clicked {
+    top: unset;
+    bottom: calc(150 * var(--su));
+}
