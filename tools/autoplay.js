@@ -417,6 +417,7 @@ class Auto {
     // Only worth a turn when the damage is actually dangerous; recovering at full health wastes it.
     if (/^recover/.test(l))    return (b.alterEgo && b.heroHp !== null && b.heroHp <= 5) ? 88 : 18;
     if (/^defense/.test(l))    return 32;
+    if (/^play/.test(l))       return 65;   // building the board is how the later turns get won
     if (/cancel/.test(l))      return -100;
     return 62;  // a card's own ability: usually why the card was played
   }
@@ -469,6 +470,42 @@ class Auto {
             document.querySelectorAll('#player-all-hand-cards .card').length].join('|');
   }
 
+
+  /** Choose a turn action by name, using the ask the client publishes.
+   *
+   *  The turn is a single ask holding every legal option at once, `Attack | Play | Play | Play`,
+   *  and each option names the card that provides it. None of those names reach the DOM: the
+   *  client highlights the bound cards and the player clicks one. So every earlier version of this
+   *  was picking blind, which is why the policy could rank abilities perfectly and still never
+   *  attack. `client.ts` publishes the ask on `window.__ask` for exactly this.
+   *
+   *  Falls through when the seam is absent, so an older page still plays the blind way.
+   */
+  async chooseOption() {
+    const ask = window.__ask;
+    // Other asks (paying, targeting, responses) have gestures of their own further down the ladder.
+    if (!ask || ask.event !== 'WhenPlayerInTurn' || !(ask.options || []).length) return false;
+
+    const b = this.board();
+    const usable = ask.options.filter(o => !o.blocked);
+    if (!usable.length) return false;
+
+    const best = usable
+      .map(o => ({ ...o, score: this.rankOption(o.name, b) }))
+      .sort((x, y) => y.score - x.score)[0];
+
+    const card = document.querySelector(`#scene .card[data-id="${best.bindId}"]`);
+    if (!card) return false;
+
+    // Targeting comes next and has no other way to know what we just asked for.
+    const l = best.name.toLowerCase();
+    this.intent = /^attack/.test(l) ? 'attack' : /^thwart/.test(l) ? 'thwart' : null;
+
+    card.click();
+    await sleep(700);
+    return 'choose:' + best.name.slice(0, 16);
+  }
+
   async step() {
     // Ordered by how specific the gesture is. `ladder` rotates the starting point when the screen
     // stops responding, so an unrecognised mode still gets the other gestures tried against it.
@@ -492,7 +529,8 @@ class Auto {
     }
 
     const acts = [
-      () => this.unpause(), () => this.options(), () => this.pay(), () => this.targets(),
+      () => this.unpause(), () => this.chooseOption(), () => this.options(),
+      () => this.pay(), () => this.targets(),
       () => this.useAbility(), () => this.playHand(), () => this.confirm(), () => this.endTurn(),
       () => this.escape(), () => this.anyButton(),
     ];
