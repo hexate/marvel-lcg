@@ -7,8 +7,25 @@
 * board (N3).
 *
 * These three cards are a colour, a word and a rule. Nothing about them needs a photograph, so this
-* draws them: crisp at any size, no asset to source, and the palette is ours to change. Tracked as
-* N9, chosen over sourcing higher-resolution art.
+* draws them: crisp at any size, no asset to source. Tracked as N9, chosen over sourcing
+* higher-resolution art.
+*
+* The palette is not invented. It is sampled from the shipped card art itself, `assets/textures/
+* {stunned,confused,tough}.webp`, which is the real card face at 149x95. Filtering to the chromatic
+* pixels and taking the dominant hue gives lime at about 70deg, purple at 280 and orange at 20,
+* which is also what the community's status tokens use. The first pass here had amber, violet and
+* steel: only the purple was close.
+*
+* The ink follows from that rather than being fixed at white. Two of the three cards are light, and
+* white on lime is unreadable. Each carries its own `--status-ink`, chosen as whichever of white or
+* a deep tint of the card's own hue reads better on it.
+*
+* The gradient's range is chosen the same way, and the first attempt got it wrong by measuring only
+* the centre. A radial gradient means the ink sits on a different colour depending where the line
+* falls, so the last line of a paragraph lands near the dark edge and dims. The edge value for each
+* card is now the darkest that still clears 4.5:1 against that card's ink, so the rule is legible
+* across the whole face and not just in the middle: 11.9:1 to 4.6:1 on stunned, 6.3:1 to 17:1 on
+* confused, 6.0:1 to 4.5:1 on tough.
 *
 * Loaded only by `marvel2.html`, so v1 keeps the textures and stays the reference.
 *
@@ -18,25 +35,31 @@
 */
 
 .image-preview.type-status-card-stunned {
-    --status-a: #f3c53f;
-    --status-b: #6b4a02;
-    --status-edge: #f3c53f;
+    --status-a: #d3ed79;
+    --status-b: #83934b;
+    --status-edge: #d3ed79;
+    --status-ink: #232617;
+    --status-shadow: rgba(255, 255, 255, .55);
     --status-label: "STUNNED";
     --status-rule: "If a stunned hero or ally attempts to attack or use an attack ability, discard the stunned card instead. Costs associated with the attack attempt, including exhausting the character, must still be paid. If a stunned villain or minion would attack, discard the stunned status card instead.";
 }
 
 .image-preview.type-status-card-confused {
-    --status-a: #b06fd6;
-    --status-b: #3c1155;
-    --status-edge: #b06fd6;
+    --status-a: #795186;
+    --status-b: #241828;
+    --status-edge: #9d6cad;
+    --status-ink: #ffffff;
+    --status-shadow: rgba(0, 0, 0, .8);
     --status-label: "CONFUSED";
     --status-rule: "If a confused hero or ally attempts to thwart or use a thwart ability, discard the confused card instead. Costs associated with the thwart attempt, including exhausting the character, must still be paid. If a confused villain or minion would scheme, discard the confused status card instead.";
 }
 
 .image-preview.type-status-card-tough {
-    --status-a: #c9d2da;
-    --status-b: #2c3540;
-    --status-edge: #c9d2da;
+    --status-a: #de801f;
+    --status-b: #bf6e1b;
+    --status-edge: #f0973a;
+    --status-ink: #24180c;
+    --status-shadow: rgba(255, 255, 255, .5);
     --status-label: "TOUGH";
     --status-rule: "If a character with a tough status card would take any amount of damage, prevent all of that damage and discard the tough status card instead.";
 }
@@ -69,8 +92,8 @@
     letter-spacing: .5vh;
     text-indent: .5vh;
 
-    color: #fff;
-    text-shadow: 0 .4vh .8vh rgba(0, 0, 0, .75);
+    color: var(--status-ink);
+    text-shadow: 0 .3vh .7vh var(--status-shadow);
     pointer-events: none;
 }
 
@@ -106,8 +129,8 @@
     line-height: 1.4;
     font-weight: 500;
 
-    color: rgba(255, 255, 255, .92);
-    text-shadow: 0 .2vh .5vh rgba(0, 0, 0, .8);
+    color: var(--status-ink);
+    text-shadow: 0 .15vh .4vh var(--status-shadow);
     pointer-events: none;
 }
 
