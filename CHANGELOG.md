@@ -164,9 +164,15 @@ as F6c.
 
 Issues [#4](https://github.com/irefrixs/marvel-lcg/issues/4),
 [#5](https://github.com/irefrixs/marvel-lcg/issues/5),
-[#6](https://github.com/irefrixs/marvel-lcg/issues/6) and
-[#7](https://github.com/irefrixs/marvel-lcg/issues/7). Contributions are kept on `pr/*` branches
+[#6](https://github.com/irefrixs/marvel-lcg/issues/6),
+[#7](https://github.com/irefrixs/marvel-lcg/issues/7) and
+[#8](https://github.com/irefrixs/marvel-lcg/issues/8). Contributions are kept on `pr/*` branches
 cut from `upstream/master` so each one is a readable diff on its own.
+
+All five are answered as of 2026-08-18, and none is being fixed upstream. The project is sunset.
+He confirmed #8 as a real bug and supplied the function that was deleted by mistake, agreed on #7
+that the command blocklist is not a security boundary, and explained that both of the `test_task.py`
+chores in #6 are intentional developer tools. The fixes live here.
 
 ### Branches
 

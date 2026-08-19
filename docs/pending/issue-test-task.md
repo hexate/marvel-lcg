@@ -1,6 +1,26 @@
 # U9: new issue, test_task.py mutates the repo
 
-Status: DRAFT. Tracker item I8. Single topic, per his #1 request to split questions up.
+Status: **POSTED** 2026-08-10 as [issue #6](https://github.com/irefrixs/marvel-lcg/issues/6).
+Tracker item I8 (U9). Single topic, per his #1 request to split questions up.
+
+**ANSWERED 2026-08-18, declined as working-as-intended.** Both cases are deliberate.
+`test_IncreaseVersion` keeps its `test_` prefix because that is what makes VS Code draw a run
+button next to it, which is how they trigger the bump by hand. `test_zip_cards` packages the
+compiler bundle for the paid [Marvel LCG Scripts](https://irefrixs.itch.io/marvel-lcg-scripts)
+build, the one that runs custom card scripts. Sunset, so no change upstream, and he explicitly
+blessed changing it here: *"Since you have a fork, feel free to remove or rename them there if you
+prefer."*
+
+His second comment answers something nobody asked and is the more valuable half. Their suite runs
+every existing save file through the engine and checks the CRC in the save JSON still matches, then
+`check_is_pass` in `test_run.py` re-saves each passing file under the new version number, updating
+both the version key and the filename, and once the run is green the old saves move to another
+folder. They keep per-version corpora on purpose, so a change that breaks save compatibility can be
+rolled back. That makes the version bump part of the ritual rather than a leak, and it is recorded
+in section I of the tracker because it confirms the circularity problem from their side.
+
+Fixed here on 2026-08-18 regardless: both chores moved to `tools/package.py` behind a required
+subcommand.
 
 Title: Running the unit test suite commits to git and bumps the version
 

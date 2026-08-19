@@ -3,7 +3,7 @@
 Running log of every proposed change to this codebase and its status. Add new items to the
 table; do not delete rows — move them to `Done` or `Rejected` and keep the rationale.
 
-**Last updated:** 2026-08-16
+**Last updated:** 2026-08-18
 
 ## Status legend
 
@@ -28,11 +28,12 @@ Claims in this doc are marked so we know what has actually been checked:
 
 ## 0. Upstream status
 
-Checked 2026-08-10. Local `HEAD` is `2ac194a`, identical to `irefrixs/marvel-lcg@master`. No
-upstream commits since 2026-08-07.
+Checked 2026-08-18. Local `HEAD` is `2ac194a`, identical to `irefrixs/marvel-lcg@master`. No
+upstream commits since 2026-08-07, ✓ VERIFIED by `git fetch upstream` on 2026-08-18.
 
 **The maintainer is active but the project is formally sunset.** irefrixs replied to both of our
-issues on 2026-08-10, roughly 16 hours after they went up. He answers technical questions in
+first two issues on 2026-08-10, roughly 16 hours after they went up, and to issues #6, #7 and #8
+in one pass on 2026-08-18, between 03:39 and 05:23 UTC. He answers technical questions in
 detail and engages with the substance. He is not taking contributions:
 
 > Today we are treating the project as sunset – we're not accepting new feature updates or pull
@@ -43,6 +44,20 @@ That contradicts the issue #1 answer from 2026-08-05, *"we would be happy to acc
 The later statement wins, so the working assumption changes: **the door is one narrow exception
 wide, "urgent bugfix," and we have to argue a fix through it rather than simply offering it.**
 Everything queued below was written against the older, more open stance and needs re-aiming.
+
+**Revised 2026-08-18: the exception is narrower than that, and probably closed.** The three
+replies of 2026-08-18 settle what "urgent bugfix, case-by-case" means in practice. J13 is the
+strongest case anyone will get: he called it *"an actual bug in the open-source version,"* named
+the commit-level cause himself, and pasted the deleted function. It still came with no fix and no
+plan to make one. F6/F6a got the technical point conceded, *"a whitelist would be safer than a
+blacklist,"* and then scoped away on the grounds that the shipped itch.io build cannot reach the
+endpoint. I8 was answered as working-as-intended twice over.
+
+The pattern across all five issues is consistent: he engages with the substance, usually concedes
+it, and then declines to act. Three separate replies now end with a variant of *"feel free to
+change it in your fork."* **Treat upstream as a source of answers, not a destination for patches.**
+Report a defect when the answer would change what we build, which is exactly what happened with
+issue #4 and J13. Do not spend effort packaging fixes for him to take.
 
 ### Already answered upstream: do not re-ask
 
@@ -59,6 +74,10 @@ Everything queued below was written against the older, more open stance and need
 | Why the bundled backend exists | Shipping numpy in version 1 means bundling a ~10 MB DLL, *"that's just bad."* The pure-Python path was meant to reproduce numpy's sequence, *"but that never really happened; we actually never used it."* | issue #4, 2026-08-10 |
 | F1 state-capture cost | Accepted without argument: *"yes – we should release the state-capture cleanup. Thanks for flagging the performance issue."* | issue #4, 2026-08-10 |
 | `cheat` retry loop (I7) | Declined. *"In our design `cheat` should never be true during normal gameplay, so we don't add any protection around that path."* Their tests use real save files and never hit it. | issue #5, 2026-08-10 |
+| Why `test_task.py` is named `test_` (I8) | Intentional, both cases. `test_IncreaseVersion` *"is intentionally kept there because VS Code registers it as a test/button, which makes it convenient for us to run `IncreaseVersion` manually."* `test_zip_cards` builds the compiler bundle for the paid [Marvel LCG Scripts](https://irefrixs.itch.io/marvel-lcg-scripts) release, which is the build that runs custom card scripts. | issue #6, 2026-08-18 |
+| **How their test suite actually works** | *"We run all existing save files through the game engine, and check that the CRC values in the save JSON still match."* After each file passes, `check_is_pass` in `test_run.py` **re-saves it under the new version number**, updating both the version key and the filename, and once the whole run passes they move the old saves to a different folder. They keep per-version corpora deliberately, so that a change which breaks save compatibility can be rolled back to. | issue #6, 2026-08-18 |
+| `IsCommandSafe` as a boundary (F6) | Conceded, not fixed. *"Yes, I agree that `IsCommandSafe` is not a strong security boundary and that a whitelist would be safer than a blacklist."* Scoped away: the itch.io build does not allow debug or custom script execution by default, only the `-script` build runs Python, and that needs `cards_json_custom_file`/`cards_json_custom_files` set by the host at launch. *"We don't consider the current setup to be a strong security boundary for arbitrary configurations."* | issue #7, 2026-08-18 |
+| Why `/save_local` has no handler (J13) | Confirmed as a real defect and explained. It lived on a `GameServerXXX(GameServerBase)` mixin that `GameServer` inherited, and existed to upload replays and bug-report saves to their private server. *"In the open-source version, we removed the server-related code because we don't want to expose or depend on our private server. Unfortunately, we removed this function along with it by mistake."* | issue #8, 2026-08-18 |
 
 ### What his RNG answer changes (F3)
 
@@ -166,9 +185,10 @@ we are, one layer deeper, by writing the contract down first.
 | U4 | `command_validation.py` (F6) | DRAFTED, needs re-aiming as a bug report |
 | U7 | Issue #5, unbounded retry in `ChooseEffects` (I7). Posted 2026-08-09 as `hexate`. Fix ready on `pr/cap-input-retries`. | **ANSWERED** 2026-08-10, **declined**, fork-only now |
 | U6 | Comment on #4 correcting 34× to 18.9× in situ, and noting F9. Text in `docs/pending/issue4-comment-rng-figure.md`. | **SUPERSEDED** by U8, which folds the correction in. Do not post both. |
-| U8 | Reply on #4: F1 patch as he asked for it, the `ChooseWithoutReplacement` gap in the implementation he recommended, and **F10**, which is the numpy-compatible pure-Python generator he said was intended but never built. Folds U6 in. | **POSTED** 2026-08-10 as `hexate`, [comment](https://github.com/irefrixs/marvel-lcg/issues/4#issuecomment-5243489423). Carries links to `pr/random-state-capture` and `pr/rng-numpy-parity`, both pushed to the fork. **Edited 2026-08-10 18:31 UTC**, before he replied, to correct the `AddCounter` figure and withdraw the F9 suggestion. Editing does not re-notify, so he may still hold the original by email. |
-| U9 | Issue #6, `unit_test/test_task.py` commits to git and bumps the version when the suite runs (I8). Text in `docs/pending/issue-test-task.md`. | **POSTED** 2026-08-10 as `hexate`, [issue #6](https://github.com/irefrixs/marvel-lcg/issues/6). Fixed locally 2026-08-18 (I8), so there is now a patch to offer him rather than a suggestion. |
-| U10 | Issue #7, `/debug` reaches `exec` and its auth wrapper is inactive by default (F6/F6a). Carries the fix as `pr/gate-debug-endpoint`. Text in `docs/pending/issue-debug-endpoint.md`. | **POSTED** 2026-08-10 as `hexate`, [issue #7](https://github.com/irefrixs/marvel-lcg/issues/7). The first item that plausibly meets his "urgent bugfix" exception. |
+| U8 | Reply on #4: F1 patch as he asked for it, the `ChooseWithoutReplacement` gap in the implementation he recommended, and **F10**, which is the numpy-compatible pure-Python generator he said was intended but never built. Folds U6 in. | **POSTED** 2026-08-10 as `hexate`, [comment](https://github.com/irefrixs/marvel-lcg/issues/4#issuecomment-5243489423). Carries links to `pr/random-state-capture` and `pr/rng-numpy-parity`, both pushed to the fork. **Edited 2026-08-10 18:31 UTC**, before he replied, to correct the `AddCounter` figure and withdraw the F9 suggestion. Editing does not re-notify, so he may still hold the original by email. **NO REPLY** as of 2026-08-18, eight days. He answered #6, #7 and #8 on 2026-08-18 and passed over this one, so read the silence as a decision rather than a miss. He had already said yes to the F1 cleanup in writing and never asked for the branch. Nothing here is blocked on him; F10 and F11 shipped in the fork on 2026-08-10. |
+| U9 | Issue #6, `unit_test/test_task.py` commits to git and bumps the version when the suite runs (I8). Text in `docs/pending/issue-test-task.md`. | **ANSWERED** 2026-08-18, **declined as working-as-intended.** Both cases are deliberate: the `test_` prefix on `IncreaseVersion` is what makes VS Code draw a run button for it, and `test_zip_cards` packages the paid scripts build. *"Feel free to remove or rename them there if you prefer."* His second comment is the valuable part and had nothing to do with the report, see the already-answered table. Fixed locally on 2026-08-18 anyway (I8). |
+| U10 | Issue #7, `/debug` reaches `exec` and its auth wrapper is inactive by default (F6/F6a). Carries the fix as `pr/gate-debug-endpoint`. Text in `docs/pending/issue-debug-endpoint.md`. | **ANSWERED** 2026-08-18, **conceded and declined.** He agrees the blocklist is not a boundary and that a whitelist would be safer, then argues the shipped itch.io build cannot reach the endpoint because scripting is off unless the host enables it at launch. He did not engage with the part the report was actually about, that the auth wrapper in front of it admits everyone by default. Fork-only now; `pr/gate-debug-endpoint` stands. |
+| U11 | Issue #8, the game over "Save replay" button saves nothing and reports success (J13). Carries the fix as `pr/save-replay-handler`, one commit on `upstream/master`. | **POSTED** 2026-08-11 as `hexate`, [issue #8](https://github.com/irefrixs/marvel-lcg/issues/8). **ANSWERED** 2026-08-18: **confirmed as a real bug**, with the deleted function pasted in and the cause named. Still no fix and no plan for one, which is what dates the "urgent bugfix" exception. The reply is worth more than a merge would have been, because it tells us what the handler is supposed to do; see J13. |
 
 **Pacing, revised 2026-08-10.** The hold is over. He replied to both issues in detail, so the
 question is no longer whether he is listening but what is worth sending.
@@ -181,6 +201,14 @@ in writing, so F1 is not an unsolicited patch. Pair it with the `ChooseWithoutRe
 he recommended a file that is one method away from numpy parity, and that is directly useful to the
 goal he stated. This is a reply to an open thread, not a new issue, so it does not spend the
 "split future questions into separate issues" budget.
+
+**Revised 2026-08-18.** Every posted item is now answered except U8. Nothing above is waiting on
+upstream any more, and nothing below should be written for upstream. U2, U3 and U4 were queued
+against a stance that no longer exists: three separate replies have now conceded a technical point
+and then declined to act on it, including one he called an actual bug. Recommend closing U2, U3 and
+U4 as upstream items and keeping their content as fork direction. The one thing still worth asking
+him for is U5, the licence, because that is a signature rather than a patch and only he can supply
+it.
 
 U7 is closed as an upstream matter. He declined it on design grounds and the fix lives on
 `pr/cap-input-retries` for the fork. Note his reason does not engage with the three hangs in the
@@ -956,9 +984,25 @@ and the file name was most of why anyone believed otherwise.
 
 | ID | Item | Status |
 | --- | --- | --- |
-| F6a | Gate `/debug` on loopback or a real password | **DONE**, `pr/gate-debug-endpoint`, reported upstream as [issue #7](https://github.com/irefrixs/marvel-lcg/issues/7) (U10) |
-| F6b | Rename `command_validation.py` and its docstring so it stops implying a security control | PROPOSED |
+| F6a | Gate `/debug` on loopback or a real password | **DONE**, `pr/gate-debug-endpoint`, reported upstream as [issue #7](https://github.com/irefrixs/marvel-lcg/issues/7) (U10). **Answered 2026-08-18, conceded and declined**, see below |
+| F6b | Rename `command_validation.py` and its docstring so it stops implying a security control | PROPOSED. Upstream now agrees with the premise in writing, *"a whitelist would be safer than a blacklist,"* so this is a fork-only rename with no risk of contradicting him |
 | F6c | The same no-password-means-authenticated hole applies to **every** route using `IsAuthenticate`, not just `/debug` | **DECIDED 2026-08-10: do not fail closed.** Re-rated Medium. Fix is an auto-generated password on a non-loopback bind, deferred as a feature |
+
+**Upstream's answer, 2026-08-18.** He conceded the technical point without argument: *"Yes, I
+agree that `IsCommandSafe` is not a strong security boundary and that a whitelist would be safer
+than a blacklist."* He then argued the exposure does not exist in the build people actually run.
+The itch.io release does not allow debug or custom script execution at all; only the separate
+[`-script` build](https://irefrixs.itch.io/marvel-lcg-scripts) runs Python, and that requires the
+host to set `cards_json_custom_file` or `cards_json_custom_files` when launching. His conclusion:
+*"we don't consider the current setup to be a strong security boundary for arbitrary
+configurations,"* the project is sunset, and *"you're welcome to make the changes you suggested in
+your fork."*
+
+Two things that answer does not touch, and they are the two the report was about. It says nothing
+about `IsAuthenticate` returning `True` for every caller when no password is set, which is F6c and
+the actual reason the blocklist was load-bearing. And it is about the packaged itch.io build, not
+this source tree, which is what anyone running from a clone is executing. So the gate stays, and
+F6c stays open as a fork item rather than a shared one.
 
 ---
 
@@ -979,13 +1023,57 @@ web auth, save integrity. Ordered by how much they matter.
 | J7 | Mutable default arguments (10 sites) | various | Low, latent | PROPOSED |
 | J8 | **Clicking Cancel on the End Phase prompt raises.** Reproduced in a real browser game. | `engine/controller/controller.py:295` | Medium, user-reachable | **DONE**, the rule is now `Controller.CanDecline` and a client that breaks it is refused rather than crashing |
 | J12 | **The image catch-all answered 200 for every path nothing else claimed.** `r'/{path:.+}'` is registered last and sent everything to `handle_image_request`, which returns `Cache.LoadImage`'s placeholder. `LoadImage` never fails, so a missing or misspelled route came back as a 254x352 grey JPEG with a 200 rather than an error. That is what hid J13 for an unknown length of time, and it would hide the next one. Fixed by having the game register every card id with the cache (`Cache.RegisterImageName`, called from `CardsDB.Initialize`, mirroring the existing `SetLinkPic` handoff so `engine/` still does not import `cards/`) and gating the route on `Cache.CanLoadImage`: a registered name, something already cached or on disk, or a card-id-shaped name that could still download. Everything else is 404. Cards we ship no art for keep the placeholder. The editor is unaffected, it has its own `handle_image` calling `LoadImage` directly | `engine/device/web/server/server_files.py:61`, `engine/file/cache.py:60` | Medium, masks other defects | **DONE**. ✓ VERIFIED: card art, backs, status and challenge cards serve unchanged; `2425_boss_rush` still degrades to the placeholder; unknown paths 404; New Game screen loads all 322 images; 76 tests pass |
-| J13 | **The game over "Save replay" button saved nothing and reported success.** `Command.saveLocal` fetches `save_local` (`public/js/marvel/command.ts:27`, wired to the button at `public/js/marvel/message.ts:27`) and nothing served that path, so it fell through J12 and got a placeholder JPEG with a 200. The client did not check the status, called `.text()` on the image, and showed "Your save file has been saved in: " followed by the JPEG bytes. ✓ VERIFIED by playing a real game: statistics were written at game over but no file existed in `replays/`, the repo root, or the browser's download folder. Auto-save was separately off, which is the default, so nothing else caught it. Fixed by adding the handler the client was always calling, saving through `session.SaveScene(delete_old=False)` to match the `/save` debug command, 409 when there is no scene rather than tripping the assert in `SaveScene`, and checking `response.ok` on the client | `engine/device/web/server/server_new_game.py:58` | Medium, silent data loss | **DONE**, commit `3adbad1` |
+| J13 | **The game over "Save replay" button saved nothing and reported success.** `Command.saveLocal` fetches `save_local` (`public/js/marvel/command.ts:27`, wired to the button at `public/js/marvel/message.ts:27`) and nothing served that path, so it fell through J12 and got a placeholder JPEG with a 200. The client did not check the status, called `.text()` on the image, and showed "Your save file has been saved in: " followed by the JPEG bytes. ✓ VERIFIED by playing a real game: statistics were written at game over but no file existed in `replays/`, the repo root, or the browser's download folder. Auto-save was separately off, which is the default, so nothing else caught it. Fixed by adding the handler the client was always calling, saving through `session.SaveScene(delete_old=False)` to match the `/save` debug command, 409 when there is no scene rather than tripping the assert in `SaveScene`, and checking `response.ok` on the client | `engine/device/web/server/server_new_game.py:58` | Medium, silent data loss | **DONE**, commit `3adbad1`, cut for upstream as `pr/save-replay-handler` and reported as [issue #8](https://github.com/irefrixs/marvel-lcg/issues/8) (U11). **Confirmed upstream 2026-08-18**, see below |
 | J14 | **`IsPortAvailable` binds without `SO_REUSEADDR`, so a restart fails while a browser still holds the port.** `s.bind((address, port))` with a default socket, and the caller asserts on the result (`engine/device/manager/web/manager.py:61`). A browser tab left open on the game keeps keep-alive connections whose orphaned server-side sockets pin port 2345 after the process dies, so relaunching within that window dies with `AssertionError: ip='127.0.0.1', port=2345` and no explanation. ✓ VERIFIED the hard way on 2026-08-10: four consecutive failed restarts, `netstat` showing no listener, a raw `bind()` in a separate process succeeding once the tab was navigated away. Initially misdiagnosed as the port being slow to release. Two parts worth fixing: set `SO_REUSEADDR` on the probe socket and on the real bind, and make the assert say what is holding the port | `engine/network/net_lib.py:53-68` | Low, developer-facing | **DONE**. One correction to the fix as written above: the real bind never needed touching. `asyncio.create_server`, which opens the actual listener, already sets `SO_REUSEADDR` on POSIX by default, so only the probe lacked it. That is the whole defect, the probe was stricter than the bind it was standing in for and refused a port the server would have taken. `WhyPortUnavailable` replaces the bool and returns the OS error, the bare `except` narrows to `OSError` so a bad address stops being reported as a busy port, and the assert now names the errno and the two usual causes. ✓ VERIFIED by a paired A/B at the same instant on the same port, one second after killing the server with a browser tab still open: the old probe answered `Address already in use (errno 48)`, the new one answered bindable, and an immediate restart then came up and served 200. 5 tests, 3 of which fail against the old probe, the other 2 being regression guards that a live listener is still refused and a free port still accepted |
 | J15 | **A failed art download becomes permanent, and hides a card that is changing the rules.** `LoadImage` ends at `ImageCreator.CreateNoImage` and then `Cache.SetCache(file_name, image_data)`, so the generated placeholder is cached in memory under the card's own name for the life of the process. Nothing retries, because the next call returns from `Cache.cache` at the top of the function. One 3-second timeout and that card stays blank for the whole session. Worse, `if SAVE_EMPTY_IMAGE.value and not is_time_out` writes the placeholder to disk as `{card_id}.jpg`: only `requests.exceptions.Timeout` sets `is_time_out`, so a CDN 404, a DNS failure or a reset connection all persist a fake JPEG that is byte-indistinguishable from real art, and `FindImageFile` then reports the card satisfied forever. ✓ VERIFIED: `assets/cache/90001.jpg` is byte-identical to the generated placeholder (`cdeafa0e…`, 2035 bytes) while `assets/pics/90001.jpg` holds the real 20 KB art, so the write branch has already fired here and only the folder search order hides it | `engine/file/cache.py:186-197` | Medium, user-reachable | **DONE**. A definitive miss is recorded as a `{name}.no_art` marker, which the three lookups ignore because they only read `.webp`/`.jpg`/`.png`; a transient failure is recorded nowhere and retried, capped per name, with a run-wide give-up after 10 consecutive failures so a dead network is not retried per card; timeout 3s to 10s. ✓ VERIFIED: 8 tests, all 8 confirmed to fail against the old policy re-applied to the same file |
 | J16 | **`DrawText` cannot draw text, so `show_image_text` is a no-op and every placeholder is a blank colour swatch.** The loop that appends to `lines` is commented out (it called `draw.textsize`, removed in Pillow 10), `current_line` is initialised to `""` and never reassigned, so `if current_line` is false, `lines` stays empty and the draw loop at the end never runs. `words` is computed and unused. Every caller gets an unmodified image back. `launch.json` ships `show_image_text: true`, so the intended behaviour is a card rendered as its name, type and text, which would make J15 self-explaining instead of a mystery | `engine/lib/image_creator.py:96-122` | Low alone, Medium with J15 | **DONE**. Ported the loop to `draw.textlength`, and kept source newlines as line breaks since card text carries them and `split()` on all whitespace lost them. ✓ VERIFIED: `01153` now renders its name, type and full text; 4 new tests, each confirmed to fail with the draw suppressed again; safe suite 80 tests |
 | J17 | **The version guard answers image routes with an HTML page at 200, and that page is then cached for a year.** `AddNonAwaitGetSecurity` serves images and `save_local`, never pages, but on a stale or missing `app_version` cookie it returns `LoadHtmlCleanCache()`. That goes through `ReadFile`, which stamps `HeaderCache` on release builds, and `build.py:5` sets `release = True` unconditionally. So one image request made during a version mismatch puts 4,483 bytes of HTML into the browser cache under a card's own URL with `max-age=31536000`, and nothing ever asks again. Restarting the server cannot help, because the server is correct. ✓ VERIFIED against the running server: `GET /stunned` with a stale cookie returns 200 `text/html` 4,483 bytes, the same URL with a current cookie returns 200 `image/jpeg` 6,192 bytes, and both carry `public, max-age=31536000`. Found from play, as a Stunned card that would not draw and stayed blank across new games and server restarts. This is J15 on the other side of the wire, a transient failure made permanent by a cache, and J12/J13 in shape, a route answering 200 with something that is not what was asked for | `engine/network/web_server.py:60`, `engine/network/web_server.py:50-55` | Medium, user-reachable | **DONE**, commit `03cbed4`. Guard pages go out `no-store`, and the resource routes refuse with 401 or 409 and a plain-text body instead of a page. 5 tests, each confirmed to fail against the old headers. Not yet verified against a running server, which needs a restart |
 | J18 | **The only route that issues the `app_version` cookie is cached for a year, so a browser that loses the cookie can never get it back and is locked out of the game.** `handle_get_version` is the sole `set_cookie('app_version', ...)` in the codebase (`web_server.py:328`), and the same response is deliberately sent as `image/jpeg` with `HeaderCache`, commented "Hack, make browser treat it as images and store in cache". Once that response is in the browser cache, every later fetch is served locally, `Set-Cookie` never runs, and `IsVersionMatch` fails at `web_server.py:187` on the missing cookie. Every guarded route then answers with the mismatch page. The route itself is fine, registered `need_auth=False, need_check_version=False`, so nothing on the server refuses: the client simply stops asking. **The recovery path in the UI does not recover.** `public/clean_cache.html` binds "Try Reloading (Bypass Cache)" to `window.location.reload(true)` alone, with the `get_version()` call commented out directly above it, and `reload`'s force parameter is non-standard and ignored by current browsers, so the button reloads into the same wall forever. ✓ VERIFIED 2026-08-16 in Chrome against the running server: a fresh tab on `127.0.0.1:2345` served the Version Mismatch page, and its load-time `/get_version` fetch reported `transferSize: 0` with `encodedBodySize: 10`, a cache hit. A forced `fetch('/get_version', {cache:'reload'})` returned 200 `0.5.9.201r`, after which the guarded CSS route returned real CSS instead of the guard page, and a hard reload loaded the launcher. Same root as J17, `build.py:5` forcing `release = True` and stamping a year of caching on a response that carries state, but the other half of it: J17 cached the refusal, this caches the thing that lifts the refusal | `engine/network/web_server.py:324-334`, `public/clean_cache.html` | Medium, user-reachable, no working recovery in the UI | **DONE**, both halves. The route goes out `no-store` and drops the `image/jpeg` pretence, which only ever existed to buy the caching, so it is plain text again as it was before the hack. The button awaits a real `get_version()` instead of `reload(true)`, and `get_version` itself fetches with `cache: 'reload'`, which matters for the browsers already holding the old year-long copy: the server change only helps a client that has not stored it yet. 3 tests. Only one of the three fails against the old code, the `no-store` assertion, with `'public, max-age=31536000' != 'no-store'`; the other two pin the cookie still being issued and the route still answering a client that has no cookie, which the old code also satisfied. They are regression guards, not defect tests. ✓ VERIFIED against a restarted server: `/get_version` answers 200 `text/plain` with `Cache-Control: no-store` and `Set-Cookie: app_version=0.5.9.201r; Max-Age=31536000; Path=/`, the served `clean_cache.html` handler is `async` and awaits `get_version()` with no `reload(true)` left in it, and the launcher loads with no guard page. Safe suite 109 tests |
 | J9 | **DONE.** `-no_<flag>` on the command line was silently ignored for any already-declared variable. `ParseArguments` writes the stripped name into `instance_command` but then calls `InitVariable(key)` with the `no_` prefix still attached, so the lookup misses `variable_dict` and nothing re-reads the value. The positive form works, because there the key matches. ✓ VERIFIED: `-no_disable_numpy_random` left the flag at its default, which is how the F10 tests nearly measured the wrong backend. Two-line fix, strip before the lookup | `engine/config.py:153-163` | Medium, silent | **DONE**, two tests, one per form |
+
+### J13 confirmed upstream, and what his original looked like
+
+irefrixs answered issue #8 on 2026-08-18 and confirmed the defect outright: *"So yes, this is an
+actual bug in the open-source version."* He also gave the cause, which no amount of reading the
+open-source tree would have produced. `save_local` was never missing by design. It lived on a
+mixin that is not in this repository at all:
+
+```python
+class GameServerXXX(GameServerBase):
+
+    async def save_local(self, request: web.Request) -> web.Response:
+        result = self.game.session.SaveScene(delete_old=False)
+        return web.Response(text=result)
+
+    @override
+    def __init__(self) -> None:
+        self.AddAwaitGetSecurity('/save_local', self.save_local)
+```
+
+with `class GameServer(..., GameServerXXX)` in `server.py`. The mixin existed to upload replays and
+bug-report saves to their private server. Stripping the server code for the open-source release
+took this function with it: *"Unfortunately, we removed this function along with it by mistake."*
+
+Three things worth keeping from that.
+
+**`delete_old=False` was right.** We inferred it from the `/save` debug command. His original uses
+the same argument, so the reasoning and the answer both hold.
+
+**Our registration is the better of the two, and the reason is J17.** He registered it with
+`AddAwaitGetSecurity`; we used `AddNonAwaitGetSecurity`. ✓ VERIFIED at
+`engine/network/web_server.py:120-140`: on a failed check the await variant returns
+`LoadHtmlAuthenticate()` or `LoadHtmlCleanCache()`, a **200 with an HTML body**. `Command.saveLocal`
+prints the body as the path it saved to, so his version reproduces J13's exact symptom, a save that
+never happened reporting a page as its filename, on any version mismatch. The non-await variant
+answers 401 or 409 with a plain-text body since J17, which is the shape the client can actually
+tell apart. Keep ours.
+
+**His handler blocks the event loop.** `SaveScene` writes the file synchronously inside an `async
+def`. `AddNonAwaitGetSecurity` runs the handler through `TaskManager.ToThread`, so ours does not.
+Minor for a one-shot save, but it is the second reason not to copy his registration.
+
+There is no fix upstream and no plan for one. The value of the reply is the specification, not a
+merge.
 
 ### J18: the cookie route caches itself out of existence
 
@@ -1537,6 +1625,39 @@ So the infrastructure is sound; it finds zero cases and then dies on a bare asse
 | --- | --- | --- |
 | I1 | Empty corpus fails with a bare `AssertionError` at `unit_test/entry.py:48` instead of reporting "no test cases found". Trivial fix, saves the next person an hour. | **DONE**, fails at the check with the folder named and how to fill it |
 
+### What upstream's suite actually does, in his words (2026-08-18)
+
+Answering issue #6, he described the method, and it confirms the reading of this section from the
+outside rather than by inference:
+
+> We run all existing save files through the game engine, and check that the CRC values in the save
+> JSON still match.
+>
+> After processing a save file, we also re-save it using the new version number. `check_is_pass` in
+> `test_run.py` updates the version key in the saved JSON and the filename. Once all tests pass, we
+> move the old saves to a different folder.
+>
+> We may introduce changes in the future that make saves incompatible between versions. Keeping
+> saves for different versions makes it easier for us to roll back to an older version when needed.
+
+Three consequences.
+
+**The version bump is load-bearing for them, not a stray side effect.** I8 read `test_IncreaseVersion`
+as a chore that had leaked into the test namespace. It is closer to a step in the ritual: bump,
+run the corpus, re-stamp every save that passed, archive the old ones. That does not change the fix
+here, where nobody has their corpus, but it does explain why a nine-year-old file that commits to
+git has never bothered anyone upstream.
+
+**Their test is a compatibility test, not a behaviour test.** The oracle is a CRC that the engine
+itself computed on a previous version. It answers "does this build still reproduce what the last
+build produced," which is exactly the property that makes it useless for verifying a fix and
+excellent for catching an accidental change. It is the same circularity described below, stated
+from their side.
+
+**It confirms why the corpus cannot be replaced by generating our own.** Their saves are player
+data accumulated over years across many versions, and the archive folders are the history. I2 is
+still the answer for us: tests that do not depend on a replay at all.
+
 ### Why this is worse than a missing-fixtures problem
 
 **The tests are replays, and replays are exactly what is fragile.**
@@ -1751,7 +1872,7 @@ That runtime matters: it is fast enough for a real TDD loop, which the replay ha
 | ID | Item | Status |
 | --- | --- | --- |
 | I5 | **The console/keyboard device cannot drive a live game, two independent bugs.** (a) `ConsoleDevice` never implements `IsSyncReady`, so the first render sync deadlocks (only `WebDevice` implements it, `web_device.py:36`). (b) `KeyInput` sets `payload.input_json` directly instead of calling `WhenInput`, so `DoGetInput` always returns `None` and the caller retries forever (blocker 4). Neither surfaces in the replay harness: the sync call is guarded by `world_render.py:114`, which only runs when **not** skipping, and replay supplies inputs so `IsInputReady` is never reached. **Low practical severity**, nobody plays by typing JSON at a terminal, but the `-device` non-web path is dead code, and it blocks anyone building a headless mode. Report as a note, not a defect. | PROPOSED |
-| I8 | **`unit_test/test_task.py` is not a test file and running the suite mutates your repository.** `test_IncreaseVersion` bumps `BUILD` in `build.py` and then runs `git add` and `git commit` through `os.system` (`build_marvel.py:19-20`); `test_zip_cards` writes a `cards-*.zip` into the repo root. Its own comment says *"Just use as a work, to help me increase the version number."* ✓ VERIFIED the hard way on 2026-08-10: running the standalone suite three times left three `Package version` commits on the work branch and pushed this fork's version from `0.5.9.201` to `204`, which matters because `Scene.GetSaveFileName` stamps the version into every save file. Anyone who runs `python -m unittest` across `unit_test/` gets the same surprise. Rename it out of the `test_` namespace, or guard it behind an explicit opt-in. Good upstream contribution, and cheap. | **DONE** 2026-08-18. Both chores moved to `tools/package.py`, which takes a required subcommand, so running it bare prints usage and changes nothing. Verified: `unittest discover` over `unit_test/` now leaves HEAD, `build.py` and the repo root untouched, and the file selection is byte-for-byte the same 921 files. Excluding it by name in `tools/run_tests.py` had only protected that one runner. Reported as issue #6 (U9) |
+| I8 | **`unit_test/test_task.py` is not a test file and running the suite mutates your repository.** `test_IncreaseVersion` bumps `BUILD` in `build.py` and then runs `git add` and `git commit` through `os.system` (`build_marvel.py:19-20`); `test_zip_cards` writes a `cards-*.zip` into the repo root. Its own comment says *"Just use as a work, to help me increase the version number."* ✓ VERIFIED the hard way on 2026-08-10: running the standalone suite three times left three `Package version` commits on the work branch and pushed this fork's version from `0.5.9.201` to `204`, which matters because `Scene.GetSaveFileName` stamps the version into every save file. Anyone who runs `python -m unittest` across `unit_test/` gets the same surprise. Rename it out of the `test_` namespace, or guard it behind an explicit opt-in. Good upstream contribution, and cheap. | **DONE** 2026-08-18. Both chores moved to `tools/package.py`, which takes a required subcommand, so running it bare prints usage and changes nothing. Verified: `unittest discover` over `unit_test/` now leaves HEAD, `build.py` and the repo root untouched, and the file selection is byte-for-byte the same 921 files. Excluding it by name in `tools/run_tests.py` had only protected that one runner. Reported as issue #6 (U9), and **answered 2026-08-18: both cases are intentional upstream.** The `test_` prefix on `IncreaseVersion` is what makes VS Code draw a run button for it, and `test_zip_cards` packages the paid scripts build. So this was never an oversight, it is a developer tool wearing a test's name, and the surprise is real only for someone who runs the suite without knowing that. His answer explicitly blesses the fork's fix: *"feel free to remove or rename them there if you prefer."* The change stands as made |
 | I6 | `WorldRender.CalculateCRC()` runs on **every** `ChoiceOne` (`controller.py:54`) and walks every card calling `GetRenderInfo()`. Measured ~0.1 ms per call. Harmless per decision, but it is unconditional, including during skip/replay, where nothing renders. Worth checking against B1. | PROPOSED |
 
 Note: I2 is the most valuable engineering work identified anywhere in this document. Every large
@@ -1777,3 +1898,4 @@ regression net that does not itself depend on replay.
 | 2026-08-10 | **J13, J12, J14 added from a play session.** Playing a real game surfaced a save that silently did nothing: the game over "Save replay" button fetches a route the open-source server never registered. The reason nobody noticed is J12, the image catch-all, which answers every unclaimed path with a placeholder JPEG and a 200, so a missing route is indistinguishable from a card we lack art for. J13 is fixed and committed, J12 is fixed by registering card ids with the cache and 404ing anything else, and a sweep of every client `fetch` target found no other live endpoint without a route. J14 logs the `SO_REUSEADDR` restart papercut that cost four failed restarts during the same session. Separately, the missing itch.io `assets` folder was installed, which is what the grey scenario tiles and status cards were about; the published build ships challenge art only through `2424`, so `2425_boss_rush` has data but no art anywhere. |
 | 2026-08-11 | **J15 and J16 added from play.** A blank attachment on Rhino turned out to be Concussion Blasters, which had silently given the villain retaliate 1 and was the reason allies kept dying on attack. Two defects behind it: a failed art fetch is cached in memory under the card's name and never retried, and written to disk as a fake JPEG on any failure that is not a timeout, which is already true of `assets/cache/90001.jpg` here; and `DrawText` has had its line-accumulation loop commented out since the Pillow 10 `textsize` removal, so `show_image_text: true` produces a single-colour swatch rather than the card's name and text. The fallback that existed to identify an unrenderable card has never worked. Both fixed the same day, J16 first since it is what makes any future J15 diagnose itself. J15 turned on distinguishing a definitive miss from a transient one: markers instead of fake JPEGs, retry with a per-name cap and a run-wide give-up, and a longer timeout that the give-up makes affordable. Missing art for `01096`, `01152`, `01153` and `01154` fetched into `assets/cache/`; the running process keeps its cached placeholder until restarted. `assets/cache/90001.jpg`, the one already-poisoned file, still wants deleting by hand. |
 | 2026-08-13 | **J17 added from play.** A Stunned card that would not draw, and would not start drawing again after new games or server restarts. The art was fine and so was the cache; what was wrong is that the version guard answers image routes with the clean-cache *page*, at status 200, under `max-age=31536000`. One image request during a mismatch poisons that card's URL in the browser for a year, which is J15's "one bad moment becomes permanent" on the client side and J12/J13's "200 with the wrong thing" in shape. Fixed by sending guard pages `no-store` and refusing resource routes with 401/409 and a plain-text body. My first read blamed the status card leaving play, which was the wrong question: the card goes, the cache entry stays. Also confirmed while looking: J16 is working, both status placeholders render their names legibly. Separately, the three engine fixes sitting uncommitted since the previous session are now committed with tests (`9f0ac06`, `e23249f`, `5cc37a5`), each test confirmed to fail against the old behaviour, and each commit green on its own. That surfaced a new open question: the `UnitCannotDefend` fix takes Puppet Master (`55061`) from unloadable to loading with an `"AnyPlayer"` defense ban, which is broader than its text, and wants deciding. |
+| 2026-08-18 | **Upstream answered the three open issues, and the answers close the contribution question.** #6: both `test_task.py` chores are intentional, the `test_` prefix is what gives VS Code a run button, and `test_zip_cards` builds the paid scripts release. His follow-up describes their whole test method for the first time, run every save through the engine, check the CRC, re-save under the new version, archive the old folder, which is recorded in section I because it confirms the circularity from their side and explains why the version bump matters to them. #7: conceded that `IsCommandSafe` is not a boundary and a whitelist would be safer, then scoped it away on the grounds that the itch.io build cannot reach the endpoint, without addressing F6c. #8: **confirmed as a real bug** and pasted the deleted `GameServerXXX.save_local`, which validates our `delete_old=False` and shows his registration used `AddAwaitGetSecurity`, a route that answers a failed version check with a 200 HTML page and would reproduce J13's symptom, so ours stays on the non-await path. No fix upstream for any of the three. U9, U10 and U11 answered, U8 passed over in silence after eight days. Section 0 revised: treat upstream as a source of answers, not a destination for patches, and close U2, U3 and U4 as upstream items. |

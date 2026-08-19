@@ -4,6 +4,11 @@ Status: POSTED 2026-08-10 as comment 5243489423, then edited at 18:31 UTC before
 file matches the live comment. Supersedes `issue4-comment-rng-figure.md` (U6), whose correction is
 folded into section 1 below.
 
+**No reply as of 2026-08-18**, eight days. He answered issues #6, #7 and #8 on the morning of
+2026-08-18 and passed over this thread, so read the silence as a decision rather than a miss. He
+had already invited the F1 cleanup in writing and never asked for the branch. Nothing here is
+blocked on him: F10 and F11 both shipped in the fork on 2026-08-10.
+
 The edit rewrote section 1's second paragraph: the original blamed the f-string for 0.55 µs and
 invited him to fix it, which was wrong on the number, wrong on the cause, and pointed at a saving
 of microseconds per game. See F9.
