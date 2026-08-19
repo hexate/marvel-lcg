@@ -1,0 +1,116 @@
+/******************************************************************************
+* v2 board surface
+*
+* Loaded only by `marvel2.html`. v1 never sees any of this.
+*
+* This file owns how the table LOOKS. `marvel2/layout.css` owns where things SIT, and says so in
+* its own header: "the look is not what is being rebuilt here, the geometry is". Two surface rules
+* had leaked into it, the `#scene` background and the `.player-background` mask, and they moved
+* here unchanged in behaviour so that geometry and surface stop sharing a file.
+*
+* What was wrong
+* --------------
+* The whole table was `radial-gradient(#333, #111)`: one flat neutral grey, no hue, no material. It
+* read as an empty dark rectangle rather than a surface with cards on it.
+*
+* The coupling that made this delicate
+* ------------------------------------
+* `.player-background` marks whose turn it is and is NOT a small strip. It spans the bottom 60% of
+* the scene, full width, and it was OPAQUE: `radial-gradient(<seat colour>, #111)`. So the base
+* gradient was only ever visible in the top 40%.
+*
+* The two agreed only because both ended on the same `#111` at their outer stop. Changing the base
+* colour alone would therefore have reopened a horizontal seam along the left and right edges, at
+* the exact boundary the previous slice spent its time closing. Measured before touching anything:
+* the scene is 1512x771 here, the seat layer starts at y=308 and runs 463 tall, and its mask fades
+* it in from y=308 to y=410.
+*
+* So the seat tint is now TRANSLUCENT and ends at `transparent` rather than at a restated `#111`.
+* It multiplies onto whatever the base happens to be instead of having to know it. That decouples
+* the two: the base palette can change again and it cannot open a seam, because there is no second
+* copy of the base colour to fall out of step.
+*
+* The grain
+* ---------
+* An SVG `feTurbulence` tile, so there is no asset to ship and nothing to go blurry at any board
+* size. `stitchTiles='stitch'` is what makes it seamless where the tile repeats.
+*
+* The blend operator was measured rather than picked. Rendering the tile over the real base colour
+* on a canvas and reading the pixels back:
+*
+*   overlay    @0.55  spread 23-31 levels, mean +6
+*   screen     @0.55  spread ~85 levels,   mean +43   (washes the board out completely)
+*   screen     @0.12  spread ~18 levels,   mean +9
+*   soft-light @0.20  spread 11 levels,    mean +3
+*   soft-light @0.35  spread 18 levels,    mean +5
+*   soft-light @0.70  spread 38 levels,    mean +10
+*
+* `overlay` was the first choice and it was the wrong one: on a base this dark it does not just add
+* grain, it lifts the mean by 6 and re-tints the palette that was chosen deliberately above it.
+* `soft-light` drifts linearly at about `opacity * 14`, which is correctable. 0.35 gives grain of
+* about 18 levels peak to peak, roughly 7%, which is film grain rather than dither.
+*
+* The tokens below state the colour the surface should RENDER at. The literals are therefore the
+* target minus that drift, so `--board-felt` is set 5 below the (43,48,59) it is meant to look
+* like. Change the grain opacity and these want re-compensating.
+*
+* The grain is invisible in a full-board screenshot, which is a property of the capture and not of
+* the grain: that path is JPEG and downsamples a 2x display, and both destroy exactly this signal.
+* Magnifying a flat patch of felt shows it. Check it that way if it ever needs re-tuning, because
+* a normal screenshot will always say it is not there.
+*/
+
+:root {
+    /* Stated pre-grain; see the compensation note above. Renders at about (43,48,59). */
+    --board-felt: #262b36;
+    --board-felt-mid: #191d25;
+    --board-edge: #0a0c11;
+
+    --board-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+}
+
+/* The felt.
+ *
+ * One gradient rather than a colour plus a separate vignette layer: three stops place the falloff
+ * precisely enough and there is one less thing blending. The centre sits slightly above the board's
+ * middle because the cards do too, so the brightest part of the table is under the play area rather
+ * than under the hand.
+ *
+ * Low chroma on purpose. Card art here spans every hue at full saturation, and the four seat tints
+ * below include both a red and a green, so a base with any real colour in it would fight one of
+ * them. This is a cool charcoal that reads as intentional without competing. */
+#scene {
+    background:
+        var(--board-grain),
+        radial-gradient(ellipse 82% 74% at 50% 46%,
+            var(--board-felt) 0%,
+            var(--board-felt-mid) 55%,
+            var(--board-edge) 100%);
+    background-size: 180px 180px, cover;
+    background-blend-mode: soft-light, normal;
+}
+
+/******************************************************************************
+* The current player's half
+*
+* `.player-background` tints the bottom 60% of the scene, one colour per seat. Both rules here beat
+* `marvel/player.css`, which v2 still loads, on the `#scene` id.
+*
+* The mask is the previous slice, moved from `layout.css` and otherwise untouched. `top: 40%` with
+* a flat fill painted a straight horizontal line the full width of the board, which read as a seam
+* between two surfaces rather than as one surface that is lit. Fading the top fifth turns the line
+* into a gradient.
+*
+* The colours are v1's seat hues opened up and made translucent, so they now tint the felt instead
+* of replacing it. Red and green are held slightly lower than blue and olive because they carry
+* more apparent weight at the same alpha.
+*/
+#scene .player-background {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 22%);
+}
+
+#scene .player-background.player-0 { background: radial-gradient(ellipse 70% 100% at 50% 62%, rgba(74, 86, 158, .42), transparent 72%); }
+#scene .player-background.player-1 { background: radial-gradient(ellipse 70% 100% at 50% 62%, rgba(158, 74, 74, .38), transparent 72%); }
+#scene .player-background.player-2 { background: radial-gradient(ellipse 70% 100% at 50% 62%, rgba(134, 158, 74, .40), transparent 72%); }
+#scene .player-background.player-3 { background: radial-gradient(ellipse 70% 100% at 50% 62%, rgba(74, 158, 86, .38), transparent 72%); }

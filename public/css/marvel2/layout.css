@@ -54,7 +54,8 @@
 #scene {
     width: 100%;
     height: 100%;
-    background: radial-gradient(#333, #111);
+    /* The surface itself lives in `marvel2/board.css`, which is loaded after this file. This
+     * one is geometry, as the header says. */
 
     /* Two scene units, one per axis. This split is the whole idea.
      *
@@ -80,19 +81,9 @@
 /******************************************************************************
 * The current player's half
 *
-* `.player-background` marks whose turn it is by tinting the bottom 60% of the scene, one colour
-* per seat (`player.css:22-33`). The tint is worth keeping. The edge is not: `top: 40%` with a flat
-* background paints a straight horizontal line the full width of the board, which reads as a seam
-* between two surfaces rather than as one surface that is lit.
-*
-* Masking the top fifth turns the line into a fade. Nothing else changes: the seat colours, the
-* radial shape and the coverage are all still `player.css`, and v1 keeps the hard edge because this
-* is scoped to `#scene`, which beats the two-class rule there.
+* `.player-background` is a surface concern, not a geometric one, so both the seam mask and the
+* seat colours moved to `marvel2/board.css`. Its position is still `marvel/player.css`.
 */
-#scene .player-background {
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%);
-    mask-image: linear-gradient(to bottom, transparent 0, #000 22%);
-}
 
 /******************************************************************************
 * The canvas, and the one thing outside the board that scales with it
