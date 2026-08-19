@@ -1,5 +1,7 @@
 /******************************************************************************
-* v2 card depth
+* v2 cards
+*
+* Depth first, then the floating value feedback at the bottom.
 *
 * The premise this started from was wrong and the correction is worth keeping: board cards are not
 * flat. `card-face.css` gives a card in play `4px 8px 8px / .38`, a card in a pile `1px 4px 9px /
@@ -45,4 +47,34 @@
    to the element that does, so the lift and its shadow arrive together. */
 #scene .card .face .image {
     transition: box-shadow var(--anime-move-time) linear;
+}
+
+/******************************************************************************
+* The number a boost card actually adds (N2, option 6)
+*
+* This turned out to be already built and simply invisible. When a boost raises an enemy's ATK,
+* `gain_att` calls `GainForThisActive(..., attack=boost_value, render_ui=True)`, `attack` is in the
+* rendered info dict, and the client diffs the descriptor between renders and floats the delta
+* through `.change-value`. The villain's ATK really does go 2, then 3, with a `+1` rising off the
+* card. N2 listed this as "the most informative and the most work"; the work was done.
+*
+* What was missing is that nobody gave it a colour. ✓ VERIFIED by resolving each delta type in the
+* browser: health is green or red, threat yellow, trait bisque, boost red, and `attack`, `scheme`,
+* `thwart` and `defense` all come back `rgb(167, 167, 167)`, the inherited grey. So the one number
+* that says how much harder the villain just hit floats past in the same dull grey as everything
+* else, on a dark board.
+*
+* Both boostable stats get the encounter orange, the same one the BOOST ribbon uses on the preview,
+* so the ribbon and the number it caused read as one event. Attack and scheme are exactly the two
+* that `ResolveBoostCards` feeds, from `can_attack.py:289` and `can_scheme.py:116`.
+*
+* Honest limit: attack can rise from things other than a boost, and this colours those the same.
+* Orange still reads as "the enemy got stronger", which is true either way, and it is a large
+* improvement on invisible. Thwart and defense are left alone: they are player-side and no boost
+* touches them, so they stay outside N2.
+*/
+#scene .change-value.attack,
+#scene .change-value.scheme {
+    color: #e67d22;
+    --color: #e67d22;
 }

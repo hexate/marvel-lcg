@@ -179,8 +179,43 @@ Scope limits, all deliberate:
 - The printed icons are shown, not the resolved total. `update_boost_icons`, `set_boost_icons` and
   `cancel_boost_icons` all exist, so a number here could be a lie. That is option 6's job.
 
-Still open: 2 as a floating value, 4, 5, 6, 7, and the `pause_when_reveal_or_boost` prompt-text check
-above.
+### Closing out the options, 2026-08-19
+
+Two of the five open items dissolved on inspection rather than needing building, which is the
+pattern this whole feature has followed.
+
+**The `pause_when_reveal_or_boost` prompt check is answered, and the answer is no.** The two
+messages already read differently: `AfterCardsMovedToRevealingArea_Text` says "moved to revealing
+area" and `AfterCardsMovedToBoostingArea_Text` says "moved to boosting area"
+(`sender_card.py:382` and `:630`). So there was nothing to gain there. Neither carries the boost's
+value, which is the thing a player actually needs, and that is options 2 and 6.
+
+**Option 6 was already built.** It was written up as "the most informative and the most work,
+because the intermediate value has to be surfaced rather than just the final one". The work was
+done: `gain_att` calls `GainForThisActive(..., attack=boost_value, render_ui=True)`
+(`can_attack.py:279-288`), `attack` is in the rendered info dict, and the client diffs the
+descriptor between renders and floats the delta through `.change-value`. The villain's ATK really
+does go 2, then 3, with a `+1` rising off the card. The value is the resolved one, not the printed
+one: `can_boost.py:71-75` passes 0 when cancelled and `CountBoostIconsInternal()` otherwise, after
+amplify has been applied, so the earlier worry that "a number here could be a lie" does not apply.
+
+What was missing was that nobody gave it a colour. ✓ VERIFIED by resolving every delta type in the
+browser: health green or red, threat yellow, trait bisque, boost red, and `attack`, `scheme`,
+`thwart` and `defense` all `rgb(167, 167, 167)`, the inherited grey. The one number saying how much
+harder the villain just hit drifted past in the same grey as everything else. Both boostable stats
+now take the encounter orange, the same one the BOOST ribbon uses, so the ribbon and the number it
+caused read as one event. `attack` and `scheme` are exactly the two `ResolveBoostCards` feeds.
+
+**Option 2 is closed as superseded.** It wanted the value floated on the boost card itself. The
+resolved value now floats on the target, which is where the consequence lands and where the player
+is already looking during an attack. Putting the same number in two places is noise.
+
+**Still open, and each for a reason rather than for lack of time.** Option 4, distinguishing a star
+boost like Tiger Shark's tough or Weapons Runner's engage, needs the client to know a boost carries
+a star ability, which is not in the descriptor today. Option 5 needs a sound asset that does not
+exist and cannot be written. Option 7, giving the boosting area its own container, was called the
+last resort when the options were written and still is: it touches layout to fix what motion and
+colour now handle.
 
 Verified in Chrome against the running server on 2026-08-16, which closes the "not verified in a real
 browser" note on `8d57468`. On `public/marvel.html` the CSSOM holds the ENTERS PLAY rule with its
