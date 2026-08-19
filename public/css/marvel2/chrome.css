@@ -1,0 +1,40 @@
+/******************************************************************************
+* v2 chrome
+*
+* Everything that floats over the board rather than sitting on it: the prompt box for now, and the
+* rest of N8 when it gets done. Loaded only by `marvel2.html`, so v1 is untouched and stays the
+* reference.
+*/
+
+/******************************************************************************
+* The prompt box
+*
+* Reported as the turn banner cutting the minion row in half, and it does: `#prompt-box-container`
+* is `top: 32%` of the body, which is 264.6px at an 827px viewport, and the engaged minions occupy
+* 153 to 288. It covers the bottom 17px of every card in that row. v1 has the same collision and a
+* worse one, 31px, because its minion row sits lower.
+*
+* Moving it is not the fix, because there is nowhere to move it to. The board rows run from 8 to
+* 881 with gaps of about 11px between them, so a box 35px tall anchored anywhere in that range
+* lands on something. The two are in different coordinate systems by design: the prompt is pinned
+* to a percentage of the viewport, the board to scene units, so any percentage is a guess about a
+* layout it cannot see.
+*
+* What makes it read as damage rather than as a panel is that it is filled solid black. An opaque
+* box amputates whatever it covers. A translucent one with a blur behind it reads as floating over
+* the board, the cards stay legible through it, and the overlap stops mattering.
+*
+* Deliberately unchanged: the position, the drag, the lock and fade behaviour, the border radius
+* tied to `--font-size-out`, and `overflow: hidden`. This is the fill and the edge only.
+*/
+#prompt-box-container {
+    background-color: rgba(10, 12, 18, .68);
+    /* `saturate` because a plain blur over a dark board goes flat and grey. */
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    backdrop-filter: blur(12px) saturate(1.4);
+
+    border-color: rgba(255, 255, 255, .25);
+    /* Lifts it off the board, which is the other half of reading as a floating panel rather than a
+       hole cut in the row. */
+    box-shadow: 0 .5rem 1.4rem rgba(0, 0, 0, .55);
+}
