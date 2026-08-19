@@ -22,9 +22,14 @@ export class Scene {
         // left/top below would fight the container-query layout and win, because inline styles
         // beat stylesheets. See `public/js/marvel2/layout.ts`.
         if (Scene.isV2()) {
-            // v2 draws at 1:1, so scene coordinates are already screen pixels. `hover.ts` scales by
-            // this to place the card preview, and the initial 0 silently collapsed those to the
-            // scene's origin. There is no transform to divide out, so the factor is 1.
+            // There is no camera transform under v2, so the factor is 1. Note what that does and
+            // does not mean: it does NOT mean a scene coordinate is a screen pixel, which is what
+            // this comment used to claim. v2 keeps the coordinates and changes the unit to a
+            // fraction of the container, `--sux` across and `--su` down. Anything converting a
+            // coordinate needs the unit as well as this scale; see `convertScenePosToWindowPos`,
+            // and `Lib.client.sceneUnit()` for the unit. Reading this as "already pixels" produced
+            // three separate defects, J19, J22 and J23. The initial 0 mattered too: it silently
+            // collapsed the preview position to the scene's origin.
             Scene.scale = 1
             document.getElementById('camera')!.style.display = 'unset'
             return
@@ -48,17 +53,31 @@ export class Scene {
     }
 }
 
-// Function to convert scene position to window position
+/** Where a scene coordinate lands in the window.
+ *
+ * Two things stand between a scene coordinate and a window pixel, and only one of them is
+ * `Scene.scale`.
+ *
+ * The unit comes first: a scene coordinate is a position on the 1920x1080 canvas the board was
+ * authored against. v1 lays one unit out as `1px`, v2 as a fraction of the container, `--sux`
+ * across and `--su` down. Then the transform: v1 scales the whole camera by `Scene.scale`, v2 has
+ * no transform and leaves it at 1. So each layout contributes on a different one of the two and
+ * both terms are needed, which is why this used to look right with only the second. Under v1 the
+ * unit is 1 and this is arithmetically the line it replaces.
+ *
+ * The comment in `init` used to say v2 draws at 1:1, so scene coordinates are already screen
+ * pixels. The 1 is right, in the narrow sense that there is no transform to divide out. The
+ * reason was not, and it is the belief behind J19, J22 and J23.
+ */
 export function convertScenePosToWindowPos(sceneX: number, sceneY: number) {
     const scene = document.getElementById('scene')!;
     const rect = scene.getBoundingClientRect(); // Get the bounding rectangle of the scene
 
-    // Get the current scale of the scene
-    const scale = Scene.scale; // Assuming Scene.scale holds the current scale value
+    const scale = Scene.scale;
+    const unit = Lib.client.sceneUnit();
 
-    // Calculate the window position
-    const windowX = (sceneX * scale) + rect.left; // Adjusted X position in window coordinates
-    const windowY = (sceneY * scale) + rect.top;  // Adjusted Y position in window coordinates
+    const windowX = (sceneX * unit.x * scale) + rect.left;
+    const windowY = (sceneY * unit.y * scale) + rect.top;
 
     return { x: windowX, y: windowY };
 }
@@ -72,10 +91,14 @@ export function getMousePositionInScene(windowX: number, windowY: number) {
     const mouseX = windowX - rect.left; // Mouse X relative to the scene
     const mouseY = windowY - rect.top;  // Mouse Y relative to the scene
 
-    // Adjust for scaling
-    const scale = Scene.scale; // Extract the scale value
-    const sceneX = mouseX / scale; // Adjusted X position
-    const sceneY = mouseY / scale; // Adjusted Y position
+    // Adjust for scaling. The exact inverse of `convertScenePosToWindowPos`, so it divides out
+    // both terms for the same reason that one multiplies by both. Nothing calls this today, and it
+    // is corrected rather than left because an inverse that disagrees with its forward function is
+    // a trap for whoever calls it first.
+    const scale = Scene.scale;
+    const unit = Lib.client.sceneUnit();
+    const sceneX = mouseX / (unit.x * scale);
+    const sceneY = mouseY / (unit.y * scale);
 
     return { x: sceneX, y: sceneY };
 }

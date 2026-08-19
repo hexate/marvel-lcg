@@ -300,7 +300,21 @@ export class CardAnimation
             card_div.classList.add(ClassName.card_moving)
 
             requestAnimationFrame(() => {
-                card_div.style.transform = `translate3d(${nx}px, ${ny}px, 10px) rotate(${deg}deg)`;
+                // A scene coordinate is not a pixel, and this is the only place JS asserts it is.
+                //
+                // `getOffset` returns the card's `--x`/`--y`, which are scene coordinates on the
+                // 1920x1080 canvas the board was authored against. v1 multiplies those by `1px` and
+                // scales the whole camera, so writing `${nx}px` happened to be exactly right. v2
+                // keeps the coordinates and changes the unit: `--sux` across, `--su` down, each a
+                // fraction of the container. Raw pixels then overshoot. On a 1512x827 board the
+                // attacker flew to (nx, ny) instead of (nx * .7875, ny * .7657) and landed past its
+                // target, down and to the right, by more the further across the board the target
+                // sat.
+                //
+                // The fallbacks are what make one line correct under both: v1 defines neither
+                // variable, so it gets `1px` and the behaviour it always had. `10px` on the z axis
+                // stays literal because `--t-z` is `calc(var(--z) * 1px)` in both layouts.
+                card_div.style.transform = `translate3d(calc(${nx} * var(--sux, 1px)), calc(${ny} * var(--su, 1px)), 10px) rotate(${deg}deg)`;
             })
 
             CardAnimation.setAnimeTime('attack', () => {

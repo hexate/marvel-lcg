@@ -344,6 +344,40 @@ class Client {
         }
     }
 
+    /** One scene unit, in real pixels, on each axis.
+     *
+     * `getOffset` returns scene coordinates: positions on the 1920x1080 canvas the board was
+     * authored against, not pixels. v1 makes one unit `1px` and scales the whole camera, so both
+     * come back 1 and any caller that treated them as pixels was accidentally right. v2 keeps the
+     * coordinates and makes a unit a fraction of the container, `--sux` across and `--su` down, so
+     * they differ from each other and from 1, and such a caller is wrong by the difference.
+     *
+     * Measured off a probe rather than computed, so neither the canvas size nor the unit formula
+     * is repeated here and `layout.css` stays the only place that knows them. `getComputedStyle`
+     * rather than `getBoundingClientRect`, because the used width ignores v1's camera transform
+     * and a rect does not. `getComputedStyle` rather than `offsetWidth`, because that rounds to an
+     * integer and the fraction is the whole point. A thousand units keeps the reading well clear
+     * of any rounding, and the `1px` fallbacks are what make v1, which defines neither variable,
+     * measure exactly 1000.
+     */
+    static sceneUnit(): { x: number; y: number } {
+        const scene = document.querySelector('#scene')!
+        const probe = document.createElement('div')
+        probe.style.position = 'absolute'
+        probe.style.visibility = 'hidden'
+        probe.style.pointerEvents = 'none'
+        probe.style.width = 'calc(1000 * var(--sux, 1px))'
+        probe.style.height = 'calc(1000 * var(--su, 1px))'
+        scene.appendChild(probe)
+        const style = getComputedStyle(probe)
+        const unit = {
+            x: parseFloat(style.width) / 1000,
+            y: parseFloat(style.height) / 1000,
+        }
+        probe.remove()
+        return unit
+    }
+
     static getOffset2(elx: HTMLElement) {
 
         return Client.getOffset(elx)

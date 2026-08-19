@@ -371,11 +371,24 @@ export class UI {
         const rectA = Lib.client.getOffset(divA);
         const rectB = Lib.client.getOffset(divB);
 
-        // Calculate the center points
-        const x1 = rectA.left   + divA.offsetWidth / 2;
-        const y1 = rectA.top    + divA.offsetHeight / 2;
-        const x2 = rectB.left   + divB.offsetWidth / 2;
-        const y2 = rectB.top    + divB.offsetHeight / 2;
+        // Calculate the center points.
+        //
+        // Two different spaces meet on each of these lines and only one of them needs converting.
+        // `getOffset` gives a scene coordinate, which is a pixel under v1 and a fraction of one
+        // under v2, so it goes through the unit. `offsetWidth` is a layout measurement and is
+        // already in real pixels under both, so half a card is added as it stands. Getting that
+        // backwards is what the arrow looked like: under v2 the unconverted coordinate left every
+        // line starting to the right of the card and below it, by more the further out the card
+        // sat, while the half-card was quietly correct.
+        //
+        // Everything downstream is then one space: the length, the angle, and the `px` written to
+        // `left`, `top` and `width`. Under v1 the unit is 1 on both axes and this is arithmetically
+        // the line it replaces.
+        const unit = Lib.client.sceneUnit();
+        const x1 = rectA.left * unit.x + divA.offsetWidth / 2;
+        const y1 = rectA.top  * unit.y + divA.offsetHeight / 2;
+        const x2 = rectB.left * unit.x + divB.offsetWidth / 2;
+        const y2 = rectB.top  * unit.y + divB.offsetHeight / 2;
 
         // Calculate the length and angle
         const length = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);

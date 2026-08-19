@@ -98,26 +98,49 @@
 * re-stated against the two axis units instead: `--sux` across, `--su` down. This is the complete
 * set, so if a card lands in the wrong place under v2, a missing one of these is the first thing
 * to check.
+*
+* Complete for CSS, which is not the same as complete. JavaScript writes scene coordinates too, and
+* that was missed until an attacking card was seen flying past its target (J19). `card_animation.ts`
+* overrides a card's transform to move it, and wrote the target's coordinates as raw pixels because
+* under v1 they are. It reads `var(--sux, 1px)` and `var(--su, 1px)` now, which is why the fallbacks
+* matter: v1 defines neither. `ui.ts` `drawLine` has the same assumption and has not been converted.
 */
 #scene .card {
     --left: calc(var(--x) * var(--sux));
     --top:  calc(var(--y) * var(--su));
 }
 
-#scene .card.active,
-#scene .card.activating {
-    --top: calc(var(--y) * var(--su) + var(--card-height) * .25);
-}
+/* There is deliberately no general rule for an activating card.
+ *
+ * There used to be, `#scene .card.active, #scene .card.activating`, carrying the two `--top`
+ * formulas out of `card-active.css`. Both formulas are real; the selectors were not. v1 scopes every
+ * one of those nudges to a pile, `.deck.player-deck .card.activating` and so on, and applies nothing
+ * at all to a card activating in play: `card-active.css:1-3` sets `--this-scale` and nothing else, so
+ * the card grows on the spot. It grows because `card-face-image.css:57` scales `.face .image`, an
+ * element inside the card, which never touches the card's own transform.
+ *
+ * `.card.active` and `.card.active.up` matched nothing either way. `ClassName.active_card` is
+ * `'activating'` and no `up` class exists anywhere in the client, so the second rule was dead and
+ * the first quietly gave every activating card on the board a quarter-card drop that v1 never had.
+ * ✓ VERIFIED by probing an activating card in the hero, villain and ally areas: v1 moves it 0px,
+ * v2 moved it 33.7px down, which is `--card-height * .25` exactly. The pile nudges live with the
+ * other pile rules below, where their selectors can be scoped the way v1 scopes them.
+ */
 
-#scene .card.active.up,
-#scene .card.activating.up {
-    --top: calc(var(--y) * var(--su) - var(--card-height) * .75);
-}
-
-#scene .deck {
-    left: calc(var(--x) * var(--sux));
-    top:  calc(var(--y) * var(--su));
-}
+/* A pile is deliberately not positioned, and converting it was the mistake.
+ *
+ * `#scene .deck { left: calc(var(--x) * var(--sux)); top: ... }` used to sit here, and it read
+ * `--x`/`--y` on a `.deck` as the pile's own coordinates. They are not. `pos-deck.css` pins
+ * `.deck { top: 0; left: 0 }` and then sets `--x`/`--y` on each pile as the value its CARDS
+ * inherit: `.player-deck { --y: 970 }` is where that deck's cards go, not where the box goes. The
+ * cards consume the same two variables through `#scene .card`, so positioning the box as well
+ * applied the coordinate twice. A player deck computed `top: 742.768px` with a card inside it
+ * computing the identical translate, putting the card at 1485px on a board 827px tall.
+ *
+ * The pseudo-elements are the ones that genuinely take these coordinates, because they are drawn
+ * relative to the pinned box: `.deck::after` for the card count and `.deck::before` for the debug
+ * outline. Both are converted below, which is where this rule's formula actually belonged.
+ */
 
 #scene .area::after {
     top:   calc(var(--y) * var(--su));
@@ -223,6 +246,7 @@
 }
 
 /* A card lifting out of a deck. Mirrors card-active.css:36-47. */
+#scene .deck.player-discard-pile    .card.activating:not(.moving),
 #scene .deck.player-deck            .card.activating:not(.moving),
 #scene .deck.encounter-discard-pile .card.activating:not(.moving),
 #scene .deck.encounter-deck         .card.activating:not(.moving) {
@@ -236,6 +260,15 @@
 
 #scene .deck.player-deck .card.activating:not(.moving) {
     --top: calc(var(--y) * var(--su) - var(--card-height) * .75);
+}
+
+/* Mirrors card-active.css:30-34. Dropping `--y` is v1's own arithmetic, not a transcription slip:
+ * the card leaves the pile for a fixed height rather than moving relative to where it sat. Nothing
+ * to convert in the formula, since `--card-height` is already in scene units, but it still has to
+ * be restated to beat `#scene .card`. */
+#scene .deck.encounter-deck .card.activating:not(.moving),
+#scene .deck.deck-top       .card.activating:not(.moving) {
+    --top: calc(var(--card-height) * .25);
 }
 
 /* A card fanned out of a deck while choosing. Mirrors card-select.css:160-162. */
