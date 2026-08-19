@@ -1,0 +1,89 @@
+/******************************************************************************
+* v2 typography
+*
+* Three unrelated stacks were in play, and none of them ships. The only fonts this project actually
+* carries are `ChampionsIcons.ttf` as `marvel-icons` and FontAwesome, both icon fonts, so every
+* piece of text resolves to whatever the operating system happens to offer:
+*
+*   - `monospace`, bare, on `body` in `marvel.css`. That is the app-wide default, which is why most
+*     of the rules that "set" monospace elsewhere are only restating what they already inherit.
+*     Bare `monospace` is the browser's choice, so the game looks different per machine and per
+*     browser, and on several it is Courier.
+*   - `'Segoe UI', Tahoma, Geneva, Verdana, sans-serif` on seven card overlays. Segoe UI is a
+*     Windows font, so on macOS and Linux this falls through to Verdana, which is wide and dated
+*     and is not what anyone chose.
+*   - `Circular, -apple-system, ...` on the option buttons, one rule, where `Circular` does not
+*     exist anywhere and the fallback quietly does the work.
+*   - `"Inter"` on notifications, immediately overridden by `monospace` on the next line, so it has
+*     never rendered.
+*
+* Two tokens replace all of that. Monospace stays the default on purpose: the board leans on it,
+* the turn banner's `---` rules only line up in it, and it is a deliberate part of how the game
+* reads. What changes is that it stops being the browser's guess.
+*
+* The proportional stack is kept for the card overlays that already used one, because numbers in
+* counters and health pips are denser and more legible proportional at those sizes.
+*
+* Nothing here touches `marvel-icons` or FontAwesome, and nothing overrides an `!important`.
+*/
+
+:root {
+    /* Ends in `monospace` so a machine with none of the named faces still gets a fixed pitch. */
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    /* `system-ui` first, so each platform contributes its own face rather than one platform's being
+       imposed on the others, which is what the Segoe-first stack did. */
+    --font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* The default, for everything that inherits rather than declaring: notifications, the prompt box,
+   the side bar's own box. */
+body {
+    font-family: var(--font-mono);
+}
+
+/* And every place that declares bare `monospace` explicitly, which has to be restated rather than
+   left to inherit. An explicit declaration beats an inherited value no matter how good the
+   inherited one is, so setting `body` alone reaches none of these. Verified the hard way: after the
+   first pass `body` and the side bar had moved and `.card` and the previews had not.
+   `image-preview.css` is shared with v1, so its three are overridden here rather than edited. */
+.card,
+.card .debug-text,
+.deck.clicked::after,
+#ex-buttons .button,
+.side-bar > .button,
+.debug-right-menu,
+.debug-right-menu details,
+.debug-right-menu button,
+.debug-right-menu details button,
+.image-preview-text,
+.image-preview-name,
+.image-preview.boost-flip::after,
+#image-preview-div-center .image-preview:not(.boost-flip):is(.type-minion,
+    .type-encounter-side-scheme, .type-attachment, .type-environment)::after,
+.image-preview:is(.type-status-card-stunned, .type-status-card-confused, .type-status-card-tough)::before {
+    font-family: var(--font-mono);
+}
+
+/* The overlays that deliberately use a proportional face. Same selectors as v1, same intent. */
+.player-discard-pile .card.highlight-effect .face .bind-image-info::after,
+.additional-discard-pile .card.highlight-effect .face .bind-image-info::after,
+#player-all-hand-cards .card.highlight-effect .face .bind-image-info::after,
+#player-all-hand-cards .card.show-cost .face .bind-image-info::after,
+.card .face .info .infinite_health,
+.card .face .info:not(:has(> .infinite_health)) .health,
+.selected.card::after,
+.change-value::after,
+.deck.deck-change-size:not(.clicked)::after,
+.deck:not(.clicked):hover::after,
+#area-schemes-side .card:not(.facedown).type-player-side-scheme .face .info::after,
+#area-schemes-side .card:not(.facedown).type-encounter-side-scheme .face .info::after,
+#area-schemes-main .card:not(.facedown).type-main-scheme .face .info::after,
+span:has( + span.icon-acceleration-token) {
+    font-family: var(--font-ui);
+}
+
+/* The one rule that reached for a font nobody has. Its fallback was already the system face; this
+   says so. */
+#option-buttons > .button {
+    font-family: var(--font-ui);
+}
