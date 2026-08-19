@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/public/css/menu/style.css">
     <link rel="stylesheet" href="/public/css/font-awesome.css">
     <link rel="stylesheet" href="/public/css/menu/set-detail.css">
+    <link rel="stylesheet" href="/public/css/menu/controls.css">
 <style>
     * {
         --card--width: 100px;
@@ -1500,7 +1501,7 @@ p:has(#timeout_text) {
         <div style="display: flex; gap: 1rem;">
             <button onclick="doCreateNewGame('')">Create Scene</button>
             <!-- <button onclick="OpenToLAN(this)">Create Scene (LAN)</button> -->
-            <button onclick="doCreateNewGame('hot_seat')">Create Scene & Play (Hot Seat)</button>
+            <button class="primary" onclick="doCreateNewGame('hot_seat')">Create Scene & Play (Hot Seat)</button>
             <!-- <button onclick="NewGameOnline(this)">Create Scene (Online)</button> -->
         </div>
 

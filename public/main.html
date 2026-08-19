@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Marvel Champions: Digital Edition</title>
+    <link rel="stylesheet" href="/public/css/menu/controls.css">
     <style>
+        /* Page shape only. Every control on this page is styled by `css/menu/controls.css`,
+           which the setup page loads too, so the two agree. */
         body {
-            background-color: rgb(43, 43, 43);
-            color: rgb(198, 198, 198);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -20,126 +21,14 @@
             text-align: center;
         }
 
-        .custom-btn {
-            width: 130px;
-            height: 40px;
-            color: #fff;
-            padding: 10px 25px;
-            font-family: 'Lato', sans-serif;
-            font-weight: 500;
-            background: transparent;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            display: inline-block;
-            box-shadow:inset 2px 2px 2px 0px rgba(255,255,255,.5),
-            7px 7px 20px 0px rgba(0,0,0,.1),
-            4px 4px 5px 0px rgba(0,0,0,.1);
-            outline: none;
-        }
-        /* 3 */
-        .btn-3 {
-            background: rgb(0, 172, 238);
-            background: linear-gradient(0deg, rgba(0, 172, 238, 1) 0%, rgba(2, 126, 251, 1) 100%);
-            width: 130px;
-            height: 40px;
-            line-height: 42px;
-            padding: 0;
-            border: none;
-
-        }
-
-        .btn-3 span {
-            position: relative;
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        .btn-3:before,
-        .btn-3:after {
-            position: absolute;
-            content: "";
-            right: 0;
-            top: 0;
-            background: rgba(2, 126, 251, 1);
-            transition: all 0.3s ease;
-        }
-
-        .btn-3:before {
-            height: 0%;
-            width: 2px;
-        }
-
-        .btn-3:after {
-            width: 0%;
-            height: 2px;
-        }
-
-        .btn-3:hover {
-            background: transparent;
-            box-shadow: none;
-        }
-
-        .btn-3:hover:before {
-            height: 100%;
-        }
-
-        .btn-3:hover:after {
-            width: 100%;
-        }
-
-        .btn-3 span:hover {
-            color: rgba(2, 126, 251, 1);
-        }
-
-        .btn-3 span:before,
-        .btn-3 span:after {
-            position: absolute;
-            content: "";
-            left: 0;
-            bottom: 0;
-            background: rgba(2, 126, 251, 1);
-            transition: all 0.3s ease;
-        }
-
-        .btn-3 span:before {
-            width: 2px;
-            height: 0%;
-        }
-
-        .btn-3 span:after {
-            width: 0%;
-            height: 2px;
-        }
-
-        .btn-3 span:hover:before {
-            height: 100%;
-        }
-
-        .btn-3 span:hover:after {
-            width: 100%;
-        }
-
-        button:disabled {
-            filter: grayscale(1);
-            transition: none;
-        }
-        
-        button:disabled span:before,
-        button:disabled span:after,
-        button:disabled:before,
-        button:disabled:after {
-            transition: none;
-            /* content: unset; */
-        }
-
         #version {
             height: 2rem;
         }
 
+        /* Currently commented out of the markup below, kept correct so it still works if it
+           comes back. It sets the button's own colour rather than painting over it. */
         .wild-mode {
-            background: rgb(161, 129, 0);
+            --color: rgb(161, 129, 0);
         }
     </style>
 </head>
@@ -166,22 +55,22 @@
         </style>
 
         <div class="main">
-            <button class="custom-btn btn-3" onclick="Open('scene')">
+            <button class="primary" onclick="Open('scene')">
                 <span>New Game</span>
             </button>
-            <button class="custom-btn btn-3" onclick="Open('replay')">
+            <button onclick="Open('replay')">
                 <span>Replay</span>
             </button>
-            <button class="custom-btn btn-3" onclick="Open('deck')">
+            <button onclick="Open('deck')">
                 <span>Deck Editor</span>
             </button>
-            <button class="custom-btn btn-3" onclick="Open('cards')">
+            <button onclick="Open('cards')">
                 <span>View Cards</span>
             </button>
-            <button class="custom-btn btn-3" onclick="Open('puzzle')">
+            <button onclick="Open('puzzle')">
                 <span>Puzzle</span>
             </button>
-            <button class="custom-btn btn-3" onclick="Open('credits')">
+            <button onclick="Open('credits')">
                 <span>Credits</span>
             </button>
         </div>
@@ -189,7 +78,7 @@
         <!-- <hr/>
 
         <div class="main">
-            <button class="custom-btn btn-3 wild-mode" onclick="doReplay('./wild.json')">
+            <button class="wild-mode" onclick="doReplay('./wild.json')">
                 <span>Wild Mode</span>
             </button>
         </div> -->

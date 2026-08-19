@@ -1,0 +1,286 @@
+/******************************************************************************
+* Menu and setup controls
+*
+* Shared by the start page (`main.html`) and the setup page (`scene.html`). Both sit outside the
+* board, so neither is v1 or v2 and this applies to both.
+*
+* What was wrong
+* --------------
+* Almost every control on the setup page was a native browser widget dropped on a dark page and
+* never styled: light grey system buttons, a system file input, a system select. On the start page
+* the six buttons were the opposite problem, a copy-pasted button pack with a fixed 130x40 box, an
+* inset white bevel, and a hover that emptied the fill and drew 2px lines around the edge instead.
+*
+* Neither looked like the game they open, and they did not look like each other either.
+*
+* What this does about it
+* -----------------------
+* It restates the board's own button language rather than inventing a third one. The board settled
+* on this in N7 and N8: a solid fill carrying a per-button `--color`, a white bold label, a 1px
+* border at a quarter-strength white rather than pure white, a hover that lightens the button's own
+* fill by 4% and lets the border carry most of the signal, `scale(.96)` on press, and a
+* `:focus-visible` ring.
+*
+* The 4% is not a taste call and is worth keeping if these colours ever change. Lightening a fill
+* under a white label always costs contrast, and it was measured across the whole board palette at
+* 12, 10, 8, 6 and 4 percent: 4 is the largest step where every button still clears the 3:1 floor.
+* That is why the border does the heavy lifting on hover, going from a quarter-strength white to a
+* little over half. It signals as clearly and costs no contrast at all.
+*
+* The one thing NOT to widen
+* --------------------------
+* `button` here is a broad selector and the setup page uses `<button>` for two completely different
+* things. The scenario boxes, the standard set cards and the modular set cards are all buttons
+* wrapping an `<img>`, laid out by `menu/style.css`. Giving those a fill, a border and padding
+* wrecks the card grid. They are reset at the bottom of this file, and anything new that puts a
+* picture inside a button needs adding to that list.
+*/
+
+:root {
+    /* The same felt the v2 board uses, so the menu and the game look like one product. See
+     * `marvel2/board.css` for where these came from. */
+    --menu-felt: #2b303b;
+    --menu-felt-mid: #191d25;
+    --menu-edge: #0d0f14;
+
+    --menu-ink: rgb(198, 198, 198);
+    --menu-line: rgba(255, 255, 255, .22);
+    --menu-line-hover: rgba(255, 255, 255, .55);
+
+    --btn: #39414f;
+    --btn-primary: #2f6ab5;
+    --btn-radius: 6px;
+}
+
+/* Fixed, so the vignette stays put on the setup page, which is several screens tall. Without that
+ * the dark corners scroll through the middle of the content. */
+body {
+    background: var(--menu-felt-mid);
+    background-image:
+        radial-gradient(ellipse 90% 70% at 50% 38%,
+            var(--menu-felt) 0%,
+            var(--menu-felt-mid) 55%,
+            var(--menu-edge) 100%);
+    background-attachment: fixed;
+    color: var(--menu-ink);
+}
+
+/******************************************************************************
+* Buttons
+*/
+button,
+input[type="button"],
+input[type="submit"] {
+    --color: var(--btn);
+
+    background-color: var(--color);
+    color: #fff;
+    font-weight: 700;
+    font-family: inherit;
+    font-size: 1rem;
+
+    border: 1px solid var(--menu-line);
+    border-radius: var(--btn-radius);
+
+    /* Padding rather than a fixed box. The start page pinned every button to 130x40, which is why
+     * "Deck Editor" sat tight against the edges while "Puzzle" swam. */
+    padding: .5em 1.1em;
+    min-height: 2.2em;
+    width: auto;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4em;
+
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: background-color .15s ease, border-color .15s ease, transform .06s ease;
+}
+
+button:hover,
+input[type="button"]:hover,
+input[type="submit"]:hover {
+    background-color: color-mix(in oklab, var(--color) 96%, white);
+    border-color: var(--menu-line-hover);
+}
+
+button:active,
+input[type="button"]:active,
+input[type="submit"]:active {
+    transform: scale(.96);
+}
+
+button:focus-visible,
+input[type="button"]:focus-visible,
+input[type="submit"]:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, .75);
+    outline-offset: 2px;
+}
+
+button:disabled,
+input[type="button"]:disabled {
+    filter: grayscale(1);
+    opacity: .5;
+    pointer-events: none;
+    transform: none;
+}
+
+/* The action that the page exists for. One per page: New Game, and Create Scene & Play. */
+button.primary {
+    --color: var(--btn-primary);
+}
+
+/* `Join as player 1..4` put a bare `<a>` inside the button, so the label rendered in the browser's
+ * default link blue, went purple once visited, and carried an underline through the middle of the
+ * button. It is a button; it should read as one. */
+button > a,
+button > a:visited,
+button > a:hover {
+    color: inherit;
+    text-decoration: none;
+}
+
+/******************************************************************************
+* Fields
+*
+* The setup page mixes text, file, select and range inputs in among the buttons, and a rounded
+* button standing next to a raw system dropdown looks worse than either does alone.
+*/
+input[type="text"],
+input[type="number"],
+input[type="search"],
+select,
+textarea {
+    background-color: rgba(0, 0, 0, .35);
+    color: #fff;
+    font-family: inherit;
+    font-size: 1rem;
+    border: 1px solid var(--menu-line);
+    border-radius: var(--btn-radius);
+    padding: .4em .6em;
+    min-height: 2.2em;
+}
+
+input[type="text"]:focus-visible,
+input[type="number"]:focus-visible,
+input[type="search"]:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, .75);
+    outline-offset: 1px;
+}
+
+/* The page hides `::file-selector-button`, so what is left is the "No file chosen" text and the
+ * box around it. Style the box.
+ *
+ * Note what is deliberately NOT set here: `font-family`. Every other field above takes
+ * `font-family: inherit` so it matches the page, and doing that here truncates the label. Each
+ * hero slot is a label pinned to `--card--width`, 100px. Form controls do not inherit fonts unless
+ * asked, so these were rendering in the browser's narrow default, where "No file chosen" measures
+ * 77px and fits. In the page's monospace the same string measures 112px, and Chrome ellipsises the
+ * middle out of it: the four hero slots read "No fi...chosen".
+ *
+ * Measured, because the obvious check does not work. `scrollWidth > clientWidth` never fires on a
+ * file input, since the ellipsis happens inside its shadow DOM, so that test reports no overflow
+ * however badly the label is clipped. Comparing `measureText` against the content box is what
+ * actually detects it. Horizontal padding is kept small for the same reason. */
+input[type="file"] {
+    background-color: rgba(0, 0, 0, .35);
+    color: var(--menu-ink);
+    border: 1px dashed var(--menu-line);
+    border-radius: var(--btn-radius);
+    padding: .35em .3em;
+    max-width: 100%;
+    cursor: pointer;
+}
+
+input[type="file"]:hover {
+    border-color: var(--menu-line-hover);
+}
+
+/* One line themes the thumb and the filled part of the track. The sliders were showing the OS
+ * accent, which on this page was the only blue that had nothing to do with the game. */
+input[type="range"] {
+    accent-color: var(--btn-primary);
+    cursor: pointer;
+}
+
+/******************************************************************************
+* Links
+*
+* The prose links were still the browser default, `rgb(0, 0, 238)` and underlined, which on a dark
+* page is close to unreadable and goes to an even worse purple once visited. Both of these were
+* contrast-checked against the felt: 5.4:1 unvisited and 5.2:1 visited, so they clear the 4.5:1
+* floor for body text rather than only the 3:1 one for large text.
+*
+* Links inside a button are handled above and keep the button's own colour.
+*/
+a {
+    color: #7aa9e8;
+}
+
+a:visited {
+    color: #a99ae0;
+}
+
+a:hover {
+    color: #a6c8f2;
+}
+
+/******************************************************************************
+* Section framing
+*
+* `<fieldset>` with a `<legend>` is the other dated tell on the setup page: a hairline rectangle
+* with the label notched into the top edge. Keeping the elements, because they are the right
+* semantics and the page is built on them, and softening how they draw.
+*/
+fieldset {
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 10px;
+    background-color: rgba(0, 0, 0, .18);
+    padding: .9rem 1rem 1rem;
+    margin-bottom: 1rem;
+}
+
+legend {
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    font-size: .8rem;
+    color: rgba(255, 255, 255, .62);
+    padding: 0 .5em;
+}
+
+/******************************************************************************
+* The buttons that are not buttons
+*
+* Scenario boxes, standard set cards and modular set cards are `<button>` wrapping an `<img>`,
+* positioned by `menu/style.css`. Everything above would give them a fill, a border and padding and
+* break the grid.
+*
+* Only the properties `menu/style.css` does not set itself are listed. The ones it does set are
+* safe either way, because `#modular-sets button` outranks a bare `button` whatever the file order.
+*/
+#set-content button,
+#set-images button,
+#modular-sets button,
+#encounter-sets button {
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    min-height: 0;
+    color: inherit;
+    font-weight: inherit;
+    gap: 0;
+}
+
+#set-content button:hover,
+#set-images button:hover,
+#modular-sets button:hover,
+#encounter-sets button:hover {
+    background-color: transparent;
+    border-color: transparent;
+}
