@@ -11,18 +11,15 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-if [ ! -x .venv/bin/python ]; then
-    echo "No .venv found. Creating one." >&2
-    python3 -m venv .venv
-    ./.venv/bin/pip -q install -r requirements.txt
-fi
-
-if [ "$(find public/js -name '*.js' 2>/dev/null | wc -l | tr -d ' ')" -lt 10 ]; then
-    echo "TypeScript is not compiled. Run this first:" >&2
-    echo "    cd public/js && npx -p typescript tsc" >&2
-    echo "(tsconfig.json still declares moduleResolution node10, which TypeScript 7 rejects;" >&2
-    echo " it emits anyway, or pin typescript@5.6. Tracked as A1.)" >&2
-    exit 1
+# Both halves are `build.sh`'s job now. It is idempotent, so the common case where everything is
+# already built costs one `find` and two directory checks.
+#
+# The client count excludes `node_modules`, which is full of `.js` and would otherwise make an
+# uncompiled clone look compiled.
+if [ ! -x .venv/bin/python ] \
+   || [ "$(find public/js -name '*.js' -not -path '*/node_modules/*' 2>/dev/null | wc -l | tr -d ' ')" -lt 10 ]; then
+    echo "Something is not built yet. Running ./build.sh first." >&2
+    ./build.sh
 fi
 
 ARGS=()

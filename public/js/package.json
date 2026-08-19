@@ -1,0 +1,14 @@
+{
+  "name": "marvel-lcg-client",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Build config for the browser client. The compiled .js is gitignored, so a clean clone has to run this before the game will render. See ../../build.sh, which is the intended entry point.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

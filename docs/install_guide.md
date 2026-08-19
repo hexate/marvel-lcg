@@ -16,22 +16,32 @@ pip install -r requirements.txt
 
 https://nodejs.org/en/download
 
-## 4. Install typescript
+## 4. Build
 
-```
-npm install -g typescript
-```
-
-## 5. Compile ts to js
-
-On Windows, double click to run "\public\js\watch.bat"
-
-On macOS and Linux, run the same command directly:
+One command, from the project root:
 
 ```sh
-cd public/js
-tsc --watch
+./build.sh
 ```
+
+It creates the Python virtualenv, installs the engine's dependencies, installs the client's build
+dependencies and compiles the TypeScript. It is idempotent, so running it again only recompiles.
+
+TypeScript is a dependency of the project rather than something you install globally, so the version
+is pinned here and does not drift. `npm install -g typescript` is no longer needed and is worth
+avoiding: it installs whichever major is current, which is how the build broke on 2026-08-10.
+
+```sh
+./build.sh --watch    # build, then keep recompiling the client as you edit it
+./build.sh --force    # rebuild the virtualenv and the client dependencies from scratch
+```
+
+`public/js/watch.bat` still exists for Windows and still works. `./build.sh --watch` does the same
+thing on every platform.
+
+## 5. Nothing to do here
+
+Step 4 covers what this used to.
 
 ## 6. Download assets
 

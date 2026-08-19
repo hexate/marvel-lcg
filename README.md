@@ -12,7 +12,10 @@ are a record of fixes offered back upstream, each a readable one-commit diff aga
 declared the project sunset and took none of them, so no new ones are cut. Branch layout is in
 [docs/proposed_changes.md](docs/proposed_changes.md).
 
-Start the game with `./play.sh`, which is documented in [the install guide](docs/install_guide.md).
+Build it with `./build.sh` and start it with `./play.sh`. The first creates the virtualenv,
+installs both halves' dependencies and compiles the client; the second runs the game and will
+call the first if anything is missing. Both are documented in
+[the install guide](docs/install_guide.md).
 
 | Tracker | Contents |
 | --- | --- |

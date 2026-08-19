@@ -4,6 +4,19 @@
 **/*.pyc
 /public/js/**/*.js
 /public/js/**/*.js.map
+# Four exceptions, and they are worth spelling out because the blanket rule above hides them.
+# `public/js/lib/` mixes two kinds of file: `clipboard.js` and `save_file.js` are compiled from the
+# `.ts` beside them and are build output, but these four are vendored third-party sources with no
+# `.ts` anywhere. They were force-added past the rule, so they are tracked while looking ignored.
+# Anything that "cleans" by deleting `*.js` under `public/js` therefore destroys real sources. Named
+# individually rather than un-ignoring `lib/*.js`, which would start tracking the two compiled ones.
+!/public/js/lib/click-effect.js
+!/public/js/lib/notifications.js
+!/public/js/lib/sortable.js
+!/public/js/lib/vanilla-tilt.js
+# The client's build dependencies. `build.sh` installs them; the lockfile beside them is tracked so
+# the TypeScript version is pinned with the project rather than global and drifting.
+/public/js/node_modules/
 /assets
 # `save_*` misses `save.json`, which is exactly what the debug /save command writes with no
 # argument (game/cheat/cheat.py:126).

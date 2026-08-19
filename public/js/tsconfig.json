@@ -1,6 +1,7 @@
 {
     "exclude": [
-        "editor/node_modules"
+        "editor/node_modules",
+        "node_modules"
     ],
     "include": [
         "*.ts", // Include all TypeScript files in the root directory
