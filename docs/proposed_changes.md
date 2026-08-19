@@ -303,6 +303,51 @@ follow for whoever picks this up. `assets/` staying out of the repository is loa
 not be re-included for convenience. And none of this is a lawyer's opinion, which is what "treating
 this as the continuation" would need before it meant broad public distribution.
 
+### F8 re-scoped: isolation is enforced, the gap is the `GetAll*` family
+
+Investigated 2026-08-19. The row said cross-area isolation is opt-in and pointed at
+`checker.py:174`, and H5 sized it as auditing every finder call site, "likely the largest hidden
+cost". Both were wrong, and the correction cuts the work by more than an order of magnitude.
+
+**Isolation is enforced by default, in the scopes.** ✓ VERIFIED by reading the path:
+
+- `Worlds.CastGameArea(effect)` derives an area from the effect's own card, or for a player-triggered
+  message from that player's identity card.
+- `Worlds.GetPlayers` filters explicitly: `x.GetIdentity().card.GetGameArea() == game_area`.
+- `Worlds.GetOnFieldCards` walks only the players in that area.
+- `Worlds.FindCardsOnField` **defaults** the area from the effect when the caller omits it
+  (`worlds.py:496-497`), which is the opposite of opt-in.
+
+So the observation that 1 of 874 `CardFinder(` constructions passes `game_area` is true and means
+almost nothing: the candidate set handed to the finder was already area-scoped. `checker.py:174` is
+a second, narrower filter, not the mechanism.
+
+**The real gap is a named family that is deliberately global**, and it is small enough to audit:
+
+| Accessor | Call sites |
+| --- | --- |
+| `GetAllVillains` | 14 |
+| `GetEncounterDiscardPileCards` | 12 |
+| `GetAllMainSchemes` | 11 |
+| `GetEncounterDeckCards` | 6 |
+| `GetAllSideSchemes` | 3 |
+| `GetAllLeaders` | 1 |
+| `GetOnAllFieldScheme` | 0 |
+
+47 sites across six functions, each of which returns everything in the world regardless of area.
+Whether that is wrong depends on the site: some are surely meant to be global, and the names say so.
+The work is deciding, per site, whether Kang's separated boards should see each other there.
+
+**And this is live, not PVP-only.** `World.CreateGameArea` has exactly one caller,
+`cards/pack/toafk/kang/__init__.py:107`, where Kang's stage 3 moves a player, the main scheme and
+Kang himself into a new area. Multi-area play ships today. F8 has been filed as a PVP blocker since
+2026-08-09 and it is really a Kang correctness question that PVP would also depend on.
+
+**Not attempted, deliberately.** Each of the 47 needs a rules judgement rather than a mechanical
+change, and getting one wrong alters game behaviour silently and invalidates recorded replays. It
+also wants someone who has played Kang far enough to see stage 3, which nobody here has. What this
+entry buys is that the next person audits 47 named call sites instead of 874 anonymous ones.
+
 ### Branch layout and how to package a contribution
 
 **Revised 2026-08-19, when this repository became the project's continuation rather than a queue of
@@ -696,7 +741,7 @@ no grep-only claims.
 | F5 | Saving a puzzle mutates the live replay log; second save raises | `game/scene/scene.py:113-117` | **High** | **DONE**, `pr/puzzle-save-mutation` |
 | F6 | Bypassable blocklist is the only thing between the `/debug` HTTP endpoint and `exec`, and the auth wrapper in front of it passes everyone when no password is set | `engine/security/command_validation.py`, `engine/device/web/server/server_sync.py:107` | **High** | **DONE** for the gate (F6a), see the section for what remains |
 | F7 | Player count hardcoded as `(0,1,2,3)[:n]` | `game/world/world.py:94,127` | Low | PROPOSED |
-| F8 | Cross-area targeting isolation is opt-in, not enforced | `game/card/card_finder/checker.py:174` | Medium (blocks PVP) | PROPOSED |
+| F8 | ~~Cross-area targeting isolation is opt-in, not enforced~~ **Premise corrected 2026-08-19; the work is real but a fraction of the size.** | `game/operate/worlds.py`, the `GetAll*` family | Medium, and live in Kang rather than PVP-only | PROPOSED, re-scoped. See below |
 
 ### F1: RNG state capture: 34× slowdown and an unbounded leak
 
@@ -1631,7 +1676,7 @@ the entire `game/` layer.
 | H2 | **Exactly one `Scenario` per world** | `World.__init__:46` hardcodes a single instance. Two opposing sides need two, or a re-framing of what "scenario" means. | Medium |
 | H3 | **Turn structure is co-op-shaped** | `World.OnGameLoop`: `start_round → PlayerPhase (all players) → PlayersEndPhase → VillainPhase → end_round`. PVP needs alternating or interleaved turns. | Medium |
 | H4 | **Nothing iterates `world.game_areas`** | 0 loops over it. `CreateGameArea` has 1 caller. `game/card/factory.py:133` hardcodes every new card into `GetFirstGameArea()`. The plumbing exists; the engine only ever drives area[0]. | Medium |
-| H5 | **Area isolation is opt-in (= F8)** | `world.py:52-55` comments claim cards/targeting cannot cross areas, but `CardFinder.game_area` defaults to `None` and only **11** call sites pass it. Harmless in co-op (one area); a correctness requirement in PVP. Auditing every finder call site is likely the largest hidden cost. | **Large, the sleeper** |
+| H5 | ~~**Area isolation is opt-in (= F8)**~~ **Retracted 2026-08-19.** The count was right and the conclusion from it was wrong: 1 of 874 `CardFinder(` constructions passes `game_area`, but that filter is a refinement, not the mechanism. Isolation is enforced by the scopes, by default. Not the sleeper, and not large. | See the F8 re-scope below | **Was "Large, the sleeper". Now medium and bounded at 47 call sites** |
 | H6 | **Player count capped at 4** (= F7) | `(0,1,2,3)[:player_num]`. PVP team formats may want more. | Small |
 
 ### Assessment
@@ -1970,6 +2015,7 @@ regression net that does not itself depend on replay.
 | 2026-08-18 | **Upstream answered the three open issues, and the answers close the contribution question.** #6: both `test_task.py` chores are intentional, the `test_` prefix is what gives VS Code a run button, and `test_zip_cards` builds the paid scripts release. His follow-up describes their whole test method for the first time, run every save through the engine, check the CRC, re-save under the new version, archive the old folder, which is recorded in section I because it confirms the circularity from their side and explains why the version bump matters to them. #7: conceded that `IsCommandSafe` is not a boundary and a whitelist would be safer, then scoped it away on the grounds that the itch.io build cannot reach the endpoint, without addressing F6c. #8: **confirmed as a real bug** and pasted the deleted `GameServerXXX.save_local`, which validates our `delete_old=False` and shows his registration used `AddAwaitGetSecurity`, a route that answers a failed version check with a 200 HTML page and would reproduce J13's symptom, so ours stays on the non-await path. No fix upstream for any of the three. U9, U10 and U11 answered, U8 passed over in silence after eight days. Section 0 revised: treat upstream as a source of answers, not a destination for patches, and close U2, U3 and U4 as upstream items. |
 | 2026-08-18 | **J19 and J20 added, one fixed.** The v2 board flies an attacking card past its target, reported from play. Cause is that `animation_attack_thwart` is the one place JavaScript asserts a scene coordinate is a pixel: it writes the target's `--x`/`--y` straight into a `px` translate, which v1's 1:1 canvas made true and v2's fractional units make false. Fixed by expressing the translate in scene units with a `1px` fallback, so one string is right under both. `layout.css` claims its coordinate-consumer list is complete, and it is, for CSS; the JS consumers were never swept, so that section now points at this one. Verifying it turned up J20, which is worse and separate: `#scene .deck` positions the pile container, but v1 pins `.deck` to `left: 0; top: 0` on purpose and puts absolute coordinates on the cards inside, so under v2 a deck card is offset twice and computes to y = 1485 on an 827 px board. Left PROPOSED rather than fixed, because deleting someone's rule wants their word first. |
 | 2026-08-18 | **J21 added and fixed.** Reported from play: a v2 card drops and springs back when it activates, where v1 grows it in place. Same shape as J19 and J20, a v1 rule converted onto the wrong selector, and the third one this session. The formulas were transcribed correctly and the selectors were not, so a nudge that v1 applies only to cards lifting out of a pile was being applied to every card on the board. Two pile rules the conversion had missed are restated at the same time, because removing the over-broad one is what exposed them. The pattern across all three is worth naming: converting a stylesheet rule by rule catches the arithmetic and loses the scoping, and nothing in the v2 file records which v1 selector each rule came from. The restated rules now carry a `Mirrors <file>:<lines>` comment for exactly that reason. |
+| 2026-08-19 | **F8 re-scoped and H5 retracted.** F8 said cross-area targeting isolation is opt-in and H5 sized it as auditing every finder call site, the largest hidden cost in the document. Reading the path says otherwise: `CastGameArea` derives an area from the effect, `GetPlayers` filters on it explicitly, and `FindCardsOnField` defaults it from the effect rather than requiring it. The candidate set is already scoped before any finder sees it, which is why 1 of 874 `CardFinder(` constructions passing `game_area` means almost nothing. The genuine gap is the `GetAll*` family, six functions that return everything in the world by design, at 47 call sites. Also corrected: this is not PVP-only. `CreateGameArea` has one caller, Kang's stage 3, so multi-area play ships today and F8 is a live Kang question. Left unattempted because each site needs a rules judgement, not a mechanical change. |
 | 2026-08-19 | **U11 added: the content layer.** Q asked whether the underlying IP matters, given the game is built on rights belonging to neither him nor the original developer. It does, and more than U5 does: a licence from irefrixs would settle the engine and leave the card text, the art, the character names and the product name exactly where they are. Recorded what the repository actually ships, since that is checkable and the rest is not: 3,524 cards of printed text tracked in `data/cards.json`, art excluded and fetched from community databases, "© MARVEL © 2019 FFG" printed on the faces themselves. Kept in the tracker rather than the README at Q's direction, on the reasoning that a prominent notice is itself a flag. |
 | 2026-08-18 | **J20 fixed**, closing the third and last of the v2 conversion misses found today. Deleting `#scene .deck`'s positioning turned out to fix more than the piles: the card-count labels were riding the same double offset, which means the part-two note blaming the label rule for `#area-advanced` and `#nemesis-pool` disappearing off the right had diagnosed half the cause and converted the wrong half. It also unpinned the expanded deck browser, which the id rule had been holding at a coordinate while `deck.css` was asking for flow. Noted in passing and not fixed: `deck.css:71` puts a clicked `.deck-top` at a literal `185px`, which v1's camera shrank and v2 takes at face value. It fits the board, so it is cosmetic, but it belongs to the part-three class of raw pixel coordinates. |
 | 2026-08-19 | **J22 fixed, J23 logged.** The targeting lines were the instance predicted when J19 was fixed, and reported from play a day later. Same cause as J19, JavaScript treating a scene coordinate as a pixel, but a different remedy: J19 could push the arithmetic into a CSS `calc`, and a line cannot, because a hypotenuse and an angle have to be computed in one consistent space. So the unit itself is now readable from JS as `Lib.client.sceneUnit()`, measured off a probe rather than computed, which keeps `layout.css` the only place that knows the canvas is 1920x1080. Auditing the callers of `getOffset` for the same mixing turned up J23, where `scene.ts` does not just make the mistake but writes it down as a comment. That comment is the common ancestor of J19, J22 and J23 and is worth correcting on its own. |
