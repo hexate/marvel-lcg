@@ -136,9 +136,32 @@
     opacity: .5;
 }
 
+/* The two-number readout, "11/12", and the only one here that can run out of room.
+ *
+ * `.info` is `overflow: hidden` and exactly as wide as the card, 126px at a 1512x771 board. The
+ * shared rule above sizes this at `2 * var(--font-size)` with `.25` of letter spacing, which suits
+ * the three characters of "2/7" and does not survive five: measured at 150.68px in a 126px box, so
+ * the last digit was cut through the middle.
+ *
+ * Where that 150.68 went: 116.3 of glyphs, 23.2 of letter spacing and 11.1 of padding. Letter
+ * spacing is the part that grows with the number of characters and it was the biggest single
+ * contributor, but trimming it is not enough on its own. The glyphs alone are 116.3 against 126, so
+ * even at zero spacing and zero padding five characters only just fit, and the size has to come
+ * down.
+ *
+ * At `1.7 * var(--font-size)` with `.08` of spacing the same string measures about 114, leaving
+ * roughly 12px. Everything here is expressed in `--font-size`, so that headroom is a ratio and
+ * holds at every board size rather than only the one it was measured at.
+ *
+ * Scoped to this variant deliberately. The side schemes and the single-number main scheme below
+ * show one or two characters and keep the larger size. Sized for five characters, which is the
+ * realistic worst case at two digits either side; six would still clip.
+ */
 #area-schemes-main .card.type-main-scheme .face .info:has(> .target_threat):has(> .threat)::after {
     content: attr(data-threat) "/" attr(data-target_threat) "";
     background-color: black;
+    font-size: calc(1.7 * var(--font-size));
+    letter-spacing: calc(.08 * var(--font-size));
     /* +" attr(data-acceleration); */
 }
 
