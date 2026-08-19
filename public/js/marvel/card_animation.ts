@@ -49,7 +49,10 @@ const EVENT_ANIMATION: Record<string, string> = {
     "AfterPlayerDealEncounterCard"          : "dealt_encounter_card",
     "EffectActivate_Text"                   : "activate",
     "AfterCardsMovedToRevealingArea_Text"   : "center_flip",
-    "AfterCardsMovedToBoostingArea_Text"    : "center_flip",
+    // Shares the centre preview with a reveal, because both interrupt play to show one card, but
+    // it is deliberately a separate name: a revealed card stays on the board and a boost card has
+    // already been counted and discarded. See `CENTER_FLIP_ANIMATIONS`.
+    "AfterCardsMovedToBoostingArea_Text"    : "boost_flip",
     "AfterCardsGenerated_Text"              : "center_flip",
     "AfterCardFlip"                         : "target_activate", // "53001a"
     "AfterCardDiscard"                      : "target_activate",
@@ -81,6 +84,17 @@ const dealt_encounter_card = 'dealt-encounter-card'
 export class CardAnimation
 {
     static animation_name = ""
+
+    /** Animations that take over the centre of the screen to show a single card. */
+    static readonly CENTER_FLIP_ANIMATIONS = ["center_flip", "boost_flip"]
+
+    static isCenterFlip() {
+        return CardAnimation.CENTER_FLIP_ANIMATIONS.includes(CardAnimation.animation_name)
+    }
+
+    static isBoostFlip() {
+        return CardAnimation.animation_name == "boost_flip"
+    }
     static active_card_object_ids: number[] = []
     
     private static has_anime = 0
@@ -286,7 +300,21 @@ export class CardAnimation
             card_div.classList.add(ClassName.card_moving)
 
             requestAnimationFrame(() => {
-                card_div.style.transform = `translate3d(${nx}px, ${ny}px, 10px) rotate(${deg}deg)`;
+                // A scene coordinate is not a pixel, and this is the only place JS asserts it is.
+                //
+                // `getOffset` returns the card's `--x`/`--y`, which are scene coordinates on the
+                // 1920x1080 canvas the board was authored against. v1 multiplies those by `1px` and
+                // scales the whole camera, so writing `${nx}px` happened to be exactly right. v2
+                // keeps the coordinates and changes the unit: `--sux` across, `--su` down, each a
+                // fraction of the container. Raw pixels then overshoot. On a 1512x827 board the
+                // attacker flew to (nx, ny) instead of (nx * .7875, ny * .7657) and landed past its
+                // target, down and to the right, by more the further across the board the target
+                // sat.
+                //
+                // The fallbacks are what make one line correct under both: v1 defines neither
+                // variable, so it gets `1px` and the behaviour it always had. `10px` on the z axis
+                // stays literal because `--t-z` is `calc(var(--z) * 1px)` in both layouts.
+                card_div.style.transform = `translate3d(calc(${nx} * var(--sux, 1px)), calc(${ny} * var(--su, 1px)), 10px) rotate(${deg}deg)`;
             })
 
             CardAnimation.setAnimeTime('attack', () => {
@@ -417,7 +445,7 @@ export class CardAnimation
             }
         }
         else
-        if( CardAnimation.animation_name == "center_flip" ) {
+        if( CardAnimation.isCenterFlip() ) {
             const object_id = active_card_object_ids[0]
             const card_div = Cards.getDiv(object_id)!
             if( card_div.parentElement!.id == 'area-removed' ||
@@ -427,7 +455,7 @@ export class CardAnimation
                 card_div.parentElement!.id.endsWith('additional-deck') ||
                 card_div.parentElement!.id.endsWith('dealt-encounter-cards')) {
                 if( ButtonSetting.pause_when_reveal_or_boost && !UI.hold_ctrl && !ButtonSetting.is_replay ) {
-                    HoverCard.center_preview.set(card_div, true)
+                    HoverCard.center_preview.set(card_div, true, CardAnimation.isBoostFlip())
                     Button.enablePause()
                 } else {
                     // CardAnimation.has_anime += 1

@@ -4,6 +4,16 @@ Status: POSTED 2026-08-10 as [issue #7](https://github.com/irefrixs/marvel-lcg/i
 items F6/F6a. Single topic, per his #1 request. F6c (the no-password hole on every route) is
 deliberately left out and would be its own issue.
 
+**ANSWERED 2026-08-18, conceded and declined.** He agreed on the substance without argument, *"I
+agree that `IsCommandSafe` is not a strong security boundary and that a whitelist would be safer
+than a blacklist,"* then argued the exposure does not exist in the shipped build: the itch.io
+release does not allow debug or custom script execution, only the separate `-script` build runs
+Python, and that needs `cards_json_custom_file` or `cards_json_custom_files` set by the host at
+launch. Sunset, no fix planned, *"you're welcome to make the changes you suggested in your fork."*
+He did not address the part this issue was actually about, that the auth wrapper in front of
+`/debug` admits every caller when no password is configured. `pr/gate-debug-endpoint` stands as a
+fork-only fix.
+
 Title: `/debug` runs arbitrary Python, and the auth in front of it is inactive by default
 
 ---

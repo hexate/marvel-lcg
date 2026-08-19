@@ -4,6 +4,75 @@ This is a fork of [irefrixs/marvel-lcg](https://github.com/irefrixs/marvel-lcg).
 what changed in the fork, newest first. The full reasoning behind every item, including the ones
 deliberately not done, lives in [`docs/proposed_changes.md`](docs/proposed_changes.md).
 
+## 2026-08-16 to 08-18
+
+A new board layout, a rebuilt setup and game over screen, and the tooling to exercise them. 13
+commits.
+
+### The board, rebuilt as v2
+
+- The board is laid out by CSS instead of a JavaScript transform, and it is the default. v1 draws
+  on a fixed 1920x1080 canvas and scales it uniformly, so any window that is not 16:9 pays for the
+  difference in empty bars: 1285px of board in a 1512px viewport, about 15% of the screen wasted.
+  v2 keeps the same coordinate system, because the animation and hit-testing code speaks it, but
+  expresses one scene unit as a fraction of the container. Height still governs card size, so cards
+  are exactly the size they are in v1 at the same window height, and the width that is left over
+  goes to the board. Add `v1` to the board URL for the original; the corner control flips between
+  them and keeps the game and the seat.
+- Nothing measures the viewport any more, so there is no measured scale to go stale. One did during
+  the layout audit, which is what made the board look broken.
+- Three rounds of coordinate bugs came out of this, and all three are worth knowing if the CSS is
+  touched again. Pseudo-elements carry their own copies of the coordinates and a rule on `.deck`
+  does not reach `.deck::after`. An id beats any number of classes, so v1's four-class nudges for
+  activating and selected cards were being overridden into nothing rather than converted. And some
+  rules write scene coordinates as literal pixels, which no search for `* 1px` will ever find; that
+  one put the hand at 905 real pixels on hover, below the bottom of the window, so moving between
+  cards made it jitter.
+
+### Setup and game over
+
+- An encounter set can be read before it is chosen. The info badge opens the set as a grid of cards
+  you can roll over at a readable size, and rolling over anything else previews just that card.
+- The game over screen cannot outgrow the window. It was sized by its content and capped by
+  `max-height`, which conflict, and CSS resolves `min-height` last, so the cap lost: the panel grew
+  past the viewport, the flex container centred the overflow, and the corner controls went with it.
+  The chart toggle rendered above the top edge and Save replay below the fold.
+
+### Fixed
+
+- Code is no longer cached for a year. Card art still is, because it never changes, but HTML, CSS,
+  JavaScript and JSON are served with `max-age=0` so a reload during development actually reloads.
+- `/get_version` is served `no-store`. It is how the client decides whether its cached assets are
+  stale, so caching it made it authoritative about its own staleness (J18).
+- `/get_card_json` answers instead of returning 500 on every call.
+- Text is served with its charset stated rather than left to the browser to guess.
+- The port probe no longer refuses ports the server can go on to bind (J14).
+- Decks in `deck/custom/` are visible to the game.
+
+### Tooling
+
+- The version bump commits only `build.py`, and both git calls have their exit codes checked. It
+  ran `git add build.py` and then a bare `git commit`, which takes everything already staged, so
+  bumping with unrelated work in the index swept that work into the `Package version` commit.
+  Failures went through `os.system` unread, so a rejected commit left `build.py` rewritten and
+  reported success, and the next run incremented from the new number and skipped a version. The
+  current version is now read from the file rather than the imported class, which a stale
+  `__pycache__` entry could report one version behind.
+- Running the unit tests no longer packages anything. `unit_test/test_task.py` asserted nothing: it
+  bumped the version, made a git commit and wrote a zip into the repository root, and being named
+  `test_*` meant plain `unittest discover` did all three. Both chores are `tools/package.py` now,
+  which takes an explicit subcommand, so `unittest discover` is safe to run.
+- `tools/autoplay.js` plays a game in the browser, for exercising the client without doing it by
+  hand. It reads the board rather than following a script, so it copes with different heroes,
+  villains and aspects, and it reports where cards land relative to the viewport, which is how the
+  v2 layout got checked against real games.
+- The client publishes the current ask on `window.__ask`. A turn is one ask holding every legal
+  option at once, and each option names the card that provides it, but none of those names reach
+  the DOM: the client highlights the bound cards and the player chooses by clicking one. Anything
+  driving the client from outside was guessing without this.
+
+---
+
 ## 2026-08-10, stabilization
 
 No new features. This pass fixes defects, closes one security hole, and puts tests and CI around
@@ -95,9 +164,15 @@ as F6c.
 
 Issues [#4](https://github.com/irefrixs/marvel-lcg/issues/4),
 [#5](https://github.com/irefrixs/marvel-lcg/issues/5),
-[#6](https://github.com/irefrixs/marvel-lcg/issues/6) and
-[#7](https://github.com/irefrixs/marvel-lcg/issues/7). Contributions are kept on `pr/*` branches
+[#6](https://github.com/irefrixs/marvel-lcg/issues/6),
+[#7](https://github.com/irefrixs/marvel-lcg/issues/7) and
+[#8](https://github.com/irefrixs/marvel-lcg/issues/8). Contributions are kept on `pr/*` branches
 cut from `upstream/master` so each one is a readable diff on its own.
+
+All five are answered as of 2026-08-18, and none is being fixed upstream. The project is sunset.
+He confirmed #8 as a real bug and supplied the function that was deleted by mistake, agreed on #7
+that the command blocklist is not a security boundary, and explained that both of the `test_task.py`
+chores in #6 are intentional developer tools. The fixes live here.
 
 ### Branches
 

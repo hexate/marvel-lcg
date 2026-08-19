@@ -282,3 +282,228 @@ body.hold-alt .image-preview-text{
     pointer-events: all;
     cursor: pointer;
 }
+
+/*****************************************************************************
+* Boost flip
+*
+* A boost card takes the same centre preview as a revealed card, so without this the two read
+* identically: same motion, same position, opposite consequences. A revealed card stays on the
+* board and is now your problem, a boost card has already been counted and discarded.
+*
+* This labels the event rather than asserting a value. The card's own boost icons are already
+* drawn into `.info_pay`, and the resolved contribution can differ from the printed one, so a
+* number here could be a lie. The ribbon sits at the top edge to cover as little of the card as
+* possible, since the point of the pause is that you can still read it.
+*/
+.image-preview.boost-flip {
+    outline-color: rgb(230, 125, 34);
+}
+
+/* Greys the art out to say "already spent". Done as an overlay rather than `filter` on the element,
+   because a filter desaturates the whole subtree and would take the icons and the ribbon with it.
+   The flat tint is a fallback for anywhere `backdrop-filter` is not honoured. */
+.image-preview.boost-flip::before {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+
+    backdrop-filter: grayscale(.9) brightness(.55);
+    background: rgba(20, 20, 20, .25);
+}
+
+/* The flipped card's own boost icons, lifted onto the preview at a size you can read across the
+   room. Populated by `CenterPreview.set`. */
+.image-preview-boost {
+    position: absolute;
+    /* Starts below the ribbon rather than behind it. At `inset: 0` a second row of icons rides up
+       under the ribbon and is clipped by it, which reads as damage rather than design. */
+    inset: 5vh 0 0 0;
+    z-index: 2;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Wraps because the count is not bounded by anything the client controls. Four icons at this
+       size are wider than the card, and overflow is hidden, so without this the outer ones would
+       be silently clipped and the player would read the wrong number. */
+    flex-wrap: wrap;
+    gap: 1vh;
+    /* Logical, not `padding: 0 2vh`. This pads the ends of the row, and the rotated variant below
+       turns the row onto the other axis, where `padding-inline` follows it and a physical padding
+       would pad the sides instead. */
+    padding-inline: 2vh;
+    box-sizing: border-box;
+
+    pointer-events: none;
+    font-size: 9vh;
+}
+
+/* Plenty of encounter cards print no boost icons at all. Those still grey out, but an empty row
+   must not sit there looking like a rendering failure. */
+.image-preview-boost:empty {
+    display: none;
+}
+
+.image-preview-boost .icon-boost::before {
+    content: "B";
+
+    color: #bd293c;
+    --outline: rgb(20, 20, 20);
+    text-shadow: 2px 0 var(--outline), -2px 0 var(--outline),
+                 0 2px var(--outline), 0 -2px var(--outline),
+                 0 0 12px rgba(0, 0, 0, .8);
+}
+
+.image-preview.boost-flip::after {
+    content: "BOOST";
+
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    /* Above the dimming layer. Without this the ribbon sits at z-index auto, the grey-out paints
+       over it, and the orange it exists to be is desaturated away. */
+    z-index: 3;
+
+    text-align: center;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 1.6rem;
+    letter-spacing: .6rem;
+    text-indent: .6rem;
+
+    color: #fff;
+    background: rgba(230, 125, 34, .92);
+    box-shadow: 0 2px 10px #000a;
+    /* Logical, not `padding: .15rem 0`. The rotated variant below turns the band on its side, and
+       `padding-block` follows it there while a physical padding would thin the wrong axis. */
+    padding-block: .15rem;
+}
+
+/*****************************************************************************
+* Enters play
+*
+* The counterpart to the boost ribbon. A revealed encounter card either stays on the board or
+* resolves and is gone, and those want different answers. This marks the permanent ones rather
+* than dimming the temporary ones, so a treachery looks exactly as it always did.
+*
+* Bottom edge, so it can never collide with BOOST along the top, and a different colour from the
+* encounter orange, which now means boost. The four types listed are the ones that stay:
+* treacheries and obligations resolve and are discarded.
+*
+* Scoped to the centre preview deliberately. `show()` adds the type classes to whichever preview
+* is in use, so without the id this would also band every card you merely hover over.
+*
+* `:not(.boost-flip)` matters more than it looks. Boost cards come off the encounter deck, so a
+* minion or a side scheme flipped for its icons is the common case rather than a rare one. While a
+* card is boosting it is boosting, whatever type it prints.
+*
+* Sits inside the 4.5vh the per-type rules above leave clear at the bottom of the text box.
+*/
+#image-preview-div-center .image-preview:not(.boost-flip):is(.type-minion,
+    .type-encounter-side-scheme, .type-attachment, .type-environment) {
+    outline-color: rgb(46, 134, 171);
+}
+
+#image-preview-div-center .image-preview:not(.boost-flip):is(.type-minion,
+    .type-encounter-side-scheme, .type-attachment, .type-environment)::after {
+    content: "ENTERS PLAY";
+
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3;
+
+    text-align: center;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 1.1rem;
+    letter-spacing: .3rem;
+    text-indent: .3rem;
+
+    color: #fff;
+    background: rgba(46, 134, 171, .92);
+    box-shadow: 0 -2px 10px #000a;
+    /* See the note on the boost ribbon's padding. */
+    padding-block: .15rem;
+}
+
+/*****************************************************************************
+* Both ribbons on a rotated card
+*
+* An encounter side scheme is a landscape card stored portrait, so `.card.type-encounter-side-scheme`
+* sets `--rotate-times: 1` (`card.css`) and the preview turns 90deg. Both ribbons are `::after` on
+* the element that turns, so they went with it and read sideways. It is the only type in either
+* selector the game ever rotates, but this keys on the rotation rather than the type, because
+* `HoverCard.rotate` (q, e, r, middle click) can put any card in this state.
+*
+* Where the bands go. CSS rotation is clockwise, so at 90deg the card's local right edge lands at
+* the bottom of the screen and its local top edge lands at the right. ENTERS PLAY therefore moves
+* to the local right edge to stay visually at the bottom, and BOOST moves to the local left edge to
+* stay visually at the top. Anchoring to `top: 0; bottom: 0` makes each band span the card's full
+* visual width, and leaving the other axis `auto` keeps the thickness at exactly one line, the same
+* 27.3px the horizontal bands get. No measurement, so `body.hold-alt`'s larger preview is free.
+*
+* Why `vertical-rl` plus `rotate: 180deg` rather than a counter-rotation. Turning the band back by
+* -90deg would turn its box back too, and the box has to stay along the card's edge. Laying the text
+* out vertically instead leaves the box where it is and only changes the direction the line runs:
+* `vertical-rl` puts the glyphs 90deg clockwise reading downward, the 180deg makes that 90deg
+* anticlockwise reading upward, and the card's own 90deg brings it back to upright and left to
+* right. The pair is `sideways-lr`, which says this in one keyword but is much newer.
+*
+* The 180deg rotates the box shadow with everything else, which is why these two offsets are the
+* opposite sign from the direction they land in. ✓ VERIFIED in Chrome by exaggerating both to 20px
+* in a solid colour and confirming which side of the band they fell on.
+*
+* Only 1 is handled. At 2 or 3 the card is upside down or on its other side, which needs two more
+* keyframes of this and only happens if a player rotates the centre preview by hand.
+*/
+@container style(--rotate-times: 1) {
+
+    .image-preview.boost-flip::after {
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: auto;
+
+        writing-mode: vertical-rl;
+        rotate: 180deg;
+        box-shadow: -2px 0 10px #000a;
+    }
+
+    #image-preview-div-center .image-preview:not(.boost-flip):is(.type-minion,
+        .type-encounter-side-scheme, .type-attachment, .type-environment)::after {
+        top: 0;
+        bottom: 0;
+        right: 0;
+        left: auto;
+
+        writing-mode: vertical-rl;
+        rotate: 180deg;
+        box-shadow: 2px 0 10px #000a;
+    }
+
+    /* The lifted boost icons, which are a real element rather than a ribbon but rotate for the
+     * same reason: they are a child of the card. Left alone they ran down the screen with each
+     * icon on its side, ✓ VERIFIED as three icons 165px apart vertically and 0px apart
+     * horizontally before this rule.
+     *
+     * The same pair does the work here, and it does two jobs rather than one. `vertical-rl` turns
+     * the flex container's inline axis vertical, so `flex-direction: row` lays the icons out along
+     * the axis that the card's own turn maps to the screen's horizontal, and the `180deg` both
+     * brings the icons upright and reverses the run so it reads left to right. `justify-content`
+     * and `align-items` need no change: they follow the axes rather than the screen.
+     *
+     * The clearance moves with the ribbon. The base keeps 5vh off the top because BOOST sits
+     * there; under a quarter turn BOOST is on the card's left edge, so the clearance is too.
+     */
+    #image-preview-div-center .image-preview-boost {
+        inset: 0 0 0 5vh;
+
+        writing-mode: vertical-rl;
+        rotate: 180deg;
+    }
+}

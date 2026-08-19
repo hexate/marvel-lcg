@@ -4,8 +4,9 @@ on:
   push:
   pull_request:
 
-# Read-only. Nothing here should be able to write to the repository, and one of the things under
-# unit_test/ makes git commits when it runs, so this is not merely hygiene.
+# Read-only. A test run has no business writing to the repository, and this job does not need a
+# token that can. It was load-bearing while unit_test/ still held a "test" that made git commits;
+# that has moved to tools/package.py, and the permission stays because the reasoning does.
 permissions:
   contents: read
 
@@ -30,8 +31,9 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      # tools/run_tests.py rather than `unittest discover`: discovery would also pick up
-      # unit_test/test_task.py, which rewrites build.py and runs `git commit`.
+      # tools/run_tests.py rather than `unittest discover`: discovery also picks up test_all,
+      # which replays recorded games that are not in the repository. Discovery is otherwise safe
+      # now that the packaging chores are out of unit_test/.
       - run: python tools/run_tests.py
 
   typescript:

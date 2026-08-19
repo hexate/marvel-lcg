@@ -8,84 +8,107 @@
     pointer-events: none;
 }
 
+/* Layout contract for this screen
+ *
+ * One rule holds the whole thing together: the panel is exactly the viewport and can never be
+ * larger. Everything that has to stay on screen is measured from it, so nothing can be pushed past
+ * an edge no matter how much the content grows.
+ *
+ * What went wrong before, because it is easy to reintroduce. The panel was sized by its content
+ * (`min-height: fit-content`) and capped by `max-height: 100vh`. Those conflict, and CSS resolves
+ * min-height last, so the cap lost and the panel grew 60px past the viewport once the stats table
+ * filled its own 100vh. The flex container then centred that overflow, putting 30px above the top
+ * edge and 30px below the bottom one, and the corner controls, which are positioned against the
+ * panel, went with it. The chart toggle rendered at -10px and Save replay 14px below the fold.
+ *
+ * So: never size this panel from its content. Content scrolls inside it instead.
+ *
+ * `inset: 0` on a fixed element also avoids `100vh`, which overshoots on mobile browsers whose
+ * toolbars come and go.
+ */
 #game-over-box-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    max-height: 100vh;
-    margin: 0;
+    position: fixed;
+    inset: 0;
 
-    padding: .5rem;
+    /* This container is in the DOM for the whole session, not just at game over, so it must not
+     * swallow clicks while a game is running. The panel takes them back when it is active. */
+    pointer-events: none;
+
+    /* The panel slides in from off-screen left; no reason to let that reach the scrollbars. */
+    overflow: hidden;
 }
 
+/* The panel. `inset: 0` pins all four edges to the container, so its size is the viewport and is
+ * not negotiable. No height, no min-height, no max-height: adding any of those is what broke it.
+ *
+ * `position: absolute` rather than `fixed` because the container above is already the fixed one.
+ * Being the containing block for the corner controls is the point of `position` here.
+ */
 #game-over-box {
-    position: fixed;
-    /* bottom: 50%; */
-    left: 0;
-    right: 0;
-    /* background-color: rgba(0, 0, 0, .75); */
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    position: absolute;
+    inset: 0;
+
+    display: grid;
+    /* One row, so the message fills the panel and does its own row split. */
+    grid-template-rows: 1fr;
+
     opacity: 1;
-    z-index: 9999;
     animation: none;
     transform: translateX(-100%);
-    flex-direction: column;
     user-select: none;
-
-    /* transition: opacity var(--anime-time-card) cubic-bezier(0.19, 1, 0.22, 1); */
-    /* pointer-events: none; */
-
-    /* height: 200px; */
-    max-height: 100vh;
-    min-height: fit-content;
 
     z-index: calc(var(--z-index-image-preview-div) - 1);
 
     padding: 30px;
-    /* box-shadow: 0 0 10px rgba(0,0,0,0.1); */
     border-radius: 8px; /* Slightly rounded corners */
 
     background-color: rgba(0, 0, 0, .75);
-
-    transition: height 1s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 #game-over-message {
-    /* position: fixed; */
-    max-height: 100vh;
-    height: fit-content;
-    /* max-height: 100%; */
-    /* display: flex;
-    justify-content: center;
-    align-items: center; */
-    left: 0;
-    right: 0;
-
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    /* title, subtitle, stats, actions.
+     *
+     * The stats row is `minmax(0, auto)`, not `1fr`. `1fr` made it claim every spare pixel, so a
+     * one-row table sat in a tall empty grey box; v1 used `height: fit-content` and shrank to its
+     * content. `auto` sizes to the table, and the `0` floor still lets the row shrink when the
+     * table is longer than the panel, at which point the container's `overflow: auto` scrolls. */
+    grid-template-rows: auto auto minmax(0, auto) auto;
     align-content: center;
-    justify-content: center;
-    align-items: center;
+    justify-items: center;
+    gap: 0.5rem;
+
+    /* A grid item's automatic minimum size is its content, which would push the stats table back
+     * out through the bottom of the panel. The `0` floor in the row above and this together are
+     * what let the table scroll instead of growing. */
+    min-height: 0;
+    width: 100%;
 }
 
 #game-over-box.active {
     /* animation: overlay-move-once 1.5s forwards; */
     transform: translateX(0);
+    /* Takes back the clicks the container gives up. Only while the panel is actually up. */
+    pointer-events: auto;
 }
 
+/* Scales with the window instead of being a fixed 6rem. At 6rem flat the title alone was 112px,
+ * which on a short window left the stats table no room at all: it collapsed to nothing while the
+ * heading sat there at full size. Nothing broke out of the panel, it was just useless.
+ */
 #game-over-text {
-    font-size: 6rem;
-    letter-spacing: 1rem;
+    font-size: clamp(2rem, 11vh, 6rem);
+    letter-spacing: clamp(0.2rem, 1.8vh, 1rem);
+    line-height: 1.1;
+    text-align: center;
 }
 
 #game-over-text-2 {
-    font-size: 1.5rem;
+    font-size: clamp(0.9rem, 3vh, 1.5rem);
     text-decoration: underline;
     color: white;
     font-style: italic;
+    text-align: center;
 }
 
 @keyframes overlay-move-once {
@@ -100,22 +123,27 @@
     }
 }
 
+/* Actions are a footer row in the grid, not free-floating chrome.
+ *
+ * They used to be `position: absolute; bottom: 1rem`, which is what put Save replay under the
+ * bottom edge once the panel outgrew the viewport. In the flow they cannot leave the panel, and
+ * they no longer sit on top of the stats table while it scrolls underneath them.
+ */
 #game-over-buttons {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 0.5rem;
     padding-top: 0.5rem;
 
-    position: absolute;
-    right: 1rem;
-    bottom: 1rem;
+    justify-self: end;
 }
 
 #game-over-buttons button {
     padding: 0.3rem 0.3rem;
     border-radius: 0.2rem;
     font-size: 1rem;
-    margin-left: 0.5rem;
     cursor: pointer;
     width: 8rem;
     height: 2rem;
@@ -166,14 +194,23 @@
     transform: scale(0.95); /* Slightly shrink on click */
 }
 
+/* The one part of this screen that is allowed to be taller than the space available, so it is the
+ * one part that scrolls.
+ *
+ * `max-height: 50%` was a percentage of a parent whose own height came from this element's
+ * content, which is circular and resolves to nothing useful. The grid row above bounds it instead.
+ * `overflow: auto` rather than `scroll` so a short table does not show a dead scrollbar.
+ */
 #session-statistics-container {
     margin-top: 20px;
-    overflow-y: scroll;
-    overflow-x: hidden;
-    height: fit-content;
+    overflow: auto;
+    overscroll-behavior: contain;
+
+    /* Same reason as the parent: without this the row refuses to shrink below the table's height
+     * and the overflow reappears somewhere else. */
+    min-height: 0;
+
     border: 1px solid #ccc;
-    max-height: 50%;
-    background-color: rgba(0, 0, 0, 1);
     background-color: rgb(60, 60, 60);
 }
 

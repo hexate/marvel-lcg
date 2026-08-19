@@ -1,0 +1,272 @@
+/* Encounter set detail
+ *
+ * The setup screen showed one 100x140 thumbnail per set, of that set's first card only. You could
+ * not see the other cards, read any rules text, or tell what a set actually does before choosing
+ * it. This is the panel that answers that.
+ *
+ * Sizing follows the same contract as the game over screen: the overlay is exactly the viewport,
+ * the dialog is capped against it, and the card list is the one part allowed to overflow, so it is
+ * the one part that scrolls. Nothing here is sized from its own content, which is what let that
+ * screen push its controls off the edges.
+ */
+
+.set-detail-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+
+    background-color: rgba(0, 0, 0, 0.75);
+}
+
+.set-detail-overlay[hidden] {
+    display: none;
+}
+
+.set-detail-dialog {
+    display: grid;
+    /* header, then the scrolling list. `minmax(0, 1fr)` so the list shrinks rather than pushing
+     * the dialog past the cap above it. */
+    grid-template-rows: auto minmax(0, 1fr);
+
+    width: min(60rem, 100%);
+    max-height: 100%;
+    min-height: 0;
+
+    background-color: #1c1c1c;
+    border: 1px solid #555;
+    border-radius: 0.5rem;
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.8);
+    color: #ddd;
+}
+
+.set-detail-header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 0.5rem 1rem;
+
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #555;
+}
+
+.set-detail-title {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #fff;
+    line-height: 1.2;
+}
+
+/* What the set is made of, counted from the cards themselves. There is no curated description of
+ * a set anywhere in the data, so this is the honest substitute: the composition, stated plainly. */
+.set-detail-summary {
+    grid-column: 1;
+    font-size: 0.95rem;
+    color: #aaa;
+    line-height: 1.5;
+}
+
+.set-detail-close {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+
+    align-self: start;
+    width: 2rem;
+    height: 2rem;
+
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+
+    color: #ddd;
+    background-color: #333;
+    border: 1px solid #666;
+    border-radius: 0.25rem;
+}
+
+.set-detail-close:hover {
+    color: #000;
+    background-color: #bbb;
+}
+
+/* The whole set at a glance: a grid, not a list to scroll through.
+ *
+ * The point of opening a set is to see what is in it, so every card should be on screen at once.
+ * Reading any one of them is the rollover's job, and that works in here too, so the cells carry
+ * only what you need to pick one out: the art, the name, and how many copies.
+ */
+.set-detail-list {
+    overflow: auto;
+    overscroll-behavior: contain;
+    min-height: 0;
+
+    padding: 1rem 1.25rem;
+
+    display: grid;
+    /* Fits as many cards per row as the dialog allows, so a set lands on one or two rows. */
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    gap: 0.9rem;
+    align-content: start;
+}
+
+.set-detail-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+.set-detail-card-art {
+    position: relative;
+}
+
+.set-detail-card img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 710 / 1030;   /* the shape the card art actually is */
+    border-radius: 0.3rem;
+    background-color: #000;
+    cursor: zoom-in;
+}
+
+/* Copy count, for the sets that run two or three of a card. */
+.set-detail-copies {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+
+    padding: 0 0.3rem;
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.85);
+    border: 1px solid #999;
+    border-radius: 0.2rem;
+}
+
+.set-detail-card-name {
+    font-size: 0.85rem;
+    line-height: 1.25;
+    color: #eee;
+}
+
+.set-detail-type {
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #7fb2d8;
+}
+
+.set-detail-empty {
+    color: #999;
+    font-style: italic;
+}
+
+/* The badge that opens all this, sat in the corner of a set's thumbnail. It is deliberately not
+ * the thumbnail itself: left-click still selects the set for play, so reading about a set can
+ * never change your setup by accident.
+ *
+ * Scoped through the container ids on purpose, and it has to stay that way. `style.css` styles
+ * `#encounter-sets button` and `#modular-sets button`, and this badge is a button inside those, so
+ * those rules match it too. A bare `.set-info-badge` loses to them on specificity, which left the
+ * badge `position: relative` with a 2px margin: in flow, widening every thumbnail by 22px and
+ * pushing the row past the right edge of the card art. Keep the ids, or that comes back.
+ */
+#encounter-sets .set-info-badge,
+#modular-sets .set-info-badge {
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    z-index: 2;
+
+    /* Beat the inherited `display: inline-flex` and `margin: 2px` from the button rules above,
+     * both of which put this back in the layout. */
+    display: block;
+    margin: 0;
+
+    width: 1.15rem;
+    height: 1.15rem;
+    min-height: 0;
+    padding: 0;
+
+    font-family: serif;
+    font-size: 0.85rem;
+    font-weight: bold;
+    font-style: italic;
+    line-height: 1;
+    text-align: center;
+
+    cursor: pointer;
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.75);
+    border: 1px solid #bbb;
+    border-radius: 50%;
+
+    opacity: 0;
+    transition: opacity 0.15s, background-color 0.15s;
+}
+
+/* Shown on hover or keyboard focus so the thumbnails stay clean, but never hidden from keyboards. */
+#modular-sets button:hover .set-info-badge,
+#encounter-sets button:hover .set-info-badge,
+#modular-sets .set-info-badge:focus,
+#encounter-sets .set-info-badge:focus {
+    opacity: 1;
+}
+
+#modular-sets .set-info-badge:hover,
+#encounter-sets .set-info-badge:hover {
+    color: #000;
+    background-color: #fff;
+}
+
+/* Rollover preview: the one card under the pointer, big enough to read.
+ *
+ * The cards on this screen are 100x140, which is too small to read anything on. Hovering any of
+ * them, in any section, shows that card and only that card at a readable size. Whole-set contents
+ * are the badge's job, not this one's.
+ *
+ * Fixed and appended to the body rather than nested in the thumbnail. Nesting is what widened
+ * every card when the badge went in, and this is far bigger than a badge.
+ */
+.card-hover-preview {
+    position: fixed;
+    /* Above the set panel (1000), because rolling over the cards in there is how you read them. */
+    z-index: 1100;
+
+    border-radius: 0.5rem;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.9);
+
+    /* The pointer is over the thumbnail, not this. Letting it take the pointer would end the
+     * hover that opened it and flicker. */
+    pointer-events: none;
+}
+
+.card-hover-preview[hidden] {
+    display: none;
+}
+
+/* Fixed portrait box. Every card image the CDN serves is portrait, 710x1030, including the ones
+ * printed landscape like main schemes: the game rotates those in play rather than shipping rotated
+ * art. So there is no landscape case to handle here. */
+.card-hover-preview img {
+    display: block;
+    width: 320px;
+    height: 448px;
+    border-radius: 0.5rem;
+    background-color: #000;
+}
+
+@media (max-width: 720px) {
+    .set-detail-card {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .set-detail-card img {
+        width: 160px;
+        height: 224px;
+    }
+}

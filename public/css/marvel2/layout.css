@@ -1,0 +1,401 @@
+/******************************************************************************
+* v2 layout
+*
+* Loaded instead of `marvel/scene.css` and `marvel/pos-area.css`. Everything else about the board,
+* all the card faces, icons, info panels and effects, is the v1 CSS unchanged: the look is not what
+* is being rebuilt here, the geometry is.
+*
+* What changed and why
+* --------------------
+* v1 draws the board on a fixed 1920x1080 canvas and scales it with a JS `transform`, sized to
+* `min(vw/1920, vh/1080)`. That is uniform, so on any viewport that is not 16:9 the leftover axis
+* becomes empty bars. Measured on a 1512x723 window: 1285px of board in a 1512px viewport, 227px
+* wasted, about 15% of the screen.
+*
+* v2 keeps the same coordinate system, because the animation and hit-testing code speaks it, but
+* stops expressing it in hard pixels. One scene unit becomes a fraction of the container's block
+* size, so the browser does the scaling continuously and there is nothing to recompute.
+*
+* Consequences worth knowing:
+*
+*   - No JS runs to size the board. `Scene.init` returns early under v2. That removes a whole class
+*     of bug: a JS-measured scale can go stale against the real viewport, and did, which is what
+*     made the board look broken during the layout audit.
+*   - Height still governs card size, so cards are exactly the size they are in v1 at the same
+*     window height. Width is free, and the extra space goes to the board.
+*   - `dvh` rather than `vh` so a mobile toolbar sliding away does not crop the board.
+*/
+
+/******************************************************************************
+* The container
+*
+* `container-type: size` is what makes `cqb` mean anything, and it requires a definite size, so
+* the height is stated rather than inherited. It goes here and not on `html`/`body`: making the
+* root a container is a documented way to get surprising layout, and a zero-height container
+* silently hides everything inside it.
+*/
+#camera {
+    position: fixed;
+    inset: 0;
+
+    /* v1 sets these to the fixed canvas size and then scales. Both must be cleared, and the
+     * transform too, or the inline style JS used to write would still be sitting here. */
+    width: auto;
+    height: 100dvh;
+    transform: none;
+
+    container-type: size;
+    container-name: board;
+
+    transform-origin: top left;
+    overflow: hidden;
+}
+
+#scene {
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(#333, #111);
+
+    /* Two scene units, one per axis. This split is the whole idea.
+     *
+     * The board was authored on a 1920x1080 canvas, so a coordinate of 210 means 210/1080 down and
+     * 1880 means 1880/1920 across. Keeping both numbers meaningful means every `--x`/`--y` in the
+     * markup and in `pos-area` carries over unchanged.
+     *
+     *   --su   block axis, from the container height. Drives every SIZE.
+     *   --sux  inline axis, from the container width. Drives horizontal POSITION only.
+     *
+     * Sizing from one axis and positioning across the other is what gets the space back without
+     * distorting anything. Cards keep their printed proportions because their width and height both
+     * come from `--su`. The board spreads to fill the window because the gaps between columns come
+     * from `--sux`. v1 could not do this: one uniform transform had to serve both, so a window that
+     * was not 16:9 paid for it in empty bars.
+     *
+     * The dimensions themselves live on `:root` below, not here, because the chrome outside the
+     * board needs them too and cannot see a variable set on a descendant. */
+    --su:  calc(100cqb / var(--scene-rows));
+    --sux: calc(100cqi / var(--scene-cols));
+}
+
+/******************************************************************************
+* The current player's half
+*
+* `.player-background` marks whose turn it is by tinting the bottom 60% of the scene, one colour
+* per seat (`player.css:22-33`). The tint is worth keeping. The edge is not: `top: 40%` with a flat
+* background paints a straight horizontal line the full width of the board, which reads as a seam
+* between two surfaces rather than as one surface that is lit.
+*
+* Masking the top fifth turns the line into a fade. Nothing else changes: the seat colours, the
+* radial shape and the coverage are all still `player.css`, and v1 keeps the hard edge because this
+* is scoped to `#scene`, which beats the two-class rule there.
+*/
+#scene .player-background {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 22%);
+}
+
+/******************************************************************************
+* The canvas, and the one thing outside the board that scales with it
+*
+* These sit on the root rather than on `#scene` so that elements outside `#camera` can reach them.
+* Container query units cannot go there: `cqb` resolves against the nearest ancestor container, and
+* a side bar has none. Change a number here and both the board and the chrome rescale.
+*/
+:root {
+    --scene-rows: 1080;
+    --scene-cols: 1920;
+    /* Unitless, so it can be multiplied by a unit below. */
+    --scene-font: 26;
+
+    /* The chrome outside the board: side bar, history log, prompts, both button styles, overlay
+     * and `res`.
+     *
+     * v1 computes this in JS inside `adjustSceneScale`, as the base size times
+     * `min(vw/1920, vh/1080)`. v2 never runs that function, so the value stayed at the static 16px
+     * fallback in `marvel.css` and stopped tracking the window at all: about 20% small at a
+     * 1512x827 board, and frozen at every other size.
+     *
+     * Restated in v2's own terms rather than ported. `#camera` is `100dvh` tall and the board takes
+     * every size from its block axis, so the chrome takes the same block unit and scales with the
+     * board by construction. It cannot use `--su` itself for the reason given above. `dvh` for the
+     * same reason `#camera` uses it: a mobile toolbar sliding away should not resize the text.
+     *
+     * This agrees with v1 on any window at least 16:9, where v1's `min()` also picks the height. It
+     * differs on a taller one, where v1 shrinks the chrome to the width and this does not, which is
+     * the same call the board itself makes. */
+    --font-size-out: calc(var(--scene-font) * 100dvh / var(--scene-rows));
+}
+
+/******************************************************************************
+* Card metrics
+*
+* v1 hardcodes 127x176 px. Same numbers, same proportions, now in scene units so they track the
+* container instead of the screen's pixel grid.
+*/
+#scene {
+    --card-height: calc(176 * var(--su));
+    --card-width: calc(127 * var(--su));
+    --font-size: calc(var(--scene-font) * var(--su));
+    --border-size: var(--font-size);
+}
+
+/******************************************************************************
+* Coordinate consumers
+*
+* Every one of these is a v1 rule that multiplied a unitless scene coordinate by `1px`. They are
+* re-stated against the two axis units instead: `--sux` across, `--su` down. This is the complete
+* set, so if a card lands in the wrong place under v2, a missing one of these is the first thing
+* to check.
+*
+* Complete for CSS, which is not the same as complete. JavaScript writes scene coordinates too, and
+* that was missed until an attacking card was seen flying past its target (J19). `card_animation.ts`
+* overrides a card's transform to move it, and wrote the target's coordinates as raw pixels because
+* under v1 they are. It reads `var(--sux, 1px)` and `var(--su, 1px)` now, which is why the fallbacks
+* matter: v1 defines neither. `ui.ts` `drawLine` has the same assumption and has not been converted.
+*/
+#scene .card {
+    --left: calc(var(--x) * var(--sux));
+    --top:  calc(var(--y) * var(--su));
+}
+
+/* There is deliberately no general rule for an activating card.
+ *
+ * There used to be, `#scene .card.active, #scene .card.activating`, carrying the two `--top`
+ * formulas out of `card-active.css`. Both formulas are real; the selectors were not. v1 scopes every
+ * one of those nudges to a pile, `.deck.player-deck .card.activating` and so on, and applies nothing
+ * at all to a card activating in play: `card-active.css:1-3` sets `--this-scale` and nothing else, so
+ * the card grows on the spot. It grows because `card-face-image.css:57` scales `.face .image`, an
+ * element inside the card, which never touches the card's own transform.
+ *
+ * `.card.active` and `.card.active.up` matched nothing either way. `ClassName.active_card` is
+ * `'activating'` and no `up` class exists anywhere in the client, so the second rule was dead and
+ * the first quietly gave every activating card on the board a quarter-card drop that v1 never had.
+ * ✓ VERIFIED by probing an activating card in the hero, villain and ally areas: v1 moves it 0px,
+ * v2 moved it 33.7px down, which is `--card-height * .25` exactly. The pile nudges live with the
+ * other pile rules below, where their selectors can be scoped the way v1 scopes them.
+ */
+
+/* A pile is deliberately not positioned, and converting it was the mistake.
+ *
+ * `#scene .deck { left: calc(var(--x) * var(--sux)); top: ... }` used to sit here, and it read
+ * `--x`/`--y` on a `.deck` as the pile's own coordinates. They are not. `pos-deck.css` pins
+ * `.deck { top: 0; left: 0 }` and then sets `--x`/`--y` on each pile as the value its CARDS
+ * inherit: `.player-deck { --y: 970 }` is where that deck's cards go, not where the box goes. The
+ * cards consume the same two variables through `#scene .card`, so positioning the box as well
+ * applied the coordinate twice. A player deck computed `top: 742.768px` with a card inside it
+ * computing the identical translate, putting the card at 1485px on a board 827px tall.
+ *
+ * The pseudo-elements are the ones that genuinely take these coordinates, because they are drawn
+ * relative to the pinned box: `.deck::after` for the card count and `.deck::before` for the debug
+ * outline. Both are converted below, which is where this rule's formula actually belonged.
+ */
+
+#scene .area::after {
+    top:   calc(var(--y) * var(--su));
+    left:  calc(var(--x) * var(--sux));
+    width: calc(var(--width) * var(--sux));
+}
+
+/******************************************************************************
+* Areas
+*
+* The vertical stack is unchanged from v1: these are the same numbers `pos-area.css` uses, and the
+* board reads the same top to bottom. Only the unit is different.
+*/
+#area-schemes-main,
+#area-schemes-side,
+#scene .area {
+    top: 0 !important;
+    left: 0 !important;
+    position: absolute;
+    width: 0 !important;
+    height: 0 !important;
+    right: unset !important;
+}
+
+#scene .area .card {
+    --z: 1;
+}
+
+/* The player's half is one column, and v1's spacing of it was uneven and ran out at the bottom.
+ * A card is 176 tall, and the gaps between these rows were 24, 24, 19, 14 and finally 4, so the
+ * hero row and the hand were three real pixels apart at a 1512x827 board while the rows above had
+ * six times that.
+ *
+ * The board is nearly full: six rows of 176 is 1056 of the 1080 available, so there is no slack to
+ * hand out. These numbers take the gap from between the board rows, where it was uneven and not
+ * doing anything, and give it to the one place a gap means something. The hand is your own zone
+ * rather than part of the board, so it gets the separation and the board rows get an even 14.
+ *
+ * The hand itself is deliberately not moved. It overflows the bottom edge by 71 and rises on hover,
+ * and `--top: calc(905 * var(--su))` further down is that resting position minus 70. Moving the row
+ * without moving the 905 by the same amount is what made the hand lurch on 2026-08-16. Leaving both
+ * alone keeps the amount of hand you can see at rest exactly as it was. */
+#player-all-engaged-minions { --y: 200; }
+#player-all-allies          { --y: 390; }
+#player-all-supports        { --y: 580; }
+#player-all-area-hero       { --y: 770; }
+#player-all-hand-cards      { --y: 975; }
+
+.area-center {
+    margin: 0;
+}
+
+#area-villain      { --y: 10; }
+#area-schemes-main { --y: 80; }
+#area-schemes-side { --y: 280; }
+
+/* Horizontal placement is where the extra space actually shows up. Because `--sux` is a fraction
+ * of the width, these coordinates keep their meaning at any window size: 50 stays a small inset
+ * from the left, 1880 stays hard against the right, and the gap between them grows. */
+#area-play {
+    --y: 350;
+    --x: 50;
+    margin: 0;
+}
+
+#area-schemes-main,
+#area-schemes-side {
+    /* v1 uses 1880, which is where the card's LEFT edge goes. A card is 127 wide, so 1880 + 127 is
+     * 2007 against a 1920 canvas: the column hangs 87 units off the right in v1 too, and gets
+     * clipped. Measured 1595px against a 1512px viewport before any of this changed, so it is not
+     * something v2 introduced.
+     *
+     * Since the coordinate is ours here, it is set so the card lands inside the edge instead:
+     * 1920 - 127 - 20 leaves a 20 unit margin. Put it back to 1880 to match v1 exactly. */
+    --x: 1773;
+}
+
+/******************************************************************************
+* Coordinate consumers, part two: the ones the first pass missed
+*
+* Two distinct misses, both found from the board pushing content off the lower right.
+*
+* 1. Pseudo-elements. `.deck::after` carries the card-count label and positions itself from the
+*    same `--x`/`--y`, but a rule on `.deck` does not reach `::after`, so those were still
+*    multiplying by a raw `1px`. Under v1 the transform shrank that by ~0.72 and it landed on the
+*    board; under v2 nothing shrinks it, so a deck at `--x: 1700` put its label at 1700 real pixels
+*    and off the edge of a 1512px window. `#area-advanced`, `#nemesis-pool` and `#victory-display`
+*    are the ones far enough right to disappear.
+*
+* 2. Offsets losing to specificity. v1 nudges activating and selected cards with rules like
+*    `.deck.player-deck .card.activating:not(.moving)` (0,0,4,0). The v2 base rule is
+*    `#scene .card` (0,1,1,0), and an id beats any number of classes, so those nudges were being
+*    overridden into nothing rather than converted. They are restated here at a specificity that
+*    wins, which is why every selector below is prefixed with `#scene`.
+*
+* The general lesson for anything added later: overriding a var that other rules also set means
+* inheriting their whole specificity fight, not just their arithmetic.
+*/
+
+/* Deck labels. Mirrors deck.css:118-120 and 148-150, same formulas, converted units. */
+#scene .deck.deck-change-size:not(.clicked)::after,
+#scene .deck:not(.clicked):hover::after {
+    top:  calc(var(--y) * var(--su) + var(--card-height) - 2.5 * var(--font-size));
+    left: calc(var(--x) * var(--sux));
+}
+
+#scene .player-deck.deck.deck-change-size::after,
+#scene .player-deck.deck:not(.clicked):hover::after {
+    top: calc(var(--y) * var(--su));
+}
+
+/* Debug outline, off by default (`content` is commented out in v1) but converted so it is not
+ * wrong the day someone switches it on. Mirrors pos-deck.css:117-119. */
+#scene .deck::before {
+    top:  calc(var(--y) * var(--su));
+    left: calc(var(--x) * var(--sux));
+}
+
+/* A card lifting out of a deck. Mirrors card-active.css:36-47. */
+#scene .deck.player-discard-pile    .card.activating:not(.moving),
+#scene .deck.player-deck            .card.activating:not(.moving),
+#scene .deck.encounter-discard-pile .card.activating:not(.moving),
+#scene .deck.encounter-deck         .card.activating:not(.moving) {
+    --left: calc(var(--x) * var(--sux) + var(--card-width) * .25);
+}
+
+#scene .deck.encounter-discard-pile .card.activating:not(.moving),
+#scene .deck.encounter-discard-pile .card.selected:not(.moving) {
+    --top: calc(var(--y) * var(--su) + var(--card-height) * .25);
+}
+
+#scene .deck.player-deck .card.activating:not(.moving) {
+    --top: calc(var(--y) * var(--su) - var(--card-height) * .75);
+}
+
+/* Mirrors card-active.css:30-34. Dropping `--y` is v1's own arithmetic, not a transcription slip:
+ * the card leaves the pile for a fixed height rather than moving relative to where it sat. Nothing
+ * to convert in the formula, since `--card-height` is already in scene units, but it still has to
+ * be restated to beat `#scene .card`. */
+#scene .deck.encounter-deck .card.activating:not(.moving),
+#scene .deck.deck-top       .card.activating:not(.moving) {
+    --top: calc(var(--card-height) * .25);
+}
+
+/* A card fanned out of a deck while choosing. Mirrors card-select.css:160-162. */
+#scene .deck .card.selected:not(.moving) {
+    --select-index: 0;
+    --left: calc(var(--x) * var(--sux) + (var(--card-width) + 2px) * (var(--select-index) + 1));
+}
+
+/******************************************************************************
+* Coordinate consumers, part three: raw pixel coordinates
+*
+* The first two passes converted rules that multiplied a variable by `1px`. These are different:
+* they write a scene coordinate as a literal pixel value, so grepping for `* 1px` never found them.
+*
+* Under v1 the camera transform shrank every one of these by ~0.72 and they landed on the board.
+* v2 has no transform, so they were being taken at face value. `--top: 905px !important` on hand
+* hover is the one that showed: on hover the hand jumped to 905 real pixels, below the bottom of an
+* 812px window, then snapped back when the hover ended, so moving between cards made it jitter.
+*
+* `!important` is matched with `!important` where v1 used it, because that is the only way to win.
+*/
+
+/* Hand, raised on hover. Mirrors card-hand.css:15-18. */
+#scene #player-all-hand-cards:hover .card {
+    --top: calc(905 * var(--su)) !important;
+}
+
+/* A card pulled out to be looked at. Mirrors card-look-at.css:1-6. */
+#scene .card.looking-at {
+    --top:  calc(450 * var(--su));
+    --left: calc(200 * var(--sux) + var(--look-at-index) * (var(--card-width) + 5px));
+}
+
+/* Cards fanned out of a deck while choosing. Mirrors card-select.css:169-176. */
+#scene .deck-top.deck .card.selected:not(.moving) {
+    --top: calc(10 * var(--su));
+}
+
+#scene .player-deck.deck .card.selected:not(.moving) {
+    --top: calc(900 * var(--su));
+}
+
+/* The expanded deck browser. Mirrors deck.css:37-40. These are insets from the scene edges rather
+ * than a coordinate, so they take the inline unit on both sides. */
+#scene .deck.clicked {
+    left:  calc(300 * var(--sux)) !important;
+    right: calc(150 * var(--sux)) !important;
+}
+
+/* The same panel's vertical placement. Mirrors deck.css:69-77, which the pass above missed while
+ * converting the horizontal half of the very same rules: insets from the scene edges again, block
+ * axis this time, so `--su`.
+ *
+ * The two rules are kept apart rather than merged because their specificities are load bearing.
+ * v1 lets `.deck.encounter-discard-pile.clicked` and `.deck-top.deck.clicked` (0,0,3,0) beat
+ * `.deck.clicked` (0,0,2,0), which is how a pile that opens downward from the top wins over the
+ * default of sitting on the bottom. Prefixing both with `#scene` raises them together and keeps
+ * that order intact. */
+#scene .deck.encounter-discard-pile.clicked,
+#scene .deck-top.deck.clicked {
+    top: calc(185 * var(--su));
+    bottom: unset;
+}
+
+#scene .deck.clicked {
+    top: unset;
+    bottom: calc(150 * var(--su));
+}

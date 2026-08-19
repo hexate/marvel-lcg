@@ -558,6 +558,28 @@ export class Client {
                 }
                 // console.log(this.responseText)
                 Effect.response_json_ask = new AskOptionPayload(JSON.parse(this.responseText))
+
+                // A seam for automation, and the only way to see what is on offer.
+                //
+                // During a turn the server sends one ask holding every legal option at once, along
+                // the lines of `Attack | Play | Play | Play`, and each option names the card that
+                // provides it. The client does not draw those names anywhere: it highlights the
+                // bound cards and you choose by clicking one. That is fine for a person, who can
+                // read the card, but from outside the page a highlighted card says only "this can
+                // do something", not whether that something is an attack or a card being played.
+                // Anything driving the client is choosing blind without this.
+                //
+                // Read-only and derived, so nothing here can affect play.
+                ;(window as any).__ask = {
+                    event: Effect.response_json_ask.event_name,
+                    prompt: Effect.response_json_ask.prompt_text,
+                    options: Effect.response_json_ask.options.map(o => ({
+                        name: o.name_with_space,
+                        bindId: o.bind_id,
+                        blocked: o.failure_reason,
+                    })),
+                }
+
                 if( Effect.response_json_ask.options.length > 0 )
                 {
                     if( Setting.is_hot_seat ) {

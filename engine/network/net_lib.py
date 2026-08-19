@@ -50,20 +50,39 @@ class NetLib:
         return None
 
     @staticmethod
-    def IsPortAvailable(address: str, port: int) -> bool:
+    def WhyPortUnavailable(address: str, port: int) -> str|None:
+        """None if the server could bind here, otherwise why it could not. J14.
+
+        The point of this probe is to predict whether the real bind will succeed, and it used to
+        get that wrong in the one case that matters. `asyncio.create_server`, which is what
+        actually opens the socket, sets `SO_REUSEADDR` on POSIX by default. This probe did not, so
+        it was stricter than the bind it was standing in for: a port left in `TIME_WAIT` by a
+        browser that still had keep-alive connections open would be refused here even though the
+        server itself would have taken it happily.
+
+        The effect was that quitting the game and starting it again inside that window died on an
+        assertion, with no listener anywhere in `netstat`, and the only cure was to close the tab
+        or wait the timeout out. Matching the flag makes the probe agree with reality.
+
+        The old bare `except` also swallowed everything, including a bad address, and reported all
+        of it as "port taken". Only `OSError` means the port is unusable.
+        """
         import socket
-        port_available = True
 
-        if ':' in address:
-            family = socket.AF_INET6
-        else:
-            family = socket.AF_INET
-
+        family = socket.AF_INET6 if ':' in address else socket.AF_INET
         s = socket.socket(family, socket.SOCK_STREAM)
         try:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind((address, port))
-        except:
-            port_available = False
-        s.close()
-        return port_available
+            return None
+        except OSError as exc:
+            # errno is the useful part: EADDRINUSE means something is listening, EADDRNOTAVAIL
+            # means the address is not ours to bind, and they need different fixes.
+            return f"{exc.strerror or exc} (errno {exc.errno})"
+        finally:
+            s.close()
+
+    @staticmethod
+    def IsPortAvailable(address: str, port: int) -> bool:
+        return NetLib.WhyPortUnavailable(address, port) is None
 

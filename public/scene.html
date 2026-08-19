@@ -6,6 +6,7 @@
     <title>New Game</title>
     <link rel="stylesheet" href="/public/css/menu/style.css">
     <link rel="stylesheet" href="/public/css/font-awesome.css">
+    <link rel="stylesheet" href="/public/css/menu/set-detail.css">
 <style>
     * {
         --card--width: 100px;
@@ -547,6 +548,285 @@ async function createScenarios() {
 
 <script>
 
+/* Encounter set detail
+ *
+ * A set was a single 100x140 thumbnail of its first card. This shows the whole set at a size you
+ * can read, with each card's type, traits, stats and full rules text, so you can tell what a set
+ * does before committing to it.
+ *
+ * There is no written description of a set anywhere in the data, only a name and a list of card
+ * ids, so "how it works" is composed from the cards themselves rather than invented.
+ */
+const SetDetail = (() => {
+    /** Cards are fetched once and kept, since sets share cards and reopening is common. */
+    const cache = new Map()
+
+    let overlay = null
+    let titleEl = null
+    let summaryEl = null
+    let listEl = null
+    let lastFocused = null
+
+    /** "2 minions, 2 treacheries, 1 attachment", from the actual card types in the set. */
+    function describeComposition(cards) {
+        const LABELS = {
+            Minion: ['minion', 'minions'],
+            Treachery: ['treachery', 'treacheries'],
+            SideScheme: ['side scheme', 'side schemes'],
+            MainScheme: ['main scheme', 'main schemes'],
+            Attachment: ['attachment', 'attachments'],
+            Environment: ['environment', 'environments'],
+            Obligation: ['obligation', 'obligations'],
+            Villain: ['villain', 'villains'],
+        }
+        const counts = new Map()
+        for (const card of cards) {
+            const type = card.paper && card.paper.type ? card.paper.type : 'card'
+            counts.set(type, (counts.get(type) || 0) + card.copies)
+        }
+        const parts = []
+        for (const [type, n] of [...counts.entries()].sort((a, b) => b[1] - a[1])) {
+            const label = LABELS[type] || [type.toLowerCase(), type.toLowerCase() + 's']
+            parts.push(`${n} ${n === 1 ? label[0] : label[1]}`)
+        }
+        return parts.join(' · ')
+    }
+
+    function build() {
+        overlay = document.createElement('div')
+        overlay.className = 'set-detail-overlay'
+        overlay.hidden = true
+        overlay.setAttribute('role', 'dialog')
+        overlay.setAttribute('aria-modal', 'true')
+
+        const dialog = document.createElement('div')
+        dialog.className = 'set-detail-dialog'
+        // Clicking the backdrop closes; clicks inside must not bubble up into that.
+        dialog.onclick = (event) => event.stopPropagation()
+
+        const header = document.createElement('div')
+        header.className = 'set-detail-header'
+
+        titleEl = document.createElement('div')
+        titleEl.className = 'set-detail-title'
+
+        summaryEl = document.createElement('div')
+        summaryEl.className = 'set-detail-summary'
+
+        const close = document.createElement('button')
+        close.className = 'set-detail-close'
+        close.type = 'button'
+        close.textContent = '✕'
+        close.setAttribute('aria-label', 'Close')
+        close.onclick = hide
+
+        header.append(titleEl, summaryEl, close)
+
+        listEl = document.createElement('div')
+        listEl.className = 'set-detail-list'
+
+        dialog.append(header, listEl)
+        overlay.appendChild(dialog)
+        overlay.onclick = hide
+        document.body.appendChild(overlay)
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !overlay.hidden) hide()
+        })
+    }
+
+    async function fetchCard(code) {
+        if (cache.has(code)) return cache.get(code)
+        const response = await fetch(`get_card_json?${code}`)
+        // A card the database does not know is worth showing as such rather than dropping the row
+        // silently, which would misreport the size of the set.
+        const paper = response.ok ? await response.json() : null
+        cache.set(code, paper)
+        return paper
+    }
+
+    function cardCell(entry) {
+        const paper = entry.paper
+        const cell = document.createElement('div')
+        cell.className = 'set-detail-card'
+
+        const art = document.createElement('div')
+        art.className = 'set-detail-card-art'
+
+        const img = document.createElement('img')
+        // Deliberately not `loading="lazy"`. These cells are built detached and appended in one
+        // go, and a lazy image whose src is set before it is in the document never gets observed:
+        // the request simply never starts, so every card past the first stayed blank even in view.
+        img.src = entry.code
+        img.alt = paper ? paper.name : entry.code
+        img.title = 'Hover to read'
+        art.appendChild(img)
+
+        if (entry.copies > 1) {
+            const n = document.createElement('span')
+            n.className = 'set-detail-copies'
+            n.textContent = `x${entry.copies}`
+            art.appendChild(n)
+        }
+        cell.appendChild(art)
+
+        const name = document.createElement('div')
+        name.className = 'set-detail-card-name'
+        name.textContent = paper ? (paper.name || '').replace(/^\*\s*/, '') : entry.code
+        cell.appendChild(name)
+
+        if (paper && paper.type) {
+            const type = document.createElement('div')
+            type.className = 'set-detail-type'
+            // Types are stored camel-cased ("SideScheme"), which uppercases into one run.
+            type.textContent = paper.type.replace(/([a-z])([A-Z])/g, '$1 $2')
+            cell.appendChild(type)
+        } else if (!paper) {
+            const missing = document.createElement('div')
+            missing.className = 'set-detail-empty'
+            missing.textContent = 'Not in the card database'
+            cell.appendChild(missing)
+        }
+
+        return cell
+    }
+
+    function hide() {
+        if (!overlay || overlay.hidden) return
+        overlay.hidden = true
+        if (lastFocused && lastFocused.focus) lastFocused.focus()
+        lastFocused = null
+    }
+
+    async function show(setFile, setName, encounters) {
+        if (!overlay) build()
+        lastFocused = document.activeElement
+
+        // Collapse duplicates into copy counts: a set lists a repeated card once per copy.
+        const order = []
+        const copies = new Map()
+        for (const raw of encounters) {
+            const code = String(raw).split(',')[0]
+            if (!copies.has(code)) { copies.set(code, 0); order.push(code) }
+            copies.set(code, copies.get(code) + 1)
+        }
+
+        titleEl.textContent = setName
+        const total = encounters.length
+        summaryEl.textContent = `${total} card${total === 1 ? '' : 's'}, loading…`
+        listEl.replaceChildren()
+        overlay.hidden = false
+
+        const entries = await Promise.all(order.map(async (code) => (
+            { code, copies: copies.get(code), paper: await fetchCard(code) }
+        )))
+
+        summaryEl.textContent = `${total} card${total === 1 ? '' : 's'}`
+            + (describeComposition(entries) ? ` · ${describeComposition(entries)}` : '')
+        listEl.replaceChildren(...entries.map(cardCell))
+        listEl.scrollTop = 0
+    }
+
+    return { show, hide }
+})()
+
+function openSetDetail(setFile, setName, encounters) {
+    // Leave no card floating over the panel that is about to open.
+    CardHover.hide()
+    SetDetail.show(setFile, setName, encounters)
+}
+
+/* Rollover preview of the single card under the pointer.
+ *
+ * Every card image on this screen is 100x140, too small to read. Hovering any of them shows that
+ * one card at a size you can actually read, wherever it is: a scenario, a standard or modular set
+ * thumbnail, or a hero deck. What is inside a set is the badge's job, not this one's.
+ *
+ * Delegated from the document rather than bound per image. There are over 300 card images here and
+ * more appear as you open packs and load decks, so binding each one would mean re-binding on every
+ * change and missing whatever was added last.
+ */
+const CardHover = (() => {
+    const SHOW_AFTER_MS = 220   // long enough that crossing a row does not strobe previews
+
+    let panel = null
+    let img = null
+    let timer = 0
+    let current = null
+
+    function build() {
+        panel = document.createElement('div')
+        panel.className = 'card-hover-preview'
+        panel.hidden = true
+        img = document.createElement('img')
+        panel.appendChild(img)
+        document.body.appendChild(panel)
+    }
+
+    /** A card image, as opposed to the pack box art that shares these containers. */
+    function cardCodeOf(el) {
+        if (!el || el.tagName !== 'IMG') return null
+        if (el.closest('.card-hover-preview')) return null
+        const src = el.getAttribute('src')
+        // Box art is a path (`/sets/1. Core Set`); a card is a bare id (`01094`, `24049a`).
+        if (!src || src.includes('/')) return null
+        return src
+        // Note the set panel is deliberately not excluded here: rolling over the cards inside it
+        // is how you read them, now that the panel shows the set at a glance rather than inline
+        // text. Only the preview itself is excluded, or it would re-trigger on its own image.
+    }
+
+    /** Beside the card if it fits, otherwise flipped or clamped, but never off screen. */
+    function place(anchor) {
+        const a = anchor.getBoundingClientRect()
+        panel.style.left = '0px'
+        panel.style.top = '0px'
+        const p = panel.getBoundingClientRect()
+
+        let left = a.right + 12
+        if (left + p.width > innerWidth - 8) left = a.left - p.width - 12
+        if (left < 8) left = Math.max(8, Math.min(a.left, innerWidth - p.width - 8))
+
+        let top = a.top + a.height / 2 - p.height / 2
+        if (top + p.height > innerHeight - 8) top = innerHeight - p.height - 8
+        if (top < 8) top = 8
+
+        panel.style.left = `${Math.round(left)}px`
+        panel.style.top = `${Math.round(top)}px`
+    }
+
+    function show(anchor, code) {
+        if (!panel) build()
+        current = code
+        img.src = code
+        panel.hidden = false
+        place(anchor)
+    }
+
+    function hide() {
+        clearTimeout(timer)
+        current = null
+        if (panel) panel.hidden = true
+    }
+
+    document.addEventListener('mouseover', (event) => {
+        const code = cardCodeOf(event.target)
+        if (!code) return
+        if (code === current) return
+        clearTimeout(timer)
+        timer = setTimeout(() => show(event.target, code), SHOW_AFTER_MS)
+    })
+
+    document.addEventListener('mouseout', (event) => {
+        if (cardCodeOf(event.target)) hide()
+    })
+
+    // Scrolling moves the anchor out from under a preview that is positioned against it.
+    window.addEventListener('scroll', hide, true)
+
+    return { hide }
+})()
+
 async function createSets() {
     const response = await fetch(`list_encounter_sets?`);
     if (!response.ok) {
@@ -579,6 +859,24 @@ async function createSets() {
         div.setAttribute('data-name', text)
         div.setAttribute('data-display', `${j['encounters'][0]} ${text}`)
         div.appendChild(img)
+
+        // Reading about a set must never change your setup, so this is its own control rather than
+        // a second meaning for clicking the thumbnail. `stopPropagation` keeps the button's own
+        // select handler from firing underneath it.
+        const info = document.createElement('button')
+        info.className = 'set-info-badge'
+        info.type = 'button'
+        info.textContent = 'i'
+        info.title = `What is in ${j['name'] || text}?`
+        info.setAttribute('aria-label', `Show the cards in ${j['name'] || text}`)
+        info.onclick = (event) => {
+            event.stopPropagation()
+            event.preventDefault()
+            openSetDetail(text, j['name'] || text, j['encounters'])
+            return false
+        }
+        div.appendChild(info)
+
         div.onclick = () => {
             div.classList.toggle('click')
             for( let name of ['standard', 'expert'] ) {

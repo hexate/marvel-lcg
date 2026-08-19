@@ -58,7 +58,16 @@ class WebDeviceManager(DeviceManager):
                 continue
 
             ip, port = ip_port
-            assert NetLib.IsPortAvailable(ip, port), f"{ip=}, {port=}"
+            # `AssertionError: ip='127.0.0.1', port=2345` told you the port you already typed and
+            # nothing about why it would not open, which sent this down the wrong path more than
+            # once. Say what the OS said and what usually causes it. J14.
+            unavailable = NetLib.WhyPortUnavailable(ip, port)
+            assert not unavailable, (
+                f"Cannot serve on {ip}:{port}: {unavailable}. "
+                f"Another copy of the game is the usual cause, so check for one still running. "
+                f"If nothing is listening, a browser left open on the game can hold the port for "
+                f"a short while after the server exits; close that tab or wait for it to time out."
+            )
 
             if not PASSWORD.value and not WebDeviceManager.IsLoopbackAddress(ip):
                 Log.Warn(CATEGORY_NAME,

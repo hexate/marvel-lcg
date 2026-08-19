@@ -58,7 +58,7 @@ The engine follows a **3-layer architecture**:
 marvel-lcg/
 ├── main.py                # Entry point: Initialize → EngineRun → Shutdown
 ├── build.py               # Build configuration
-├── build_marvel.py        # Marvel-specific build script
+├── build_marvel.py        # Version bump, called by tools/package.py
 │
 ├── core/                  # Foundational utilities
 │   ├── lib/               # Math, Time
@@ -131,6 +131,11 @@ marvel-lcg/
 ├── docs/                  # Documentation
 ├── editor/                # Card editor
 ├── public/                # Web frontend (HTML/CSS/JS)
+├── tools/                 # Developer tooling, none of it needed to run the game
+│   ├── run_tests.py       # The suite, minus what needs data we cannot ship
+│   ├── package.py         # Release chores: bump the version, zip the cards
+│   ├── autoplay.js        # Plays a game in the browser, for exercising the client
+│   └── rng_parity_check.py
 └── unit_test/             # Unit tests
 ```
 

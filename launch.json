@@ -16,5 +16,7 @@
 
     "image_folders": ["./assets/pics/"],
     "sound_folders": ["./assets/sounds/"],
-    "replay_folders": ["./replays/"]
+    "replay_folders": ["./replays/"],
+
+    "deck_folders": ["./deck/", "./deck/custom/"]
 }
