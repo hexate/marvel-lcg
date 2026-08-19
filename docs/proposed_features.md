@@ -225,10 +225,30 @@ because the entire reason this card is different is that its text matters and th
 read it. ✓ VERIFIED against Weapons Runner: "★ Boost: Put Weapons Runner into play engaged with
 you" is legible in the preview, next to a ribbon carrying the same star.
 
-**Still open, and each for a reason rather than for lack of time.** Option 5 needs a sound asset
-that does not exist and cannot be written. Option 7, giving the boosting area its own container,
-was called the last resort when the options were written and still is: it touches layout to fix
-what motion and colour now handle.
+**Option 7 is done, but not as written, and the deviation is the finding.** It asked for the
+boosting area to get its own container. That is not available. ✓ VERIFIED by measuring the centre
+column on a real board: there is no free 176-unit band anywhere in it. `area-play` already overlaps
+engaged minions by 26 units and allies by 136, and only coexists with them because it sits at
+`--x: 50` while they are centred. The two candidate gaps, left of the minion spread and right of it
+before the scheme column, both move with the board state, so a fixed container in either would
+trade a transient ambiguity for a permanent collision. That is what "it touches layout" was warning
+about.
+
+What option 7 actually wanted is that a boost never lands where a reveal lands, and that needs an
+offset, not a container. `area_boost` and `area_revealing` are already separate lists in the world
+descriptor and `cards.ts` merges both into `area-play`, which is the whole source of the ambiguity.
+The descriptor now carries `is_boost_area` through to an `in-boost-area` class, and both layouts
+push such a card just over half a card height down: `.area .card.in-boost-area` in `pos-area.css`
+for v1, `#scene .area .card.in-boost-area` in `layout.css` for v2, since v2 does not load
+`pos-area.css`. ✓ VERIFIED in both: 96.8px against a 176 card in v1, 74.1px against a 134.8 card in
+v2, both 0.55, and the card stays on the board.
+
+**Still open:** option 5 alone, and only because it needs a sound asset that does not exist and
+cannot be written. Every other option is closed.
+
+N2 is otherwise finished. What began as "a boost card and a revealed card look the same" now differs
+in five ways: the animation, the ribbon, the grey-out, the position, and the orange value that lands
+on the target, with a star boost marked apart again from a plain one.
 
 Verified in Chrome against the running server on 2026-08-16, which closes the "not verified in a real
 browser" note on `8d57468`. On `public/marvel.html` the CSSOM holds the ENTERS PLAY rule with its

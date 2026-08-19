@@ -673,6 +673,12 @@ class CardRender {
         Lib.game.removeTypeClasses(card_div)
         Lib.game.addTypeClass(card_div, card.card_type, card.name)
 
+        // A boost card and a revealed card both render into `area-play`, so on the board they land
+        // in the same place and the only thing telling them apart is the animation. This marks the
+        // boost so the stylesheet can offset it (N2, option 7). Toggled rather than added, because
+        // the same card object is reused across renders once it leaves the boosting area.
+        card_div.classList.toggle('in-boost-area', card.is_boost_area === true)
+
         if( card_div.style.getPropertyValue('--bg-image-true') != `url("${pic_id}")` ) {
             card_div.style.setProperty('--bg-image-true', `url("${pic_id}")`)
         }

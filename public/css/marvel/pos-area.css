@@ -73,3 +73,25 @@
     pointer-events: none;
 }
 
+/*****************************************************************************
+* A boost card's own place in the play area (N2, option 7)
+*
+* Option 7 asked for the boosting area to get its own container, so a boost card would stop landing
+* exactly where a revealed card lands. `area_boost` and `area_revealing` are already separate lists
+* in the world descriptor; `cards.ts` merges both into `area-play`, which is where the ambiguity
+* comes from.
+*
+* A separate container turned out not to be available. Measured on a real board, the centre column
+* has no free 176-unit band: `area-play` already overlaps engaged minions by 26 units and allies by
+* 136, and only coexists with them because it sits at `--x: 50` while they are centred. The two
+* candidate gaps, left of the minion spread and right of it before the scheme column, both move
+* with the board state, so a fixed container there would trade a transient ambiguity for a
+* permanent collision.
+*
+* What option 7 actually wanted is that a boost never lands where a reveal lands, and that needs an
+* offset rather than a container. Just over half a card down, so the two are unmistakably different
+* positions while the boost stays inside the area it belongs to and claims no new board space.
+*/
+.area .card.in-boost-area {
+    --top: calc(var(--y) * 1px + var(--card-height) * .55);
+}

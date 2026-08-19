@@ -333,6 +333,12 @@
     --top: calc(var(--card-height) * .25);
 }
 
+/* A boost card's offset inside the play area. Mirrors pos-area.css, and see there for why option 7
+   became an offset rather than the container it originally asked for. */
+#scene .area .card.in-boost-area {
+    --top: calc(var(--y) * var(--su) + var(--card-height) * .55);
+}
+
 /* A card fanned out of a deck while choosing. Mirrors card-select.css:160-162. */
 #scene .deck .card.selected:not(.moving) {
     --select-index: 0;

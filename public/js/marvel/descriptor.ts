@@ -19,6 +19,9 @@ interface Options {
     is_dealt_card?: boolean;
     is_obligation?: boolean;
     control_player?: number;
+    /** Came from `area_boost` rather than `area_revealing`. Both render into `area-play`; this is
+     *  what lets a boost card be told apart from a revealed one once it is on the board (N2). */
+    is_boost_area?: boolean;
 }
 
 function toPlayerCardDescriptorList(control_player: number, obj: any[], parent_div_id: string|null, options: Options = {}): CardDescriptor[] {
@@ -87,6 +90,7 @@ export class CardDescriptor {
     is_in_hand           !: boolean;
     card_type_base       !: "Unit" | "Scheme" | "";
     is_dealt_card        !: boolean;
+    is_boost_area        !: boolean;
     is_ssr                : "super" | "ultra" | "";
 
     card_div            !: HTMLElement;
@@ -146,7 +150,7 @@ export class CardDescriptor {
     }
 
     private updateInternal(obj: any, parent_div_id: string|null, options: Options) {
-        const {is_in_play=false, is_in_hand=false, is_dealt_card=false, is_obligation=false, control_player=-1} = options
+        const {is_in_play=false, is_in_hand=false, is_dealt_card=false, is_obligation=false, control_player=-1, is_boost_area=false} = options
         this.object_id              = obj['id'];
         this.is_ready               = obj['is_ready'];
         this.is_face_up             = obj['is_face_up'];
@@ -172,6 +176,7 @@ export class CardDescriptor {
         this.is_in_play             = is_in_play;
         this.is_in_hand             = is_in_hand;
         this.is_dealt_card          = is_dealt_card
+        this.is_boost_area          = is_boost_area
         this.card_type_base         = '';
 
         if (["Ally", "Minion", "EncounterVillain", "Hero", "AlterEgo"].includes(this.card_type)) {
@@ -490,7 +495,7 @@ export class WorldDescriptor {
         this.area_schemes_side          = toCardCardDescriptorList(obj['area_schemes_side'], "area-schemes-side", {is_in_play: true});
         this.additional_decks           = obj['additional_decks'].map((x: any) => toCardCardDescriptorList(x, null));
         this.additional_discard_piles   = obj['additional_discard_piles'].map((x: any) => toCardCardDescriptorList(x, null));
-        this.area_boost                 = toCardCardDescriptorList(obj['area_boost'], "area-play");
+        this.area_boost                 = toCardCardDescriptorList(obj['area_boost'], "area-play", {is_boost_area: true});
         this.area_environment           = toCardCardDescriptorList(obj['area_environment'], "area-villain", {is_in_play: true});
         this.area_evidence              = toCardCardDescriptorList(obj['area_evidence'], "area-removed", {is_in_play: true});
         this.area_rule                  = toCardCardDescriptorList(obj['area_rule'], "area-villain", {is_in_play: true});
