@@ -208,6 +208,84 @@ input[type="range"] {
 }
 
 /******************************************************************************
+* Checkboxes and radios
+*
+* These were native, so they drew as bright white squares: the loudest thing on a dark page, and
+* louder than the labels they belong to. `accent-color` alone cannot fix that, because it only
+* colours the CHECKED state. The unchecked box, which is what nearly all of them are nearly all of
+* the time, stays the browser's white.
+*
+* So `appearance: none` and draw them. The mark is a `clip-path` tick rather than a font glyph or
+* an image, so it stays sharp at any size and needs nothing loaded.
+*
+* Size is deliberately not set here. `scene.html` sizes these to its own `--line-height` and this
+* would otherwise fight it; only the paint is taken over. The card pickers use hidden radios
+* (`display: none`), so nothing here reaches them.
+*/
+input[type="checkbox"],
+input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+
+    background-color: rgba(0, 0, 0, .35);
+    border: 1px solid var(--menu-line);
+    border-radius: 4px;
+
+    display: inline-grid;
+    place-content: center;
+    cursor: pointer;
+    transition: background-color .15s ease, border-color .15s ease;
+}
+
+input[type="radio"] {
+    border-radius: 50%;
+}
+
+input[type="checkbox"]:hover,
+input[type="radio"]:hover {
+    border-color: var(--menu-line-hover);
+}
+
+input[type="checkbox"]:checked,
+input[type="radio"]:checked {
+    background-color: var(--btn-primary);
+    border-color: var(--btn-primary);
+}
+
+/* Scaled from 0 rather than toggled with `display`, so the tick grows in and there is something to
+   see at the moment of the click. */
+input[type="checkbox"]::before,
+input[type="radio"]::before {
+    content: "";
+    transform: scale(0);
+    transition: transform .12s ease;
+    box-shadow: inset 1em 1em #fff;
+}
+
+input[type="checkbox"]::before {
+    width: .62em;
+    height: .62em;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input[type="radio"]::before {
+    width: .5em;
+    height: .5em;
+    border-radius: 50%;
+}
+
+input[type="checkbox"]:checked::before,
+input[type="radio"]:checked::before {
+    transform: scale(1);
+}
+
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, .75);
+    outline-offset: 2px;
+}
+
+/******************************************************************************
 * Links
 *
 * The prose links were still the browser default, `rgb(0, 0, 238)` and underlined, which on a dark

@@ -99,8 +99,8 @@
         cursor: pointer;
     }
     details {
-        border: 1px solid #aaa;
-        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, .12);
+        border-radius: 10px;
         padding: 0.5em 0.5em 0;
         min-width: 50%;
     }
@@ -118,7 +118,7 @@
     }
 
     details[open] summary {
-        border-bottom: 1px solid #aaa;
+        border-bottom: 1px solid rgba(255, 255, 255, .12);
         margin-bottom: 0.5em;
     }
 
@@ -203,34 +203,51 @@
         color: white;
     }
 
+    /* The five panels each carried a saturated fill and a bright 1px border in its own hue. The
+     * colour coding is worth keeping, because it is how you tell at a glance which group you are
+     * in, but a lit outline around every one of them competed with the cards above and with the
+     * felt behind. So the hue moves off the outline and onto one edge and the heading, the fill
+     * drops to a near-neutral wash, and the border matches the fieldsets around them.
+     *
+     * The accent is declared once per panel and everything else reads `--accent`, so re-tinting a
+     * section is a single value. */
+    /* Two tokens per panel, not one. `--accent` paints the left edge, where nothing has to be
+     * read off it. `--accent-text` paints the heading, which does, and at 12.8px that is small
+     * text and wants 4.5:1 rather than 3:1.
+     *
+     * Measured against the panel fill, which composites to rgb(34,37,46): the green clears at
+     * 6.64 and the amber at 7.62, so those use the accent as it is. The other three do not.
+     * Crimson sits at 4.27, blue-grey at 3.62 and magenta at 3.34, all of them failing. Each is
+     * mixed toward white by the smallest step that clears, so it keeps as much of its hue as it
+     * can: 4.9, 4.64 and 4.75 respectively. */
+    #challenge      { --accent: #b84d9d; --accent-text: color-mix(in oklab, var(--accent) 80%, white); }
+    #rules          { --accent: #e05c5c; --accent-text: color-mix(in oklab, var(--accent) 90%, white); }
+    #mode           { --accent: #7dbb55; --accent-text: var(--accent); }
+    #settings_other { --accent: #5d7f9a; --accent-text: color-mix(in oklab, var(--accent) 85%, white); }
+    #campaign_log   { --accent: #f2a900; --accent-text: var(--accent); }
+
+    #campaign_log,
+    #settings_other,
+    #rules,
+    #mode,
     #challenge {
-        background-color: #3a0f2f;   /* dark magenta base */
-        border-color: #b84d9d;
-        /* box-shadow: 0 0 10px #b84d9d; */
+        background-color: rgba(0, 0, 0, .22);
+        border-color: rgba(255, 255, 255, .12);
+        border-left: 3px solid var(--accent);
     }
 
-    #rules {
-        background-color: #3a1414;   /* dark crimson base */
-        border-color: #e05c5c;
-        /* box-shadow: 0 0 10px #e05c5c; */
-    }
-
-    #mode {
-        background-color: #1f3314;   /* dark green base */
-        border-color: #7dbb55;
-        /* box-shadow: 0 0 10px #7dbb55; */
-    }
-
-    #settings_other {
-        background-color: #16232d;   /* dark blue-gray base */
-        border-color: #5d7f9a;
-        /* box-shadow: 0 0 10px #5d7f9a; */
-    }
-
-    #campaign_log {
-        background-color: #332200;   /* dark amber base */
-        border-color: #f2a900;
-        /* box-shadow: 0 0 10px #f2a900; */
+    /* Scoped to these five by id on purpose. `summary` is a generic element and the set detail
+     * panels use their own, so styling it broadly would reach them too. */
+    #campaign_log > summary,
+    #settings_other > summary,
+    #rules > summary,
+    #mode > summary,
+    #challenge > summary {
+        color: var(--accent-text);
+        font-weight: 700;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        font-size: .8rem;
     }
 
 
