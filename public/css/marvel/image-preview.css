@@ -383,6 +383,35 @@ body.hold-alt .image-preview-text{
 }
 
 /*****************************************************************************
+* A boost that does more than add a number
+*
+* Most boost cards contribute icons and go straight to the discard pile. Some carry a star ability
+* that outlives the flip: Tiger Shark's gives the villain tough, Weapons Runner puts itself into
+* play engaged with you. Telling those apart is the point of N2, and a card that is about to stay
+* on the board should not wear the same "already spent" treatment as one that is gone.
+*
+* Two changes, both small on purpose. The ribbon takes the game's own marker for this, the star
+* that prefixes the ability on the printed card, so it reads as the thing a player already knows
+* rather than as new vocabulary. And the grey-out lifts a long way, because the whole reason this
+* card is different is that its text matters and the pause is when you read it.
+*
+* The class comes from `CenterPreview.hasStarBoost`, which reads the marker out of the card's own
+* text. See there for why that needs no engine support.
+*/
+.image-preview.boost-flip.boost-star::after {
+    /* The literal star, not `\2605`. A CSS escape eats the space that terminates it, so
+       "\2605 BOOST" renders as "★BOOST", and padding it to "\2605\00A0BOOST" is worse: escapes take
+       up to six hex digits, so that parses as `\00A0B` and swallows the B too. The file is UTF-8
+       and the server states the charset, so the character itself is the readable, correct answer. */
+    content: "★ BOOST";
+}
+
+.image-preview.boost-flip.boost-star::before {
+    backdrop-filter: grayscale(.3) brightness(.9);
+    background: rgba(20, 20, 20, .1);
+}
+
+/*****************************************************************************
 * Enters play
 *
 * The counterpart to the boost ribbon. A revealed encounter card either stays on the board or

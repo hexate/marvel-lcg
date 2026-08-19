@@ -51,10 +51,32 @@ export class HoverCard{
 
         static boost_icons = document.querySelector('#image-preview-div-center .image-preview-boost') as HTMLElement
 
+        /** A boost whose text carries the star ability marker does more than add a number.
+         *
+         *  Tiger Shark's gives the villain tough, Weapons Runner puts itself into play engaged with
+         *  you. Those outlive the flip, so they should not look like a card that contributed icons
+         *  and went to the discard pile (N2, option 4).
+         *
+         *  No engine change is needed for this and none is wanted: 375 cards carry the marker in
+         *  their own text, in exactly one spelling, `[star] <b>Boost</b>:`, and `cleanResText`
+         *  leaves `[star]` alone because it only substitutes the four resource icons and `boost`.
+         *  So the client already holds the answer and only has to look. Checked against the data
+         *  rather than assumed: every one of the 375 uses that spelling and no other.
+         */
+        static hasStarBoost(card_div: HTMLElement): boolean {
+            const card = Cards.getCard(Number(card_div.dataset.id!))
+            if( !card ) {
+                return false
+            }
+            return /\[star\]\s*<b>\s*Boost\s*<\/b>/i.test(Cards.getText(card.card_id))
+        }
+
         static set(card_div: HTMLElement, is_log=true, is_boost=false) {
             CenterPreview.has_image = true
             // Toggled rather than added, or a boost flip would leave every later reveal marked.
             CenterPreview.preview_center.classList.toggle('boost-flip', is_boost)
+            CenterPreview.preview_center.classList.toggle('boost-star',
+                is_boost && CenterPreview.hasStarBoost(card_div))
             // Lift the card's own boost icons onto the preview rather than rendering our own. They
             // are already the right glyphs and the right count, and `.info_pay` is where `cards.ts`
             // puts them. Cleared on a normal reveal so they cannot linger.

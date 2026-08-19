@@ -210,12 +210,25 @@ caused read as one event. `attack` and `scheme` are exactly the two `ResolveBoos
 resolved value now floats on the target, which is where the consequence lands and where the player
 is already looking during an attack. Putting the same number in two places is noise.
 
-**Still open, and each for a reason rather than for lack of time.** Option 4, distinguishing a star
-boost like Tiger Shark's tough or Weapons Runner's engage, needs the client to know a boost carries
-a star ability, which is not in the descriptor today. Option 5 needs a sound asset that does not
-exist and cannot be written. Option 7, giving the boosting area its own container, was called the
-last resort when the options were written and still is: it touches layout to fix what motion and
-colour now handle.
+**Option 4 is done, and my reason for parking it was wrong.** It was written up here as needing the
+client to know a boost carries a star ability, "which is not in the descriptor today". True and
+irrelevant: it is in the card's own text. 375 cards carry the marker, in exactly one spelling,
+`[star] <b>Boost</b>:`, ✓ VERIFIED by scanning every text in `cards.json` and finding no other form.
+`cleanResText` leaves it alone, because it only substitutes the four resource icons and `boost`. So
+the client already held the answer and only had to look, and no engine change was needed.
+
+`CenterPreview.hasStarBoost` reads the marker and toggles a `boost-star` class. Two things follow
+from it. The ribbon becomes "★ BOOST", using the game's own marker rather than new vocabulary: the
+star in the ribbon is the same star the card prints in front of its ability, so the two read as one
+thing. And the grey-out lifts from `grayscale(.9) brightness(.55)` to `grayscale(.3) brightness(.9)`,
+because the entire reason this card is different is that its text matters and the pause is when you
+read it. ✓ VERIFIED against Weapons Runner: "★ Boost: Put Weapons Runner into play engaged with
+you" is legible in the preview, next to a ribbon carrying the same star.
+
+**Still open, and each for a reason rather than for lack of time.** Option 5 needs a sound asset
+that does not exist and cannot be written. Option 7, giving the boosting area its own container,
+was called the last resort when the options were written and still is: it touches layout to fix
+what motion and colour now handle.
 
 Verified in Chrome against the running server on 2026-08-16, which closes the "not verified in a real
 browser" note on `8d57468`. On `public/marvel.html` the CSSOM holds the ENTERS PLAY rule with its
