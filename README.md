@@ -1,16 +1,36 @@
 The open-source of Marvel LCG digital version on [ITCH](https://irefrixs.itch.io/marvel-lcg)
 
-## About this fork
+## About this project
 
-This is [hexate/marvel-lcg](https://github.com/hexate/marvel-lcg), a fork of
-[irefrixs/marvel-lcg](https://github.com/irefrixs/marvel-lcg). You are reading `main`, the trunk,
-which is the upstream game plus a stabilization pass: crash fixes, a working save, a replay-independent
-test suite, and a run script. See [CHANGELOG.md](CHANGELOG.md) for what changed and why.
+This is [hexate/marvel-lcg](https://github.com/hexate/marvel-lcg), where the digital Marvel LCG
+carries on. The game was originally developed by the Irefrixs Team and open-sourced in July 2026.
+[irefrixs/marvel-lcg](https://github.com/irefrixs/marvel-lcg) declared the project sunset on
+2026-08-10 and is no longer taking changes, so continued work happens here.
 
-`master` is left as an exact mirror of upstream and is not where the work lives. The `pr/*` branches
-are a record of fixes offered back upstream, each a readable one-commit diff against it; upstream
-declared the project sunset and took none of them, so no new ones are cut. Branch layout is in
+You are reading `main`, the trunk: the original game plus a stabilization pass and the work since.
+Crash fixes, a working save, a replay-independent test suite, a rebuilt board layout, a one-command
+build. See [CHANGELOG.md](CHANGELOG.md) for what changed and why.
+
+### Upstream
+
+Read it, do not send to it. Across five issues the original maintainer answered in detail, conceded
+the technical point most times, and acted on none of them, including one he called "an actual bug in
+the open-source version". Three replies end with a variant of "feel free to change it in your fork".
+He remains the best source on why the code is the way it is, and that is worth a great deal: the
+history behind the RNG, the save format and the test method all came from asking him.
+
+`master` is a pinned mirror of upstream and is never committed to, because the
+`compare/master...pr/x` links in those issues read against it. The `pr/*` branches are the record of
+what was offered and declined. No new ones are cut. Branch layout is in
 [docs/proposed_changes.md](docs/proposed_changes.md).
+
+### One caveat before you build on this
+
+There is no `LICENSE` file, here or upstream, so the default is all rights reserved. The original
+maintainer said in writing that community builds are welcome and approved crediting the work as
+*"originally developed by the Irefrixs Team"*, but a comment on an issue is not a licence grant with
+terms. That is fine for private play and is the open question in front of anything wider. Tracked as
+U5 in [docs/proposed_changes.md](docs/proposed_changes.md).
 
 Build it with `./build.sh` and start it with `./play.sh`. The first creates the virtualenv,
 installs both halves' dependencies and compiles the client; the second runs the game and will

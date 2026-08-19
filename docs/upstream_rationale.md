@@ -15,7 +15,13 @@ in timing.
 > detail on 2026-08-05 and pushed commits on 2026-08-07, both after the final devlog. Treat him as
 > an active, responsive maintainer who has stopped adding features — not as someone who has left.
 > Current engagement status and everything he has already answered publicly is tracked in
-> [`proposed_changes.md` §0](proposed_changes.md#0-upstream-status).
+> [`proposed_changes.md` §0](proposed_changes.md#0-upstream-status-and-why-nothing-goes-there).
+>
+> **Update 2026-08-19.** That reading held: responsive, detailed, and unwilling to take changes. He
+> answered five issues, conceded most of them and acted on none, so continued work happens in this
+> repository instead. This file is unaffected by that and stays as it is. It is a reference copy of
+> why the game was open-sourced and a check of the technical claims in it, which is exactly as
+> useful now as it was then.
 
 ---
 

@@ -26,7 +26,17 @@ Claims in this doc are marked so we know what has actually been checked:
 
 ---
 
-## 0. Upstream status
+## 0. Upstream status, and why nothing goes there
+
+**Read this section as history plus a standing decision.** Everything in it was written while this
+repository was a fork queuing patches for someone else. It stopped being that on 2026-08-19: the
+work continues here, and upstream is a source of answers rather than a destination for changes. The
+U-series below is the record of what was offered and what came back, not a live queue. Nothing in it
+is waiting on anyone.
+
+The detail is kept in full because it is the evidence for the decision, and because the answers
+themselves are still worth having: the numpy history, the save format and their test method all came
+out of asking, and none of it is written down anywhere else.
 
 Checked 2026-08-18. Local `HEAD` is `2ac194a`, identical to `irefrixs/marvel-lcg@master`. No
 upstream commits since 2026-08-07, ✓ VERIFIED by `git fetch upstream` on 2026-08-18.
@@ -175,7 +185,12 @@ engine. Its `mt19937.py` is the file irefrixs recommended, and per the audit abo
 reproduce numpy for shuffle and choice. Worth watching: it is solving the same determinism problem
 we are, one layer deeper, by writing the contract down first.
 
-### Our contributions
+### Our contributions, closed
+
+Historical. Every row is answered or superseded, and no new ones are added: see the section head for
+why. Kept because "what was offered, and what he said back" is the reasoning behind the current
+stance, and because two of these answers, the RNG history on #4 and the save format on #6, are the
+only public record of how those parts of the engine came to be.
 
 | ID | Item | Status |
 | --- | --- | --- |
@@ -529,7 +544,7 @@ This is the single largest lever on B1: buffs are declarative state that can be 
 rolled back, whereas registered closures cannot. Any UNDO redesign probably depends on this
 landing first.
 
-**Open question for Q:** is finishing a 3,400-script migration realistic for this fork, or is the
+**Open question for Q:** is finishing a 3,400-script migration realistic here, or is the
 better play a compatibility shim that lets both mechanisms coexist and converts scripts lazily as
 they are touched?
 
@@ -569,7 +584,7 @@ See G1.
 
 ✗ UNVERIFIED — no audit yet of what specifically in the engine assumes co-op (single villain,
 shared encounter deck, non-adversarial targeting). The ~300h estimate is upstream's, for their
-own codebase and standards. Do not treat it as a scoped estimate for this fork.
+own codebase and standards. Do not treat it as a scoped estimate for this project.
 
 ---
 
@@ -1769,7 +1784,7 @@ That is the first time the replay suite has run green in this repo. The 4-input 
 from `min_test` only; the identical original is still in `replays/`.
 
 The corpus is still untracked and always will be, since `.gitignore` covers it and the scenes are
-player data upstream will not take. Anyone cloning this fork starts with an empty `min_test` and
+player data upstream will not take. Anyone cloning this repository starts with an empty `min_test` and
 gets I1's bare `AssertionError`, which is why I1 and I4 are worth more than their size suggests.
 
 ### G1 attempt log (2026-08-09): not answered

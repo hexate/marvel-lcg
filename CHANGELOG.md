@@ -1,8 +1,9 @@
 # Changelog
 
-This is a fork of [irefrixs/marvel-lcg](https://github.com/irefrixs/marvel-lcg). Entries describe
-what changed in the fork, newest first. The full reasoning behind every item, including the ones
-deliberately not done, lives in [`docs/proposed_changes.md`](docs/proposed_changes.md).
+Continuing [irefrixs/marvel-lcg](https://github.com/irefrixs/marvel-lcg), originally developed by
+the Irefrixs Team and sunset on 2026-08-10. Entries describe what changed here, newest first. The
+full reasoning behind every item, including the ones deliberately not done, lives in
+[`docs/proposed_changes.md`](docs/proposed_changes.md).
 
 ## 2026-08-16 to 08-18
 
