@@ -265,6 +265,44 @@ another contributor (`z00lus`) is already maintaining a divergent fork with his 
 | --- | --- | --- |
 | U5 | **No `LICENSE` file exists.** Absent one, default copyright is "all rights reserved"; the issue-#3 comment is strong evidence of intent but is not a license grant with terms. Low risk for private/hobby work, real risk before any distribution or commercial use. He has already named Apache 2.0, so the ask is "please commit the file," not a new question, offer to send it. | PROPOSED, **more urgent after 2026-08-10**: a sunset project may never get one, and he is actively pointing people at forks he cannot license |
 
+### U11: the content layer, which no licence from upstream can settle
+
+Raised by Q on 2026-08-19 while reviewing the README caveat, and the more consequential of the two
+rights questions. U5 is about the engine, which is irefrixs's to license. This is about everything
+the engine reads, which is not his and not ours.
+
+**What this repository actually distributes.** ✓ VERIFIED rather than assumed:
+
+- `data/cards.json` is tracked, 2.0 MB, and carries the printed text of **3,524 cards** verbatim.
+  That is Fantasy Flight's expression, not game mechanics.
+- `assets/` is **not** distributed. It is gitignored and sits at 328 MB locally only. The fetch
+  URLs in `engine/file/cache.py:201-203` point at community databases, Cerebro and MarvelCDB, so
+  art arrives on the player's machine from a third party or from their own itch.io download.
+- The art carries its own notice. The Weapons Runner face reads "© MARVEL © 2019 FFG" along the
+  bottom edge, legible in the centre preview.
+- The repository name, and the game's name, are FFG and Marvel marks.
+
+**The distinction that matters.** Rules and mechanics are generally not copyrightable, so an engine
+that implements how the game plays sits on much firmer ground than the data it reads. Card text,
+card art, character names and the product name are a different category, and a permissive licence
+from irefrixs would settle U5 and change nothing here.
+
+**What moves the risk**, as far as anyone here can judge: visibility, how easily it substitutes for
+buying the game, and whether money is ever involved. Today it is a code repository plus card data,
+with no build distributed and no art shipped, which is roughly what upstream did publicly for weeks.
+A one-click bundle with art included, or wide promotion, is a different proposition.
+
+**Note the sunset was not this.** The announcement gives three reasons and all three are technical:
+Python's runtime cost, the unfinished buff migration, and a 300-hour PVP refactor. No legal reason
+appears anywhere in it, and it explicitly opens the project "so the community can still build,
+extend, and improve". Evidence that there was no takedown. Not protection.
+
+**Status: PROPOSED, and deliberately not acted on.** Q's call on 2026-08-19 was to record it here
+rather than in the README, on the reasoning that a prominent notice is itself a flag. Two things
+follow for whoever picks this up. `assets/` staying out of the repository is load-bearing and should
+not be re-included for convenience. And none of this is a lawyer's opinion, which is what "treating
+this as the continuation" would need before it meant broad public distribution.
+
 ### Branch layout and how to package a contribution
 
 **Revised 2026-08-19, when this repository became the project's continuation rather than a queue of
