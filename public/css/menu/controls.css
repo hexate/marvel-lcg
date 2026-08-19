@@ -50,11 +50,33 @@
     --btn: #39414f;
     --btn-primary: #2f6ab5;
     --btn-radius: 6px;
+
+    /* Kept in step with `marvel2/type.css`, which is the source of truth and is where the reasoning
+     * lives. Duplicated rather than shared because that file is loaded only by the board and these
+     * pages are not the board. If one stack changes, change both. */
+    --font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 /* Fixed, so the vignette stays put on the setup page, which is several screens tall. Without that
  * the dark corners scroll through the middle of the content. */
+/* The page font.
+ *
+ * `menu/style.css` sets `body { font-family: monospace }` and the start page hard-coded Arial, so
+ * these two screens were the last places still in a fixed pitch after N7 moved the board to a
+ * proportional stack. This rule wins on document order, since `controls.css` is linked after
+ * `menu/style.css`. Deliberately NOT edited at the source, because `menu/style.css` is shared with
+ * the deck editor, the card browser and the replay list, and those were not in scope.
+ *
+ * `tabular-nums` for the reason N7 gave: it is the one thing a monospace face was actually earning
+ * here. The timeout and heroic labels rewrite their own numbers as you drag them, and in a
+ * proportional face the digits are different widths, so the text reflows while you watch. This
+ * fixes the digit width without touching the face. These pages carry counts, seeds and timeouts
+ * rather than running prose, so it applies at the body and nothing has to opt in. */
 body {
+    font-family: var(--font-ui);
+    font-variant-numeric: tabular-nums;
+
     background: var(--menu-felt-mid);
     background-image:
         radial-gradient(ellipse 90% 70% at 50% 38%,
