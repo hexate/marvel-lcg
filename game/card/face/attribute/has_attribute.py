@@ -53,15 +53,28 @@ class HasAttribute(CardFace):
 
     @override
     def GetInfoDict(self) -> Dict[str, int]:
+        # Hot, but do not expect to speed it up here: called once per on-field card per decision to
+        # build the CRC that verifies replays, and measured at 0.077s of a 1.30s session (I6).
+        #
+        # The dict this returns is summed into the checksum stamped on every recorded input, so
+        # changing *what* it contains changes every CRC and invalidates every save on disk. Only
+        # value-identical changes are available, and the obvious ones are already done and did not
+        # help: replacing `dic |= {key: ...}`, which allocated a throwaway dict per attribute, with
+        # a direct assignment measured the same to three runs either side. The cost is not the dict
+        # churn, it is the `getattr` below evaluating a dozen computed attributes per card, and 92%
+        # of this function's time is in those getters rather than in this frame.
+        #
+        # `is None` rather than `== None` is kept for its own sake: `==` calls `__eq__` on whatever
+        # the attribute happens to be.
         dic: Dict[str, int] = {}
         for key in self.info_dict:
             value = getattr(self, key)
             if isinstance(value, str):
                 value = 1 if value != "" else 0
-            if isinstance(value, list):
+            elif isinstance(value, list):
                 value = len(value) # type: ignore
-            if value == None:
+            elif value is None:
                 value = 0
-            dic |= {key: int(value)}
+            dic[key] = int(value)
         return dic | super().GetInfoDict()
 
