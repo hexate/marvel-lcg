@@ -71,11 +71,42 @@
      * from `--sux`. v1 could not do this: one uniform transform had to serve both, so a window that
      * was not 16:9 paid for it in empty bars.
      *
-     * Change either number below and the board rescales; nothing else knows the dimensions. */
-    --scene-rows: 1080;
-    --scene-cols: 1920;
+     * The dimensions themselves live on `:root` below, not here, because the chrome outside the
+     * board needs them too and cannot see a variable set on a descendant. */
     --su:  calc(100cqb / var(--scene-rows));
     --sux: calc(100cqi / var(--scene-cols));
+}
+
+/******************************************************************************
+* The canvas, and the one thing outside the board that scales with it
+*
+* These sit on the root rather than on `#scene` so that elements outside `#camera` can reach them.
+* Container query units cannot go there: `cqb` resolves against the nearest ancestor container, and
+* a side bar has none. Change a number here and both the board and the chrome rescale.
+*/
+:root {
+    --scene-rows: 1080;
+    --scene-cols: 1920;
+    /* Unitless, so it can be multiplied by a unit below. */
+    --scene-font: 26;
+
+    /* The chrome outside the board: side bar, history log, prompts, both button styles, overlay
+     * and `res`.
+     *
+     * v1 computes this in JS inside `adjustSceneScale`, as the base size times
+     * `min(vw/1920, vh/1080)`. v2 never runs that function, so the value stayed at the static 16px
+     * fallback in `marvel.css` and stopped tracking the window at all: about 20% small at a
+     * 1512x827 board, and frozen at every other size.
+     *
+     * Restated in v2's own terms rather than ported. `#camera` is `100dvh` tall and the board takes
+     * every size from its block axis, so the chrome takes the same block unit and scales with the
+     * board by construction. It cannot use `--su` itself for the reason given above. `dvh` for the
+     * same reason `#camera` uses it: a mobile toolbar sliding away should not resize the text.
+     *
+     * This agrees with v1 on any window at least 16:9, where v1's `min()` also picks the height. It
+     * differs on a taller one, where v1 shrinks the chrome to the width and this does not, which is
+     * the same call the board itself makes. */
+    --font-size-out: calc(var(--scene-font) * 100dvh / var(--scene-rows));
 }
 
 /******************************************************************************
@@ -87,7 +118,7 @@
 #scene {
     --card-height: calc(176 * var(--su));
     --card-width: calc(127 * var(--su));
-    --font-size: calc(26 * var(--su));
+    --font-size: calc(var(--scene-font) * var(--su));
     --border-size: var(--font-size);
 }
 
