@@ -374,7 +374,9 @@ body.hold-alt .image-preview-text{
     color: #fff;
     background: rgba(230, 125, 34, .92);
     box-shadow: 0 2px 10px #000a;
-    padding: .15rem 0;
+    /* Logical, not `padding: .15rem 0`. The rotated variant below turns the band on its side, and
+       `padding-block` follows it there while a physical padding would thin the wrong axis. */
+    padding-block: .15rem;
 }
 
 /*****************************************************************************
@@ -422,5 +424,62 @@ body.hold-alt .image-preview-text{
     color: #fff;
     background: rgba(46, 134, 171, .92);
     box-shadow: 0 -2px 10px #000a;
-    padding: .15rem 0;
+    /* See the note on the boost ribbon's padding. */
+    padding-block: .15rem;
+}
+
+/*****************************************************************************
+* Both ribbons on a rotated card
+*
+* An encounter side scheme is a landscape card stored portrait, so `.card.type-encounter-side-scheme`
+* sets `--rotate-times: 1` (`card.css`) and the preview turns 90deg. Both ribbons are `::after` on
+* the element that turns, so they went with it and read sideways. It is the only type in either
+* selector the game ever rotates, but this keys on the rotation rather than the type, because
+* `HoverCard.rotate` (q, e, r, middle click) can put any card in this state.
+*
+* Where the bands go. CSS rotation is clockwise, so at 90deg the card's local right edge lands at
+* the bottom of the screen and its local top edge lands at the right. ENTERS PLAY therefore moves
+* to the local right edge to stay visually at the bottom, and BOOST moves to the local left edge to
+* stay visually at the top. Anchoring to `top: 0; bottom: 0` makes each band span the card's full
+* visual width, and leaving the other axis `auto` keeps the thickness at exactly one line, the same
+* 27.3px the horizontal bands get. No measurement, so `body.hold-alt`'s larger preview is free.
+*
+* Why `vertical-rl` plus `rotate: 180deg` rather than a counter-rotation. Turning the band back by
+* -90deg would turn its box back too, and the box has to stay along the card's edge. Laying the text
+* out vertically instead leaves the box where it is and only changes the direction the line runs:
+* `vertical-rl` puts the glyphs 90deg clockwise reading downward, the 180deg makes that 90deg
+* anticlockwise reading upward, and the card's own 90deg brings it back to upright and left to
+* right. The pair is `sideways-lr`, which says this in one keyword but is much newer.
+*
+* The 180deg rotates the box shadow with everything else, which is why these two offsets are the
+* opposite sign from the direction they land in. ✓ VERIFIED in Chrome by exaggerating both to 20px
+* in a solid colour and confirming which side of the band they fell on.
+*
+* Only 1 is handled. At 2 or 3 the card is upside down or on its other side, which needs two more
+* keyframes of this and only happens if a player rotates the centre preview by hand.
+*/
+@container style(--rotate-times: 1) {
+
+    .image-preview.boost-flip::after {
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: auto;
+
+        writing-mode: vertical-rl;
+        rotate: 180deg;
+        box-shadow: -2px 0 10px #000a;
+    }
+
+    #image-preview-div-center .image-preview:not(.boost-flip):is(.type-minion,
+        .type-encounter-side-scheme, .type-attachment, .type-environment)::after {
+        top: 0;
+        bottom: 0;
+        right: 0;
+        left: auto;
+
+        writing-mode: vertical-rl;
+        rotate: 180deg;
+        box-shadow: 2px 0 10px #000a;
+    }
 }

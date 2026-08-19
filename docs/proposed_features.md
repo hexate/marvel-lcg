@@ -128,15 +128,62 @@ matter: bare, `content: none` and the default grey outline, so a treachery is un
 the one worth having, because it proves the `:not(.boost-flip)` guard holds and a minion flipped for
 its icons cannot wear both ribbons.
 
-Two known gaps remain. Nobody has yet seen the ribbon drawn over a real card during an actual villain
-attack, which needs a game played far enough to get one, and the check above deliberately stops short
-of that. And schemes render rotated, so the ENTERS PLAY ribbon sits correctly on the card's own
-bottom edge but reads sideways. Counter-rotating it is a later call.
+One known gap remains from that pass. Nobody has yet seen the ribbon drawn over a real card during
+an actual villain attack, which needs a game played far enough to get one, and the check above
+deliberately stops short of that.
+
+### The rotated case, closed 2026-08-18
+
+The other gap was that a scheme renders rotated, so both ribbons sat correctly on the card's own
+edges and read sideways. That is fixed for a quarter turn, in CSS only, in `image-preview.css`.
+
+An encounter side scheme is a landscape card stored portrait: `card.css` gives it
+`--rotate-times: 1`, `HoverCard.show` copies that onto the preview from the card's `.face`, and
+`.image-preview` turns 90deg. Both ribbons are `::after` on the element that turns, so they turned
+with it. It is the only type in either selector the game ever rotates, but the rule keys on
+`--rotate-times` through a style query rather than on the type, because `HoverCard.rotate` (q, e, r,
+middle click) can put any card in that state, and because a style query that an engine does not
+support is ignored rather than misapplied, which degrades to exactly today's behaviour.
+
+Two things had to be worked out rather than guessed.
+
+**Which edge.** CSS rotation is clockwise, so at 90deg the card's local right edge lands at the
+bottom of the screen and its local top edge lands at the right. ENTERS PLAY moves to the local right
+edge to stay visually at the bottom, BOOST moves to the local left edge to stay visually at the top.
+Anchoring each to `top: 0; bottom: 0` and leaving the other axis `auto` makes the band span the
+card's full visual width at exactly one line thick, with no measurement, so `body.hold-alt`'s larger
+preview needs nothing.
+
+**How to keep the text upright.** Counter-rotating the band by -90deg would turn its box back too,
+and the box has to stay along the card's edge. Laying the text out vertically instead leaves the box
+where it is: `writing-mode: vertical-rl` plus `rotate: 180deg` puts the glyphs 90deg anticlockwise
+running upward, and the card's own 90deg brings that back to upright and left to right. That pair is
+what `sideways-lr` means in one keyword, which is much newer and not worth the support risk. The
+180deg also rotates the box shadow, which is why the two offsets are written the opposite sign from
+the side they land on.
+
+Verified in Chrome twice. First in a standalone page reproducing the rotation, which is where the
+shadow direction was settled by exaggerating both to 20px in a solid colour and seeing which side of
+the band they fell on. Then against the running server on `marvel.html`: the CSSOM holds the
+container rule with both selectors intact, and forcing the centre preview to
+`type-encounter-side-scheme` with `--rotate-times: 1` draws ENTERS PLAY horizontally along the visual
+bottom edge and, with `boost-flip` added, BOOST horizontally along the visual top. The unrotated case
+was re-checked in the same session because the base rules moved from `padding: .15rem 0` to
+`padding-block: .15rem` so the padding follows the writing mode: still `horizontal-tb`, still the
+bottom band, still 2.4px block padding and 0 inline. No change.
+
+Two limits, both deliberate. Only a quarter turn is handled; at two or three the card is upside down
+or on its other side, which needs the same work again and only happens if a player rotates the centre
+preview by hand. And `.image-preview-boost`, the row of lifted boost icons, is a child of the same
+rotating element and has had no equivalent treatment, so on a rotated boost card the icons should
+still run down the screen's right edge with each glyph on its side. ? INFERRED from reading the CSS,
+not seen rendered.
 
 ## Decision log
 
 | Date | Change |
 | --- | --- |
+| 2026-08-18 | Closed the rotated-scheme half of N2's known gaps. Both ribbons stay on the card's visual bottom and top edges and read upright at a quarter turn, keyed on `--rotate-times` rather than the card type. The boost icon row is still untreated and is now the open half. |
 | 2026-08-18 | Upstream answered the three open issues. Nothing in them touches N1 or N2 directly, but the "upstream-shaped?" column can stop being a live question: he conceded the technical point on two of them and confirmed the third as a real bug, and acted on none. The honest default for this document is now no, without the case-by-case caveat. Reasoning in section 0 of [proposed_changes.md](proposed_changes.md). |
 | 2026-08-16 | Recorded the three N2 commits that landed on 2026-08-13 but were never written up, and moved N2 to IN PROGRESS. Added IN PROGRESS to the legend, since a feature with seven options was always going to need it. |
 | 2026-08-13 | Created, alongside `stable` becoming the fork's trunk. Seeded with N1, which is not a new idea but the deferred half of F6c: that row was closed as a decision not to fail closed, on the explicit grounds that the real fix is a feature, so it belongs here rather than sitting as a permanently open defect. |
