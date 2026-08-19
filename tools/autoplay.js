@@ -91,13 +91,47 @@ class Auto {
     const btns = [...document.querySelectorAll('#option-buttons button')]
       .filter(b => vis(b) && !b.classList.contains('disable'));
     if (!btns.length) return false;
-    const label = (btns[0].innerText || '').trim().slice(0, 18);
-    if (!btns[0].classList.contains('clicked')) btns[0].click();
+
+    const b = this.board();
+    const scored = btns.map(el => ({ el, label: (el.innerText || '').trim(), }))
+      .map(o => ({ ...o, score: this.rankOption(o.label, b) }))
+      .sort((x, y) => y.score - x.score);
+    const best = scored[0];
+
+    // Remember what we asked for. The targeting step that follows has no other way to know whether
+    // these highlighted cards are things to hit or things to thwart.
+    const l = best.label.toLowerCase();
+    this.intent = /^attack/.test(l) ? 'attack' : /^thwart/.test(l) ? 'thwart' : null;
+
+    if (!best.el.classList.contains('clicked')) best.el.click();
     await sleep(500);
     const ok = document.querySelector('#btn-ok');
     if (vis(ok)) ok.click();
     await sleep(700);
-    return 'option:' + label;
+    return 'option:' + best.label.slice(0, 18);
+  }
+
+  /** Which highlighted card to click, given what we just asked to do.
+   *
+   *  Document order is not a plan. Attacking wants an engaged minion gone first, because a minion
+   *  hits back every turn while the villain's health is a fixed pool; thwarting wants the main
+   *  scheme, because that is the one with a limit that ends the game.
+   */
+  bestTarget() {
+    const candidates = [...document.querySelectorAll('#scene .card.highlight-targets:not(.selected)')];
+    if (!candidates.length) return null;
+    const areaOf = c => (c.parentElement && c.parentElement.id) || '';
+    const rank = c => {
+      const a = areaOf(c);
+      if (this.intent === 'attack') {
+        return a.includes('engaged-minions') ? 0 : a.includes('villain') ? 1 : 2;
+      }
+      if (this.intent === 'thwart') {
+        return a.includes('schemes-main') ? 0 : a.includes('schemes-side') ? 1 : 2;
+      }
+      return 2;
+    };
+    return candidates.sort((x, y) => rank(x) - rank(y))[0];
   }
 
   /** Select targets until the game is satisfied.
@@ -119,14 +153,14 @@ class Auto {
     const okEl = () => document.querySelector('#btn-ok');
     let picks = 0;
     for (let i = 0; i < ceil; i++) {
-      let t = document.querySelector('#scene .card.highlight-targets:not(.selected)');
+      let t = this.bestTarget();
       if (!t) break;
       // A card inside an unopened deck takes two clicks: one opens the deck, one takes the card.
       const inDeck = t.parentElement.classList.contains('deck')
                   && !t.parentElement.classList.contains('clicked');
       t.click(); await sleep(400); picks++;
       if (inDeck) {
-        t = document.querySelector('#scene .card.highlight-targets:not(.selected)');
+        t = this.bestTarget();
         if (t) { t.click(); await sleep(400); }
       }
       if (picks >= floor && vis(okEl())) break;
@@ -149,6 +183,7 @@ class Auto {
     const end = document.querySelector('#btn-end');
     if (!vis(end)) return false;
     if (!/end\s*turn/i.test(end.innerText || '')) return false;
+    this.tried = new Set();   // abilities come back on a new turn
     end.click(); await sleep(900);
     const ok = document.querySelector('#btn-ok');
     if (vis(ok)) ok.click();
@@ -323,12 +358,97 @@ class Auto {
     return this.over() ? { outcome: t('#game-over-text'), reason: t('#game-over-text-2') } : null;
   }
 
+
+  /** The board state a policy needs, read off the same elements a player looks at.
+   *
+   *  `.health` is the number printed on a card, `.target_threat` is "threat/limit" on the main
+   *  scheme and is empty while the scheme is still at zero. The identity card carries its form as
+   *  a class, which is what decides whether attacking is even legal.
+   */
+  board() {
+    const num = el => { const m = ((el && el.textContent) || '').match(/\d+/); return m ? +m[0] : null; };
+    const identity = document.querySelector('#player-all-area-hero .card');
+    // The scheme's "threat/limit" is generated content on `.info::after`, so it is invisible to
+    // textContent and the first version of this read an empty string and concluded there was no
+    // scheme pressure at all. That made the policy think attacking was always safe.
+    const info = document.querySelector('#area-schemes-main .card .info');
+    const threat = (info ? getComputedStyle(info, '::after').content : '').match(/(\d+)\s*\/\s*(\d+)/);
+    return {
+      villainHp: num(document.querySelector('#area-villain .card .health')),
+      heroHp: num(identity && identity.querySelector('.health')),
+      alterEgo: !!(identity && identity.classList.contains('type-alter-ego')),
+      threat: threat ? +threat[1] : 0,
+      threatLimit: threat ? +threat[2] : null,
+      minions: document.querySelectorAll('#player-all-engaged-minions .card').length,
+    };
+  }
+
+  /** How much we want a given ability, 0-100.
+   *
+   *  The reason the runs kept losing to the scheme was not that they played illegal moves, it was
+   *  that `options()` clicked the first button every time. The first button is whatever the client
+   *  happened to list first, so the choice between attacking and thwarting was effectively random,
+   *  and a game is lost by ignoring the scheme long before it is won by hitting the villain.
+   *
+   *  Threat pressure decides it. Below half the limit there is room to attack; above it the scheme
+   *  is the thing that ends the game and thwarting comes first.
+   */
+  rankOption(label, b) {
+    const l = label.toLowerCase();
+    const pressure = b.threatLimit ? b.threat / b.threatLimit : 0;
+    // Attacking requires hero form, so getting out of alter-ego early is worth more than any single
+    // action. Under real threat pressure the alter-ego side is the wrong place to be at all.
+    if (/change form/.test(l)) return b.alterEgo ? (pressure < 0.7 ? 92 : 45) : 12;
+    if (/^thwart/.test(l))     return pressure >= 0.5 ? 100 : 58;
+    if (/^attack/.test(l))     return pressure >= 0.8 ? 50 : 96;
+    // Only worth a turn when the damage is actually dangerous; recovering at full health wastes it.
+    if (/^recover/.test(l))    return (b.alterEgo && b.heroHp !== null && b.heroHp <= 5) ? 88 : 18;
+    if (/^defense/.test(l))    return 32;
+    if (/cancel/.test(l))      return -100;
+    return 62;  // a card's own ability: usually why the card was played
+  }
+
+
+  /** Click a card that has an ability available, which is what puts the options on screen.
+   *
+   *  The missing rung. `options()` could only ever fire when `#option-buttons` already had buttons
+   *  in it, but the client fills that div in response to clicking an activatable card: the whole
+   *  Attack / Thwart / Change Form menu hangs off the identity card and does not exist until it is
+   *  clicked. So a run could hold a full hand, a healthy hero and an untouched villain, and still
+   *  have nothing to do but end the turn, which is exactly what the logs showed.
+   *
+   *  The identity card comes first because the basic actions live there and they are what actually
+   *  moves a game toward winning; everything else in play is tried after it.
+   */
+  async useAbility() {
+    const marked = [...document.querySelectorAll('#scene .card.highlight-effect')].filter(c => {
+      const a = (c.parentElement && c.parentElement.id) || '';
+      return !a.includes('hand-cards');   // playing from hand is its own gesture
+    });
+    if (!marked.length) return false;
+    // A card whose ability led nowhere must not be clicked again, or the run spends the turn
+    // opening and closing the same menu: one game logged ten `ability` steps in a row without the
+    // board changing, because clicking toggles and the toggle itself moves the fingerprint.
+    this.tried = this.tried || new Set();
+    const identityFirst = c => ((c.parentElement && c.parentElement.id) || '').includes('area-hero') ? 0 : 1;
+    const card = marked
+      .filter(c => !this.tried.has(c.dataset.id))
+      .sort((x, y) => identityFirst(x) - identityFirst(y))[0];
+    if (!card) return false;
+
+    this.tried.add(card.dataset.id);
+    const before = this.fingerprint();
+    card.click();
+    await sleep(700);
+    return this.fingerprint() === before ? false : 'ability';
+  }
+
   async step() {
     // Ordered by how specific the gesture is. `ladder` rotates the starting point when the screen
     // stops responding, so an unrecognised mode still gets the other gestures tried against it.
     const acts = [
       () => this.unpause(), () => this.options(), () => this.pay(), () => this.targets(),
-      () => this.playHand(), () => this.confirm(), () => this.endTurn(),
+      () => this.useAbility(), () => this.playHand(), () => this.confirm(), () => this.endTurn(),
       () => this.escape(), () => this.anyButton(),
     ];
     for (let i = 0; i < acts.length; i++) {
@@ -375,7 +495,7 @@ Auto.prototype.start = function (n) {
       const after = this.fingerprint();
       if (before === after) { this.same++; this.ladder++; } else { this.same = 0; this.ladder = 0; this.escaped = false; }
       if (act === 'none') await this.ready(15000);
-      this.log.push({ act, ...this.health() });
+      this.log.push({ act, ...this.health(), ...this.board() });
       if (this.over()) { this.log.push({ act: 'GAME OVER', ...this.result() }); break; }
       if (this.same > 10) {
         if (await this.settle(after)) { this.same = 0; this.ladder = 0; continue; }
