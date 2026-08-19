@@ -252,26 +252,34 @@ another contributor (`z00lus`) is already maintaining a divergent fork with his 
 
 ### Branch layout and how to package a contribution
 
+**Revised 2026-08-19, when this repository became the project's continuation rather than a queue of
+patches for upstream.** `stable` is now `main`, and `main` is the default branch. The rename is the
+visible half; the reason is that a newcomer arriving at the repository should land on the project.
+Before this, the default branch was `master`, so the front page showed unmodified upstream code and
+none of the work.
+
 | Branch | Purpose | Upstream? |
 | --- | --- | --- |
-| `master` | tracks `upstream/master`, never committed to directly | no |
-| `stable` | the fork's trunk. Everything stabilized, and what you actually run | no |
-| `feat/<topic>` | one new feature or improvement, cut from `stable` | maybe, see below |
-| `pr/<topic>` | one contribution, cut fresh from `upstream/master` | yes |
+| `main` | the trunk and the default branch. Everything stabilized, and what you actually run | no |
+| `master` | pinned mirror of `upstream/master`, never committed to directly | no |
+| `feat/<topic>` | one new feature or improvement, cut from `main` | no |
+| `pr/<topic>` | historical. One contribution, cut fresh from `upstream/master` | closed |
 | `work/engine-audit` | retired at `aababf0`. The stabilization line, kept as history | never |
 
-`master` is pinned to `upstream/master` on purpose and must stay there. Every `compare/master...pr/x`
-link posted in an upstream issue reads against it, so moving it silently rewrites what those links
-show. `stable` exists so the fork has a trunk without spending that.
+`master` stays pinned to `upstream/master` and must stay there, even though nothing is being offered
+upstream any more. Every `compare/master...pr/x` link posted in an upstream issue reads against it,
+so moving it does not break those links, it silently rewrites what they show. Keeping it costs one
+branch name.
 
-A `pr/*` branch must be based **directly on `upstream/master`**, never stacked on `stable`. Stacking
-it there carries unrelated fork commits into the diff and stops it being readable, which is the
-whole point of cutting it separately.
+The `pr/*` branches are a record of what was offered and declined, not a live queue. Do not cut new
+ones. Their contents are already in `main`; they exist separately because a contribution had to be
+readable as a diff against upstream, which is no longer a thing worth spending effort on. See
+section 0 for how that was decided.
 
-Feature work starts from `stable`:
+Feature work starts from `main`:
 
 ```sh
-git checkout -b feat/<topic> stable
+git checkout -b feat/<topic> main
 ```
 
 Assume fork-only. Upstream declared sunset on 2026-08-10 and takes urgent bugfixes case by case, so

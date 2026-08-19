@@ -176,14 +176,17 @@ chores in #6 are intentional developer tools. The fixes live here.
 
 ### Branches
 
+`main` is the trunk and the default branch: the stabilized game, and what you actually run. New work
+is cut from it as `feat/<topic>`. Proposed features are tracked in
+[docs/proposed_features.md](docs/proposed_features.md), the same way defects are tracked in
+[docs/proposed_changes.md](docs/proposed_changes.md).
+
+It was called `stable` until 2026-08-19, and the default branch was `master`, which meant the
+repository's front page showed unmodified upstream code and none of the work. Both are fixed.
+
 `master` is a deliberate mirror of `upstream/master` and is never committed to. It stays pinned so
 that every `compare/master...pr/x` link posted in an upstream issue keeps showing what it showed
 when it was written.
 
-`stable` is the fork's trunk: the stabilized game, and what you actually run. New work is cut from
-it as `feat/<topic>`. Proposed features are tracked in
-[docs/proposed_features.md](docs/proposed_features.md), the same way defects are tracked in
-[docs/proposed_changes.md](docs/proposed_changes.md).
-
-`work/engine-audit` is retired at `aababf0`. It is the stabilization line that became `stable`, kept
+`work/engine-audit` is retired at `aababf0`. It is the stabilization line that became the trunk, kept
 only as history.
