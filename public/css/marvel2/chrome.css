@@ -38,3 +38,49 @@
        hole cut in the row. */
     box-shadow: 0 .5rem 1.4rem rgba(0, 0, 0, .55);
 }
+
+/******************************************************************************
+* Buttons
+*
+* Not unstyled: they already carry a radius, a shadow, a press state (`scale(.96)`) and a semantic
+* colour per button, declared as `--color` and painted through `background-color: var(--color)`.
+* `#btn-end` is `#007ACC`, `#btn-ok` `#269731`, and so on.
+*
+* One real defect, and it is legibility rather than taste. `.button:hover` in `button.css` throws
+* the button's own colour away and swaps in `--color2`, `rgb(191, 191, 191)`, while the label stays
+* white. Measured on a side bar button: 12.63:1 at rest, 1.84:1 hovered, against a floor of 3:1 for
+* text this size. The label all but disappears at the moment you are pointing at it.
+*
+* The action buttons escape it only by accident of maintenance: `btn-ok.css:99` has the same swap
+* commented out. So this is what that comment was reaching for, generalised.
+*
+* Hover now derives from the button's own colour rather than replacing it. Every button already
+* declares `--color`, so one rule lightens each of them and they all keep their identity while
+* being pointed at.
+*
+* The amount is 4%, and it is small for a measured reason. Lightening a fill under a white label
+* always costs contrast, and `darkgoldenrod` starts at 3.25:1, barely over the floor to begin with.
+* Swept the whole palette at 12, 10, 8, 6 and 4: it is the only one that fails, and 4% is the
+* largest step where every button still clears 3:1, with the goldenrod at 3.08.
+*
+* So the fill is not asked to carry the hover on its own. The border does most of the work, going
+* from a quarter-strength white to a little over half. That signals just as clearly, costs no
+* contrast at all, and works the same on the dark buttons where a 4% lift is nearly invisible.
+*/
+.button:hover {
+    background-color: color-mix(in oklab, var(--color) 96%, white);
+    border-color: rgba(255, 255, 255, .55);
+}
+
+/* Pure white at full strength is the other dated tell, and it is the one thing every piece of
+   chrome here had in common. Matches the prompt box above. */
+.button {
+    border-color: rgba(255, 255, 255, .22);
+}
+
+/* There was no keyboard focus style at all, so tabbing through the buttons showed nothing. Only
+   `:focus-visible`, so it stays out of the way of the mouse. */
+.button:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, .75);
+    outline-offset: 2px;
+}
