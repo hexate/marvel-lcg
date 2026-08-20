@@ -509,6 +509,10 @@ async function createScenarios() {
 
             document.querySelector("#set-content").replaceChildren()
             document.querySelector("#set-content").appendChild(details2)
+            // Mark the landscape-printed ones. A pack's thumbnail is its villain when it has one
+            // and its main scheme when it does not, so which way up a card belongs varies inside
+            // this one container and cannot be decided by a CSS rule over it (J29).
+            MarkLandscapeCards(details2)
         }
 
         select.appendChild(summary)
@@ -764,6 +768,25 @@ function openSetDetail(setFile, setName, encounters) {
  * more appear as you open packs and load decks, so binding each one would mean re-binding on every
  * change and missing whatever was added last.
  */
+/** Tag every card image under `root` that is printed landscape.
+ *
+ * The server sends all card art portrait, 710x1030, including cards printed landscape: main
+ * schemes, both side scheme types, statuses and inserts. Those arrive lying on their side. The flag
+ * is `card_info.js`'s, which already classifies exactly those five types.
+ *
+ * A no-op until the card dictionary has loaded, which leaves the old sideways rendering rather than
+ * rotating something the wrong way. */
+function MarkLandscapeCards(root) {
+    const dict = window.__const_card_dict
+    if (!dict || !root) return
+    root.querySelectorAll('img').forEach(img => {
+        const code = img.getAttribute('src')
+        // Box art is a path (`/sets/1. Core Set`); a card is a bare id (`01094`, `24049a`).
+        if (!code || code.includes('/')) return
+        img.classList.toggle('rotate', !!(dict[code] && dict[code].rotate))
+    })
+}
+
 const CardHover = (() => {
     const SHOW_AFTER_MS = 220   // long enough that crossing a row does not strobe previews
 

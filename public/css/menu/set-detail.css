@@ -283,17 +283,23 @@
 
 /* The scenario cards under a pack.
  *
- * Unconditional, and safe to be: `scene.html` builds these from `data["schemes"][0]`, so every
- * image in this container is a main scheme and every main scheme is printed landscape. The button
- * takes the transposed box for the same reason as the panel above. */
-#set-content > div.details > button {
+ * Per card, NOT per container. The first version of this rotated everything here on the reasoning
+ * that `scene.html` builds these from `data["schemes"][0]` and every main scheme is landscape. That
+ * is only the third branch of three. The one above it reads `data["villain"][0]`, which despite
+ * being assigned to a variable called `scheme` is the VILLAIN, and villains are portrait. Most
+ * packs take that branch, so rotating the container turned the Core Set and nearly everything else
+ * on its side. Which branch a pack lands on is not visible from here, so the class is set from the
+ * card's own type in `scene.html`.
+ *
+ * The button only takes the transposed box when it actually holds a rotated card. */
+#set-content > div.details > button:has(> img.rotate) {
     width: var(--card--height);
     height: var(--card--width);
     align-items: center;
     justify-content: center;
 }
 
-#set-content > div.details > button > img {
+#set-content > div.details > button > img.rotate {
     /* Pinned to the PORTRAIT box the file actually is, then turned. Without this the flex button
      * stretches the image to its own 140x100 first, so the rotation acts on an already-squashed
      * picture and lands back at portrait, distorted. Layout keeps a 100x140 box that overflows the
