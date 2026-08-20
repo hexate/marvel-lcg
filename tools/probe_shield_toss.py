@@ -29,10 +29,36 @@ ability. Any test that measures a card's EFFECT through this cheat is measuring 
 report 0 for a working card and a broken one alike. That is what made the first attempt at N10a
 unfalsifiable.
 
-Next step
----------
-Drive the card through the real turn flow instead, answering the `WhenPlayerChooseAbility` ask
-that lists Shield Toss, rather than forcing it through the cheat.
+Turn-flow attempt (2026-08-19, INCOMPLETE)
+-----------------------------------------
+The obvious next step was to play the card through the real turn flow instead. That is started and
+not finished, but it moved the problem a long way and the findings are here so the next attempt
+does not rediscover them.
+
+4. The real ask is `WhenPlayerInTurn`, and its options are named by ACTION, not by card:
+   `['Attack', 'Change_Form', 'Play', 'Play', ...]`. A card is identified by `bind_id`, which is
+   its object id. Matching on a card NAME in the option list never fires, which is what defeated
+   the first turn-flow attempt.
+
+5. Shield Toss is not playable at setup, and this is the step every earlier probe missed.
+   It requires Captain America's Shield in play, as a `ReturnToHand` cost. At setup the Shield is
+   in HAND, not on the table (the setup log line "were placed on table" is the deck search putting
+   it into hand). So the Shield has to be played first. Confirmed: with the Shield in hand there is
+   no `Play` option whose `bind_id` is Shield Toss's object id.
+
+6. Playing the Shield through the turn ask works: the option count drops afterwards.
+
+7. UNRESOLVED: after the Shield is played, Shield Toss still does not appear as a `Play` option.
+   That is where the next attempt should start. Check hero form first, since `Change_Form` is in
+   the option list and Shield Toss is a Hero Action.
+
+8. Declining the turn ask does NOT advance the game. A policy that declines everything spins on
+   `WhenPlayerInTurn` forever, which is why a full `GameLoop()` with the default
+   `decline_or_first` policy never terminates. Cap any exploratory run.
+
+Two practical notes for anyone extending this. Raising an exception from inside the policy is
+caught by the engine's crash handler and writes `crash.json` (gitignored), so use `os._exit` after
+printing instead. And a card face has no `object_id`; it is on `face.card.object_id`.
 """
 import sys
 
