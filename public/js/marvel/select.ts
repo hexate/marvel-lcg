@@ -75,7 +75,17 @@ export class SelectStep {
         let ok = false
         let over_pay = false
         SelectStep.step = 'cost'
-        if( !need_cost || Effect.select_effect_obj.getCost() == "" || Effect.select_effect_obj.isCostRuleUpTo() ) {
+
+        // `up_to` is an X cost: "spend 0 to N", `game/element/cost.py:46`. It used to be tested
+        // here, alongside the two cases that really do mean "there is no cost to show", and that
+        // sent it down the same path: no running total, no OverPay label, OK live from the start.
+        // On the one kind of card whose entire decision is how much to spend, the UI showed nothing
+        // while you spent it (N10).
+        //
+        // It is handled inside the branch now. What `up_to` needs to skip is the VALIDATION, not
+        // the DISPLAY, and those were the same statement.
+        const up_to = Effect.select_effect_obj.isCostRuleUpTo()
+        if( !need_cost || Effect.select_effect_obj.getCost() == "" ) {
             // UI.resetPromptText()
             // UI.setBtnCancelText('Cancel', false)
             // UI.setBtnOkText('Cost', true)
@@ -169,6 +179,15 @@ export class SelectStep {
                 over_pay = true
             }
 
+            // Underpaying an X cost is legal, so it must never disable OK. Set after the type
+            // rules above rather than before, so none of them can put it back.
+            //
+            // `over_pay` is deliberately left alone. On an `up_to` card it means you have gone past
+            // the cap, which buys nothing, so the warning is if anything more useful here.
+            if( up_to ) {
+                ok = true
+            }
+
             let paid_list_copy = paid_list.slice()
             const object_id = Effect.select_effect_obj.bind_id
             // let name = Cards.getCard(object_id)!.name
@@ -193,8 +212,12 @@ export class SelectStep {
             }
 
             let cost_text = cover_res(cost_list)
-            let paid_text = cover_res(paid_list_copy)
-            UI.prompt.setTempPromptText(`<span class='cost-text'>Cost</span> [${Cards.getSpanText(object_id)}]<br/>(${paid_text}) / (${cost_text})`)
+            // "0" rather than an empty bracket. Selecting nothing is the case that needs to read
+            // clearly, because on an X cost it is legal, it resolves, and it does nothing.
+            let paid_text = cover_res(paid_list_copy) || "0"
+            // "Pay up to" states that the number is a ceiling you choose against, not a price.
+            let cost_label = up_to ? 'Pay up to' : 'Cost'
+            UI.prompt.setTempPromptText(`<span class='cost-text'>${cost_label}</span> [${Cards.getSpanText(object_id)}]<br/>(${paid_text}) / (${cost_text})`)
             // console.log(text)
         }
         if( ok ) {
