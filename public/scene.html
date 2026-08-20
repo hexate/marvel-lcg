@@ -473,6 +473,8 @@ async function createScenarios() {
                     image_name = get_name(data["schemes"][0])
                 }
                 option.setAttribute('data-text', data['encounters'].length)
+                option.setAttribute('data-hover-name', data['name'] || text)
+                option.setAttribute('data-hover-kind', data['expert'] ? 'Scenario, expert' : 'Scenario')
 
                 img.src = image_name
                 option.appendChild(img)
@@ -600,6 +602,15 @@ const SetDetail = (() => {
             Environment: ['environment', 'environments'],
             Obligation: ['obligation', 'obligations'],
             Villain: ['villain', 'villains'],
+            // Player card types, for the deck panel. The fallback rule below is "add an s", which
+            // is right for events and upgrades and wrong for the two that matter most.
+            Hero: ['hero', 'heroes'],
+            AlterEgo: ['alter-ego', 'alter-egos'],
+            Ally: ['ally', 'allies'],
+            Event: ['event', 'events'],
+            Upgrade: ['upgrade', 'upgrades'],
+            Support: ['support', 'supports'],
+            Resource: ['resource', 'resources'],
         }
         const counts = new Map()
         for (const card of cards) {
@@ -608,7 +619,10 @@ const SetDetail = (() => {
         }
         const parts = []
         for (const [type, n] of [...counts.entries()].sort((a, b) => b[1] - a[1])) {
-            const label = LABELS[type] || [type.toLowerCase(), type.toLowerCase() + 's']
+            // Types are stored camel-cased, so an unlisted one has to be split before it is
+            // lowercased or "PlayerSideScheme" reads as "playersidescheme".
+            const words = type.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()
+            const label = LABELS[type] || [words, words + 's']
             parts.push(`${n} ${n === 1 ? label[0] : label[1]}`)
         }
         return parts.join(' · ')
@@ -720,42 +734,80 @@ const SetDetail = (() => {
         lastFocused = null
     }
 
-    async function show(setFile, setName, encounters) {
+    /* `groups` is a list of `{ title, cards }`. An encounter set is one group with no title and
+     * draws exactly as it did. A deck is seven, because a deck is not a bag of cards: the identity,
+     * the signature cards that come with it, the player deck you built and the nemesis set you drag
+     * along are different things, and flattening them into one grid of 60 would hide that. */
+    async function show(setName, groups) {
         if (!overlay) build()
         lastFocused = document.activeElement
 
-        // Collapse duplicates into copy counts: a set lists a repeated card once per copy.
-        const order = []
-        const copies = new Map()
-        for (const raw of encounters) {
-            const code = String(raw).split(',')[0]
-            if (!copies.has(code)) { copies.set(code, 0); order.push(code) }
-            copies.set(code, copies.get(code) + 1)
+        // Collapse duplicates into copy counts: a list repeats a card once per copy.
+        function collapse(cards) {
+            const order = []
+            const copies = new Map()
+            for (const raw of cards) {
+                const code = String(raw).split(',')[0]
+                if (!copies.has(code)) { copies.set(code, 0); order.push(code) }
+                copies.set(code, copies.get(code) + 1)
+            }
+            return order.map((code) => ({ code, copies: copies.get(code) }))
         }
 
+        const sections = groups
+            .map((group) => ({ title: group.title, entries: collapse(group.cards) }))
+            .filter((section) => section.entries.length)
+
         titleEl.textContent = setName
-        const total = encounters.length
+        const total = groups.reduce((sum, group) => sum + group.cards.length, 0)
         summaryEl.textContent = `${total} card${total === 1 ? '' : 's'}, loading…`
         listEl.replaceChildren()
         overlay.hidden = false
 
-        const entries = await Promise.all(order.map(async (code) => (
-            { code, copies: copies.get(code), paper: await fetchCard(code) }
-        )))
+        const entries = sections.flatMap((section) => section.entries)
+        await Promise.all(entries.map(async (entry) => { entry.paper = await fetchCard(entry.code) }))
 
         summaryEl.textContent = `${total} card${total === 1 ? '' : 's'}`
             + (describeComposition(entries) ? ` · ${describeComposition(entries)}` : '')
-        listEl.replaceChildren(...entries.map(cardCell))
+
+        const children = []
+        for (const section of sections) {
+            if (section.title) {
+                const heading = document.createElement('div')
+                heading.className = 'set-detail-section'
+                const n = section.entries.reduce((sum, entry) => sum + entry.copies, 0)
+                heading.textContent = `${section.title} (${n})`
+                children.push(heading)
+            }
+            children.push(...section.entries.map(cardCell))
+        }
+        listEl.replaceChildren(...children)
         listEl.scrollTop = 0
     }
 
     return { show, hide }
 })()
 
-function openSetDetail(setFile, setName, encounters) {
+function openSetDetail(setName, encounters) {
     // Leave no card floating over the panel that is about to open.
     CardHover.hide()
-    SetDetail.show(setFile, setName, encounters)
+    SetDetail.show(setName, [{ title: '', cards: encounters }])
+}
+
+/** The same panel for a deck, in the parts a deck is actually built from. */
+function openDeckDetail(name, data) {
+    CardHover.hide()
+    SetDetail.show(name, [
+        { title: 'Identity', cards: data['hero'] || [] },
+        { title: 'Signature cards', cards: data['hero_deck'] || [] },
+        { title: 'Set aside', cards: data['set_aside'] || [] },
+        { title: 'Player deck', cards: data['player_deck'] || [] },
+        // None of the decks that ship with the game carry one, but the deck editor writes the key,
+        // so a deck built there can.
+        { title: 'Side deck', cards: data['side_deck'] || [] },
+        { title: 'Obligation', cards: data['obligations'] || [] },
+        { title: 'Nemesis set', cards: data['nemesis_set'] || [] },
+    ])
 }
 
 /* Rollover preview of the single card under the pointer.
@@ -792,6 +844,7 @@ const CardHover = (() => {
 
     let panel = null
     let img = null
+    let caption = null
     let timer = 0
     let current = null
 
@@ -799,9 +852,28 @@ const CardHover = (() => {
         panel = document.createElement('div')
         panel.className = 'card-hover-preview'
         panel.hidden = true
+
+        // The art sits in its own box so that the caption underneath is outside whatever that box
+        // has to do to hold a rotated card.
+        const art = document.createElement('div')
+        art.className = 'card-hover-art'
         img = document.createElement('img')
-        panel.appendChild(img)
+        art.appendChild(img)
+        panel.appendChild(art)
+
+        caption = document.createElement('div')
+        caption.className = 'card-hover-name'
+        caption.hidden = true
+        panel.appendChild(caption)
+
         document.body.appendChild(panel)
+    }
+
+    /** The name of the thing a thumbnail stands for, when it stands for something. */
+    function labelOf(el) {
+        const owner = el && el.closest ? el.closest('[data-hover-name]') : null
+        if (!owner) return null
+        return { name: owner.dataset.hoverName, kind: owner.dataset.hoverKind || '' }
     }
 
     /** A card image, as opposed to the pack box art that shares these containers. */
@@ -836,15 +908,29 @@ const CardHover = (() => {
         panel.style.top = `${Math.round(top)}px`
     }
 
-    function show(anchor, code) {
+    function show(anchor, code, label, key) {
         if (!panel) build()
-        current = code
+        current = key
         img.src = code
         // Landscape-printed cards are served lying on their side, so turn them back. The flag is
         // `card_info.js`'s, covering main schemes, both side scheme types, statuses and inserts.
         // `place()` runs after this, so it measures the panel at its rotated size.
         const info = window.__const_card_dict && window.__const_card_dict[code]
         img.classList.toggle('rotate', !!(info && info.rotate))
+
+        // Set before `place()`, which measures the panel and so has to see the caption.
+        caption.replaceChildren()
+        caption.hidden = !label
+        if (label) {
+            if (label.kind) {
+                const kind = document.createElement('span')
+                kind.className = 'card-hover-kind'
+                kind.textContent = label.kind
+                caption.appendChild(kind)
+            }
+            caption.appendChild(document.createTextNode(label.name))
+        }
+
         panel.hidden = false
         place(anchor)
     }
@@ -858,9 +944,15 @@ const CardHover = (() => {
     document.addEventListener('mouseover', (event) => {
         const code = cardCodeOf(event.target)
         if (!code) return
-        if (code === current) return
+        const label = labelOf(event.target)
+        // Keyed on the name as well as the card, not the card alone. Two decks built around the
+        // same hero share an identity card, so moving between them changes nothing about the
+        // picture and everything about the caption. On the card alone that move is a no-op and the
+        // caption keeps naming the deck you have already left.
+        const key = `${code}\n${label ? label.name : ''}`
+        if (key === current) return
         clearTimeout(timer)
-        timer = setTimeout(() => show(event.target, code), SHOW_AFTER_MS)
+        timer = setTimeout(() => show(event.target, code, label, key), SHOW_AFTER_MS)
     })
 
     document.addEventListener('mouseout', (event) => {
@@ -904,6 +996,12 @@ async function createSets() {
         div.setAttribute('data-text', j['encounters'].length)
         div.setAttribute('data-name', text)
         div.setAttribute('data-display', `${j['encounters'][0]} ${text}`)
+        // Named for the rollover. The thumbnail is the set's first card, so without this the only
+        // place a set's name appears is inside the detail panel. Standard against modular is not
+        // said here: which section you are hovering already tells you that, and the test for it
+        // lives at the append below rather than being copied to a fifth place.
+        div.setAttribute('data-hover-name', j['name'] || text)
+        div.setAttribute('data-hover-kind', nemesis ? 'Nemesis set' : 'Encounter set')
         div.appendChild(img)
 
         // Reading about a set must never change your setup, so this is its own control rather than
@@ -918,7 +1016,7 @@ async function createSets() {
         info.onclick = (event) => {
             event.stopPropagation()
             event.preventDefault()
-            openSetDetail(text, j['name'] || text, j['encounters'])
+            openSetDetail(j['name'] || text, j['encounters'])
             return false
         }
         div.appendChild(info)
@@ -1006,6 +1104,372 @@ async function createSets() {
             </label>
         </div>
 
+        <style>
+/* The deck picker.
+ *
+ * The four boxes above are file inputs. Choosing a hero meant opening a file dialog and already
+ * knowing that decks live in "./deck/starter", which is why the paragraph under here had to say so.
+ * Everything the server can list is drawn here instead, as the same 100x140 portraits the rest of
+ * this screen is made of.
+ *
+ * Starter and custom are two groups because they are two different things. A starter deck is the
+ * precon that comes in the box and there is exactly one per hero; a custom deck is a built one, and
+ * several can exist for the same hero. That last part is also why the names are on by default:
+ * every Iron Man deck carries the same identity art, so the portrait alone cannot tell four of them
+ * apart.
+ */
+#deck-library {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    margin-top: .5rem;
+}
+
+#deck-library > details > summary {
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#deck-library .deck-count {
+    font-weight: normal;
+    color: gray;
+}
+
+#deck-library .deck-group-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: .5rem 0;
+}
+
+#deck-library .deck-empty {
+    color: gray;
+    font-style: italic;
+}
+
+#deck-library button.deck-card {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    width: var(--card--width);
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: .25em;
+    background: none;
+    cursor: pointer;
+    filter: drop-shadow(2px 4px 6px black);
+}
+
+#deck-library button.deck-card:hover {
+    filter: drop-shadow(1px 2px 3px white);
+}
+
+#deck-library button.deck-card img {
+    width: var(--card--width);
+    height: var(--card--height);
+    border-radius: .25em;
+
+    outline-style: outset;
+    outline-width: var(--border-width);
+    outline-color: rgb(176, 176, 176);
+
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Chosen decks are marked the way chosen sets are, so the two halves of this screen read the same. */
+#deck-library button.deck-card.click img {
+    outline-color: red;
+    outline-style: solid;
+    filter: drop-shadow(1px 2px 3px red);
+}
+
+/* Which of the four slots it went into. Only set while the deck is in one.
+ *
+ * Bottom left of the card art, because top left is the info badge's corner and a chosen deck that
+ * you are also hovering would show both there. Offset from the top rather than `bottom: 0`: the
+ * button is taller than the art when the names are on, so bottom is under the name, not on the
+ * card. The art is exactly `--card--height` tall by the rule above, so this lands on it. */
+#deck-library button.deck-card::before {
+    content: attr(data-slot);
+    position: absolute;
+    left: 4px;
+    top: calc(var(--card--height) - 1.5rem);
+    z-index: 1;
+
+    font-weight: bold;
+    color: red;
+    background-color: rgba(0, 0, 0, .5);
+    padding: 0 .25rem;
+    border-radius: .2rem;
+}
+
+/* Player deck size, in the corner the set thumbnails use for their card count. */
+#deck-library button.deck-card::after {
+    content: attr(data-text);
+    position: absolute;
+    right: 5px;
+    top: 2px;
+
+    font-weight: bold;
+    font-size: 1rem;
+    line-height: 115%;
+    color: gray;
+}
+
+#deck-library button.deck-card.click::after {
+    color: red;
+}
+
+#deck-library .deck-card-name {
+    display: none;
+}
+
+/* Under the portrait rather than over it. Laid over the bottom of the card it covered the art, and
+ * with the page's `white-space: nowrap` on buttons it was one clipped line, which is no use at all
+ * for telling "Iron Man - Iron Hulk" from "Iron Man - Iron Justice".
+ *
+ * Two lines' worth, always, so the rows stay level whether a name fits on one line or four. What
+ * does not fit is on the rollover and on the button's own tooltip. */
+#deck-library.show-deck-name .deck-card-name {
+    display: block;
+    width: 100%;
+    height: 2.4em;
+    overflow: hidden;
+
+    padding: 1px 2px;
+
+    font-size: .62rem;
+    font-weight: normal;
+    line-height: 1.2;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    color: #ddd;
+}
+
+/* A deck the server would not read. Left on screen rather than dropped, because a gap in the grid
+ * says nothing about which file is broken. */
+#deck-library button.deck-broken {
+    width: var(--card--width);
+    height: var(--card--height);
+    align-items: center;
+    justify-content: center;
+
+    padding: 2px;
+    border: 1px dashed #777;
+    font-size: .7rem;
+    line-height: 1.1;
+    color: #999;
+    overflow: hidden;
+    cursor: not-allowed;
+}
+        </style>
+
+        <div id="deck-library" class="show-deck-name">
+            <div>
+                <button type="button" onclick="document.querySelector('#deck-library').classList.toggle('show-deck-name')">Names</button>
+            </div>
+            <details id="deck-group-starter" open>
+                <summary>Starter Decks <span class="deck-count"></span></summary>
+                <div class="deck-group-list"></div>
+            </details>
+            <details id="deck-group-custom" open>
+                <summary>Custom Decks <span class="deck-count"></span></summary>
+                <div class="deck-group-list"></div>
+            </details>
+        </div>
+
+        <script>
+        // Which deck each of the four slots was filled from. A second click on the same portrait
+        // takes it back out again, and the marks have to survive a slot being cleared some other
+        // way, so the mapping cannot be read back off the images.
+        const deck_slot_source = {}
+
+        function deckTitle(deck) {
+            return (deck.data && deck.data['name']) ? deck.data['name'] : deck.name
+        }
+
+        /** The slot holding this deck, or 0. */
+        function heldSlot(name) {
+            for( let i = 1; i <= 4; i++ ) {
+                if( deck_slot_source[i] == name ) {
+                    return i
+                }
+            }
+            return 0
+        }
+
+        function syncDeckLibrary() {
+            document.querySelectorAll('#deck-library button.deck-card').forEach(option => {
+                const slot = heldSlot(option.value)
+                option.classList.toggle('click', slot != 0)
+                if( slot ) {
+                    option.setAttribute('data-slot', slot)
+                } else {
+                    option.removeAttribute('data-slot')
+                }
+            })
+        }
+
+        function chooseDeck(deck) {
+            const held = heldSlot(deck.name)
+            if( held ) {
+                SetHero({}, held)
+                return
+            }
+            let free = 0
+            for( let i = 1; i <= 4; i++ ) {
+                if( !heroes[i] ) {
+                    free = i
+                    break
+                }
+            }
+            if( !free ) {
+                alert('All four hero slots are taken. Click a chosen deck again to take it back out.')
+                return
+            }
+            SetHero(deck.data, free, deck.name)
+        }
+
+        function createDeckButton(deck, kind) {
+            const option = document.createElement('button')
+            option.type = 'button'
+            option.value = deck.name
+            option.className = 'deck-card'
+            option.title = `${deckTitle(deck)} (${deck.name})`
+
+            const hero = (deck.data && Array.isArray(deck.data['hero'])) ? deck.data['hero'][0] : ''
+            const player_deck = (deck.data && Array.isArray(deck.data['player_deck'])) ? deck.data['player_deck'] : null
+            if( !hero || !player_deck ) {
+                option.disabled = true
+                option.className = 'deck-broken'
+                option.textContent = deck.name
+                return option
+            }
+
+            const img = document.createElement('img')
+            // An identity is stored as its two sides, "21031a,21031b". The front is the portrait.
+            // Split here rather than through `get_name`, which is declared in a later script block
+            // and so is not reliably in scope while this one is still being parsed.
+            img.src = hero.split(',')[0]
+            img.alt = deckTitle(deck)
+            option.appendChild(img)
+
+            // Reading a deck must never change your setup, so this is its own control rather than
+            // a second meaning for clicking the portrait. Same badge and same rule as the encounter
+            // sets. `stopPropagation` keeps the portrait's own click from firing underneath it.
+            const info = document.createElement('button')
+            info.className = 'set-info-badge'
+            info.type = 'button'
+            info.textContent = 'i'
+            info.title = `What is in ${deckTitle(deck)}?`
+            info.setAttribute('aria-label', `Show the cards in ${deckTitle(deck)}`)
+            info.onclick = (event) => {
+                event.stopPropagation()
+                event.preventDefault()
+                openDeckDetail(deckTitle(deck), deck.data)
+                return false
+            }
+            option.appendChild(info)
+
+            const name = document.createElement('span')
+            name.className = 'deck-card-name'
+            name.textContent = deckTitle(deck)
+            option.appendChild(name)
+
+            option.setAttribute('data-text', player_deck.length)
+            // The portrait is the hero's identity card, which is the same picture for every deck
+            // built around that hero, so the rollover has to say which deck this one is.
+            option.setAttribute('data-hover-name', deckTitle(deck))
+            option.setAttribute('data-hover-kind', kind)
+
+            option.onclick = () => chooseDeck(deck)
+            return option
+        }
+
+        async function fillDeckGroup(group_id, names, kind) {
+            const group = document.querySelector(`#${group_id}`)
+            const list = group.querySelector('.deck-group-list')
+
+            // One request per deck, all in flight at once. The listing routes give file names and
+            // nothing else, so the portrait, the deck's own name and its size all have to come out
+            // of the files themselves.
+            const decks = await Promise.all(names.map(async name => {
+                try {
+                    const response = await fetch(`get_hero_json?${name}`)
+                    if (!response.ok) {
+                        throw new Error(`responded ${response.status} ${response.statusText}`)
+                    }
+                    return { name: name, data: await response.json() }
+                }
+                catch (err) {
+                    console.log(`deck library: cannot read ${name}: ${err.message}`)
+                    return { name: name, data: null }
+                }
+            }))
+
+            decks.sort((a, b) => deckTitle(a).localeCompare(deckTitle(b)))
+            for( let deck of decks ) {
+                list.appendChild(createDeckButton(deck, kind))
+            }
+
+            if( decks.length == 0 ) {
+                const empty = document.createElement('span')
+                empty.className = 'deck-empty'
+                empty.textContent = 'None found.'
+                list.appendChild(empty)
+            }
+
+            const usable = list.querySelectorAll('button.deck-card').length
+            group.querySelector('.deck-count').textContent =
+                usable == decks.length ? `(${decks.length})` : `(${usable}/${decks.length})`
+        }
+
+        async function buildDeckLibrary() {
+            async function listDecks(route) {
+                const response = await fetch(`${route}?`)
+                if (!response.ok) {
+                    throw new Error(`${route} responded ${response.status} ${response.statusText}`)
+                }
+                return await response.json()
+            }
+
+            const [starter_paths, deck_paths] = await Promise.all([
+                listDecks('list_starter_deck'),
+                listDecks('list_deck'),
+            ])
+
+            // `get_hero_json` resolves a bare name through the deck folders first and the starter
+            // folder last. If the same file name were in both, clicking the starter portrait would
+            // quietly load the other one, so the shadowed entry is dropped rather than drawn as a
+            // button that lies about what it loads.
+            const custom_names = deck_paths.map(getFileName)
+            const starter_names = starter_paths.map(getFileName).filter(name => {
+                if( custom_names.includes(name) ) {
+                    console.log(`deck library: ${name} is in both the deck and the starter folder, showing the deck folder copy`)
+                    return false
+                }
+                return true
+            })
+
+            await Promise.all([
+                fillDeckGroup('deck-group-starter', starter_names, 'Starter deck'),
+                fillDeckGroup('deck-group-custom', custom_names, 'Custom deck'),
+            ])
+            syncDeckLibrary()
+        }
+
+        buildDeckLibrary().catch(err => {
+            console.log(`deck library: ${err.message}`)
+            document.querySelectorAll('#deck-library .deck-group-list').forEach(list => {
+                list.textContent = `Could not list the decks: ${err.message}`
+            })
+        })
+        </script>
+
         <script>
             async function importDeck(text="") {
                 for( let i of [1,2,3,4] ) {
@@ -1023,7 +1487,10 @@ async function createSets() {
             }
         </script>
         <p>
-        Default hero JSON files are located in folder "./deck/starter". You can also <button onclick="importDeck()">Import</button> the data from your clipboard, or <a href="./deck">edit the deck</a>.
+        Starter decks are the files in "./deck/starter" and custom decks are the ones in "./deck/custom".
+        The four boxes at the top also take a JSON file from anywhere on disk. You can
+        <button onclick="importDeck()">Import</button> a deck from your clipboard, or
+        <a href="./deck">edit a deck</a>.
         </p>
 
     </fieldset>
@@ -1739,7 +2206,7 @@ p:has(#timeout_text) {
                 scenario_div.src = image
             }
         }
-        function SetHero(j, i) {
+        function SetHero(j, i, source="") {
             e = document.querySelector(`#img-heroes-${i}`)
             try {
                 image = `${get_name(j['hero'][0])}`
@@ -1756,6 +2223,11 @@ p:has(#timeout_text) {
                 console.log(err.message)
                 e.removeAttribute('src')
             }
+            // Every way of filling a hero slot comes through here: the file inputs, the clipboard
+            // import and the deck picker. So this is the one place that can keep the picker's marks
+            // in step with the slots. The first two pass no source, which clears the mark.
+            deck_slot_source[i] = heroes[i] ? source : ""
+            syncDeckLibrary()
             let select_size = 0
             for (let i = 1; i <= 4; i++) {
                 const input = document.getElementById(`img-heroes-${i}`);

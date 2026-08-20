@@ -112,6 +112,29 @@
     align-content: start;
 }
 
+/* The parts of a deck: identity, signature cards, player deck, nemesis set and the rest.
+ *
+ * Spans the whole row rather than taking a cell, so a heading always sits above its own cards
+ * instead of being dealt into the grid alongside them. Encounter sets pass one untitled group and
+ * never draw one of these. */
+.set-detail-section {
+    grid-column: 1 / -1;
+
+    margin-top: 0.4rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid #444;
+
+    font-size: 0.8rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #7fb2d8;
+}
+
+.set-detail-section:first-child {
+    margin-top: 0;
+}
+
 .set-detail-card {
     display: flex;
     flex-direction: column;
@@ -176,7 +199,8 @@
  * pushing the row past the right edge of the card art. Keep the ids, or that comes back.
  */
 #encounter-sets .set-info-badge,
-#modular-sets .set-info-badge {
+#modular-sets .set-info-badge,
+#deck-library .set-info-badge {
     position: absolute;
     left: 3px;
     top: 3px;
@@ -212,13 +236,16 @@
 /* Shown on hover or keyboard focus so the thumbnails stay clean, but never hidden from keyboards. */
 #modular-sets button:hover .set-info-badge,
 #encounter-sets button:hover .set-info-badge,
+#deck-library button:hover .set-info-badge,
 #modular-sets .set-info-badge:focus,
-#encounter-sets .set-info-badge:focus {
+#encounter-sets .set-info-badge:focus,
+#deck-library .set-info-badge:focus {
     opacity: 1;
 }
 
 #modular-sets .set-info-badge:hover,
-#encounter-sets .set-info-badge:hover {
+#encounter-sets .set-info-badge:hover,
+#deck-library .set-info-badge:hover {
     color: #000;
     background-color: #fff;
 }
@@ -237,6 +264,13 @@
     /* Above the set panel (1000), because rolling over the cards in there is how you read them. */
     z-index: 1100;
 
+    display: flex;
+    flex-direction: column;
+    /* The card, and never wider than the card. Without the cap a long set name would stretch the
+     * panel out past the picture it belongs to. */
+    width: max-content;
+    max-width: 320px;
+
     border-radius: 0.5rem;
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.9);
 
@@ -247,6 +281,41 @@
 
 .card-hover-preview[hidden] {
     display: none;
+}
+
+/* What you are rolling over, named.
+ *
+ * A set thumbnail is the first card of the set rather than the set itself, and a deck portrait is
+ * the hero's identity card, which is the same picture for every deck built around that hero. In
+ * both cases the picture cannot tell you which of them you are pointing at. Until now the only
+ * place a set's name appeared was inside the detail panel, which you had to open.
+ *
+ * Only shown when the thumbnail stands for something with a name. Hovering a plain card leaves it
+ * off, because the card's own name is printed on the card. */
+.card-hover-name {
+    padding: 0.4rem 0.6rem;
+
+    font-size: 0.95rem;
+    line-height: 1.3;
+    text-align: center;
+    color: #fff;
+
+    background-color: rgba(0, 0, 0, 0.92);
+    border: 1px solid #666;
+    border-top: none;
+    border-radius: 0 0 0.5rem 0.5rem;
+}
+
+.card-hover-name[hidden] {
+    display: none;
+}
+
+.card-hover-kind {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #7fb2d8;
 }
 
 /* Every card image the server sends is portrait, 710x1030, including the ones PRINTED landscape:
@@ -269,16 +338,31 @@
     background-color: #000;
 }
 
-/* Rotated about its own centre, so the panel has to reserve the transposed box or the card hangs
- * out of it. 448x320 rather than 320x448, and the image is pulled back by half the difference. */
-.card-hover-preview:has(img.rotate) {
+/* Rotated about its own centre, so the box around it has to reserve the transposed shape or the
+ * card hangs out of it: 448x320 rather than 320x448.
+ *
+ * The reservation sits on the art wrapper rather than on the panel, because the panel now also
+ * holds the caption underneath and a fixed 320px height would cut that off. */
+.card-hover-art:has(img.rotate) {
     width: 448px;
     height: 320px;
 }
 
+.card-hover-preview:has(img.rotate) {
+    max-width: 448px;
+}
+
+/* Centred in that box, which means the margins run the other way from what they used to.
+ *
+ * A 320x448 image centred in a 448x320 box starts 64px in from the left and 64px above the top, so
+ * `-64px 64px`. It was `64px -64px`, which puts the centre 128px left and 128px down from the box's
+ * own, and the painted card with it. Nothing showed that while the panel was only ever the card:
+ * the box was invisible, so a card drawn outside it still looked like a card. The caption is
+ * anchored to the box, so now it does show. A rotation is also a stacking context, which is why the
+ * strayed card painted over the caption rather than under it. */
 .card-hover-preview img.rotate {
     rotate: 90deg;
-    margin: 64px -64px; /* (448 - 320) / 2 */
+    margin: -64px 64px; /* (448 - 320) / 2 */
 }
 
 /* The scenario cards under a pack.
