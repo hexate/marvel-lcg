@@ -817,6 +817,11 @@ const CardHover = (() => {
         if (!panel) build()
         current = code
         img.src = code
+        // Landscape-printed cards are served lying on their side, so turn them back. The flag is
+        // `card_info.js`'s, covering main schemes, both side scheme types, statuses and inserts.
+        // `place()` runs after this, so it measures the panel at its rotated size.
+        const info = window.__const_card_dict && window.__const_card_dict[code]
+        img.classList.toggle('rotate', !!(info && info.rotate))
         panel.hidden = false
         place(anchor)
     }
@@ -1209,6 +1214,9 @@ p:has(#timeout_text) {
             import { CardStatistics } from '/public/js/module/card_statistics.js';
             const cardStatistics = new CardStatistics();
             await cardStatistics.loadAllCards(false, true);
+            // Published so `CardHover` can ask whether a card is printed landscape. It is
+            // loaded here and nowhere else, and the hover panel is built outside module scope.
+            window.__const_card_dict = cardStatistics.const_card_dict;
 
             let challenge_names = cardStatistics.sets_json["Weekly Challenges"].scenarios
             let challenges = {}

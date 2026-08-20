@@ -249,15 +249,59 @@
     display: none;
 }
 
-/* Fixed portrait box. Every card image the CDN serves is portrait, 710x1030, including the ones
- * printed landscape like main schemes: the game rotates those in play rather than shipping rotated
- * art. So there is no landscape case to handle here. */
+/* Every card image the server sends is portrait, 710x1030, including the ones PRINTED landscape:
+ * main schemes, both kinds of side scheme, status cards and inserts. Those arrive lying on their
+ * side and something has to turn them back.
+ *
+ * The previous comment here concluded the opposite, that there was "no landscape case to handle",
+ * and that is how main schemes came to be shown sideways in this panel and in `#set-content`.
+ * Verified against the server rather than the repo: `/07001a` is served 710x1030 portrait, while
+ * the correctly oriented original sitting in `assets/cache/07001a.jpg` is 1030x710. 76 of the 914
+ * cached card images are landscape prints, so this is a class of card, not two of them.
+ *
+ * The class is set in `scene.html` from `const_card_dict[id].rotate`, which `card_info.js` already
+ * computes for exactly these five types. */
 .card-hover-preview img {
     display: block;
     width: 320px;
     height: 448px;
     border-radius: 0.5rem;
     background-color: #000;
+}
+
+/* Rotated about its own centre, so the panel has to reserve the transposed box or the card hangs
+ * out of it. 448x320 rather than 320x448, and the image is pulled back by half the difference. */
+.card-hover-preview:has(img.rotate) {
+    width: 448px;
+    height: 320px;
+}
+
+.card-hover-preview img.rotate {
+    rotate: 90deg;
+    margin: 64px -64px; /* (448 - 320) / 2 */
+}
+
+/* The scenario cards under a pack.
+ *
+ * Unconditional, and safe to be: `scene.html` builds these from `data["schemes"][0]`, so every
+ * image in this container is a main scheme and every main scheme is printed landscape. The button
+ * takes the transposed box for the same reason as the panel above. */
+#set-content > div.details > button {
+    width: var(--card--height);
+    height: var(--card--width);
+    align-items: center;
+    justify-content: center;
+}
+
+#set-content > div.details > button > img {
+    /* Pinned to the PORTRAIT box the file actually is, then turned. Without this the flex button
+     * stretches the image to its own 140x100 first, so the rotation acts on an already-squashed
+     * picture and lands back at portrait, distorted. Layout keeps a 100x140 box that overflows the
+     * button vertically; only the painted result matters, and that is 140x100. */
+    width: var(--card--width);
+    height: var(--card--height);
+    flex: none;
+    rotate: 90deg;
 }
 
 @media (max-width: 720px) {
