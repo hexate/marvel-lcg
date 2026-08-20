@@ -157,18 +157,55 @@
     content: "";
     position: absolute;
 
-    /* 10 units of air above and below the card, so the lane reads as a lane and not as a box drawn
-     * tight around the art. */
-    top:    calc((var(--y) - 10) * var(--su));
-    height: calc(var(--card-height) + 20 * var(--su));
+    /* Exactly the card's own band, and the padding that used to be here is gone.
+     *
+     * The rows are on a 190 unit pitch: a card is 176 and N5 set an even 14 between them. The first
+     * version of this lane added 10 units of air above and below to stop it reading as a box drawn
+     * tight around the art, which is 20 units taken out of a 14 unit gap, so consecutive lanes
+     * overlapped by exactly 6 and the board looked like a stack of touching boxes.
+     *
+     * There is no room for padding here. Any at all comes out of the gap, and the gap is the thing
+     * doing the work: separation between the lanes is what makes them read as separate zones, so it
+     * matters more than air inside one. Taking none leaves the full 14, which is about 10px at this
+     * board size. If the rows are ever respaced, this stays correct as long as the pitch exceeds
+     * the card height. */
+    top:    calc(var(--y) * var(--su));
+    height: var(--card-height);
     left:   calc(345 * var(--sux));
     width:  calc(1230 * var(--sux));
 
     border-radius: calc(1.2 * var(--font-size));
-    background: rgba(255, 255, 255, .028);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .055);
+    background: var(--lane-fill);
+    box-shadow: inset 0 0 0 1px var(--lane-line);
 
     /* Behind the cards, which carry `--z: 1`, and never in the way of a click. */
     z-index: 0;
     pointer-events: none;
+}
+
+/* Whose side a lane is on.
+ *
+ * Two of the five belong to the other side. The villain is obvious; engaged minions are less so,
+ * but a minion engaged with you is an enemy standing in front of you, not one of your cards, and it
+ * is the row you are deciding whether to attack. Allies, supports and the hero are yours.
+ *
+ * Kept very quiet. The alphas are in the .03 to .07 range because the lane is behind the art and
+ * has to stay behind it: any more and the two enemy rows start competing with the cards they hold.
+ *
+ * The warm side carries the signal and the cool side stays nearly neutral, deliberately. Player
+ * seats are already tinted underneath by `.player-background`, and that colour is per seat, blue at
+ * seat 0 but red at seat 1 and green at seat 3. A strongly coloured player lane would agree with
+ * one seat and fight the next three. The enemy rows sit above that tint on plain felt, so they are
+ * the ones free to take a hue. */
+#scene #area-villain::before,
+#scene #player-all-engaged-minions::before {
+    --lane-fill: rgba(190, 90, 85, .055);
+    --lane-line: rgba(255, 150, 140, .085);
+}
+
+#scene #player-all-allies::before,
+#scene #player-all-supports::before,
+#scene #player-all-area-hero::before {
+    --lane-fill: rgba(190, 205, 255, .030);
+    --lane-line: rgba(200, 220, 255, .065);
 }
