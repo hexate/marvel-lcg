@@ -60,6 +60,15 @@ export class Scene {
             }
             document.addEventListener('DOMContentLoaded', () => HoverCard.updateRect())
             window.addEventListener('resize', () => HoverCard.updateRect())
+
+            // The tilt, and note what is deliberately NOT done here: `marvel/scene-3d.css` is not
+            // loaded. That file is v1's. It writes raw pixel literals (`85px`, `940px`, `990px`),
+            // sizes `#scene` from `1px * var(--scene-height)`, and redefines every row position
+            // against the spacing N5 settled. Loading it under v2 would reintroduce J19 through
+            // J26 wholesale. All v2 needs is the class; `marvel2/layout.css` carries the rest.
+            if (Setting.scene_3d) {
+                document.body.classList.add('scene-3d')
+            }
             return
         }
 
@@ -75,7 +84,12 @@ export class Scene {
 
         // import { HoverCard } from "./hover.js";
         if( Setting.scene_3d ) {
-            Lib.loader.loadCSS("./css./marvel./scene-3d.css")
+            // `./public/css/marvel/...`, matching every other `loadCSS` caller. This read
+            // `./css./marvel./scene-3d.css` until 2026-08-19: no `public/` segment, and a dot
+            // where a slash belongs, twice. `loadCSS` assigns `href` verbatim, so it 404'd and
+            // this stylesheet had never once been applied. The `scene-3d` class below was being
+            // added to a body with no rules behind it (J28).
+            Lib.loader.loadCSS('./public/css/marvel/scene-3d.css')
             document.body.classList.add('scene-3d')
         }
     }
@@ -98,8 +112,19 @@ export class Scene {
  * reason was not, and it is the belief behind J19, J22 and J23.
  */
 export function convertScenePosToWindowPos(sceneX: number, sceneY: number) {
-    const scene = document.getElementById('scene')!;
-    const rect = scene.getBoundingClientRect(); // Get the bounding rectangle of the scene
+    // Which box supplies the origin, and why it is not always `#scene`.
+    //
+    // This needs the scene's UNTRANSFORMED top left. Under v1 that is `#scene`, whose rect already
+    // carries the camera scale the formula below expects. Under v2 the scene may be tilted, and
+    // `getBoundingClientRect` reports the transformed box: measured at `rotateX(8deg)` it moves by
+    // -11px across and +22.9px down, which would bias both callers by that much.
+    //
+    // `#camera` is the right reference under v2. It is `position: fixed; inset: 0` with
+    // `transform: none`, and the only thing the tilt adds to it is `perspective`, which is not a
+    // transform and does not move its box. `#scene` fills it exactly, so untilted the two rects are
+    // identical and this changes nothing; tilted, this one stays correct.
+    const scene = document.getElementById(Scene.isV2() ? 'camera' : 'scene')!;
+    const rect = scene.getBoundingClientRect();
 
     const scale = Scene.scale;
     const unit = Lib.client.sceneUnit();

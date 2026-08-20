@@ -396,3 +396,48 @@
     top: unset;
     bottom: calc(150 * var(--su));
 }
+
+/******************************************************************************
+* The tilt (J28)
+*
+* Applied only when `Scene.init` adds `scene-3d`, which it does from `Setting.scene_3d`, which the
+* setup page's "3D Render" checkbox sets by appending `&3d_scene` to the board URL. Off unless
+* asked for.
+*
+* Written here rather than reusing `marvel/scene-3d.css`, which is v1's and would undo most of the
+* v2 layout. See the note in `scene.ts` for what that file does.
+*
+* Why the board can afford to lean
+* --------------------------------
+* Measured before committing to it, because a tilt costs room at both ends and `#camera` is
+* `overflow: hidden`. It costs less than expected, and at the top it actually helps. Untilted, the
+* topmost cards already sit 103px above the camera: the removed, nemesis and advanced pools hang off
+* the top edge and are clipped today. A tilt pulls the far edge toward the axis, so at 8 degrees
+* that overhang shrinks to 72px. The near edge grows, but only by about 6px, and that is the hand,
+* which already overflows the bottom by design and rises on hover.
+*
+* `perspective` is on `#camera` and the rotation on `#scene`, so the two do not fight: `#camera`
+* keeps `transform: none` and therefore keeps an untransformed box, which is what
+* `convertScenePosToWindowPos` reads its origin from under v2.
+*
+* Stated relative to the board's height so the distortion is the same at every window size. A
+* perspective fixed in px would flatten on a large board and exaggerate on a small one.
+*
+* It is written in `dvh` rather than `--su`, and that is not a style preference. `--su` is declared
+* on `#scene`, and `#camera` is its PARENT: custom properties inherit downward, so it is simply not
+* in scope here. Written as `2600 * var(--su)` the whole declaration is invalid and `perspective`
+* falls back to `none`, which is exactly how the first version of this shipped nothing while looking
+* like it worked. `#camera` is `100dvh` tall, so this is the same substitution `--font-size-out`
+* makes a few rules up, and resolves to about 241dvh.
+*
+* The origin sits at 75% rather than the middle, so most of the movement lands on the villain half
+* and the rows nearest you stay closest to where they were.
+*/
+body.scene-3d #camera {
+    perspective: calc(2600 * 100dvh / var(--scene-rows));
+}
+
+body.scene-3d #scene {
+    transform: rotateX(8deg);
+    transform-origin: 50% 75%;
+}
