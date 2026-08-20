@@ -114,3 +114,61 @@
 #scene .player-background.player-1 { background: radial-gradient(ellipse 70% 100% at 50% 62%, rgba(158, 74, 74, .38), transparent 72%); }
 #scene .player-background.player-2 { background: radial-gradient(ellipse 70% 100% at 50% 62%, rgba(134, 158, 74, .40), transparent 72%); }
 #scene .player-background.player-3 { background: radial-gradient(ellipse 70% 100% at 50% 62%, rgba(74, 158, 86, .38), transparent 72%); }
+
+/******************************************************************************
+* Play zones
+*
+* The board had no zone definition at all. `marvel/area.css` is 26 lines and draws nothing: no
+* background, no border, no label. Cards sat at fixed heights with nothing saying which row was
+* which, which is why a board with three cards on it read as an empty rectangle rather than as a
+* table with three cards on it. Defining the zones is the first thing every write-up on card game
+* UI asks for.
+*
+* Each lane is a `::before` on the area, positioned from the same `--y` the cards use, so it tracks
+* the row automatically and there is no second copy of the coordinate to fall out of step.
+*
+* Why a fixed band rather than the area's own width
+* -------------------------------------------------
+* Because the area has no width. Measured: `.area` computes to `width: 0`, pinned to the scene
+* origin by `layout.css`, and every card inside is absolutely positioned off `--x`/`--y`. The lane
+* has to state its own horizontal extent because there is nothing to inherit one from.
+*
+* The band is 345 to 1575, near enough centred on the board's 960, and both ends come from
+* measuring a live board rather than from reading coordinates out of the stylesheet. That
+* distinction mattered on the right. The scheme column declares `--x: 1773`, but the scheme cards
+* are rotated a quarter turn, so their box is 176 wide instead of 127 and what they actually occupy
+* is 1597 to 1758. A lane sized to the declared coordinate ran 112px underneath them. It ends at
+* 1575 now and clears the measured edge by 22.
+*
+* The left is quieter: the player deck and discard measure 16 to 106 real pixels, so 345 clears
+* them comfortably. The widest thing here is the hero row at 8 cards, measured at 356 to 1147,
+* which fits inside with room either side.
+*
+* Not applied to four areas, each for its own reason. The hand is your zone rather than part of the
+* board and already gets its separation from the row spacing (N5). The two scheme areas are a
+* right-hand column, not a lane. `#area-play` sits in the left flank at `--x: 50` and overlaps the
+* rows above and below it by design.
+*/
+#scene #area-villain::before,
+#scene #player-all-engaged-minions::before,
+#scene #player-all-allies::before,
+#scene #player-all-supports::before,
+#scene #player-all-area-hero::before {
+    content: "";
+    position: absolute;
+
+    /* 10 units of air above and below the card, so the lane reads as a lane and not as a box drawn
+     * tight around the art. */
+    top:    calc((var(--y) - 10) * var(--su));
+    height: calc(var(--card-height) + 20 * var(--su));
+    left:   calc(345 * var(--sux));
+    width:  calc(1230 * var(--sux));
+
+    border-radius: calc(1.2 * var(--font-size));
+    background: rgba(255, 255, 255, .028);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .055);
+
+    /* Behind the cards, which carry `--z: 1`, and never in the way of a click. */
+    z-index: 0;
+    pointer-events: none;
+}
