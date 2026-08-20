@@ -388,3 +388,40 @@ button:hover{
     cursor: pointer;
 }
 
+
+/******************************************************************************
+* Cards that are PRINTED landscape, in any thumbnail grid (J29)
+*
+* 258 of the 4087 cards: every main scheme, all 23 player side schemes, the three statuses and the
+* two inserts. The server sends all card art portrait, 710x1030, including these, so they arrive
+* lying on their side and something has to turn them back.
+*
+* Only `#preview-img` ever did. That is why the big preview in the deck editor and the card viewer
+* was correct while every thumbnail behind it was sideways.
+*
+* The class is set where the card element is built, from the same `card_info.js` flag the preview
+* uses, so it follows the CARD and not the container. That distinction is not academic: the first
+* attempt at this rotated a whole container and turned every portrait villain on its side, because
+* one container holds both kinds.
+*
+* The margin transposes the LAYOUT box. The image keeps the 75x105 declared above, so its aspect is
+* untouched, but after rotation it paints 105x75; without this the grid still reserves 75x105 and a
+* rotated card overlaps its neighbours. Vertical is (75 - 105) / 2 and horizontal is (105 - 75) / 2.
+*
+* Appended rather than folded into `.image-div img`, because that rule is declared twice in this
+* file, identically, at lines 307 and 325. Editing one of a pair is how a later reader ends up
+* changing the copy that does not win.
+*/
+.image-div img.rotate {
+    rotate: 90deg;
+    margin: -15px 15px;
+}
+
+/* And the wrapper, which is itself a fixed 75x105. Transposing the image's margin box is not
+ * enough on its own: an `inline-block` with an explicit width and height ignores what its content
+ * asks for, so the grid kept reserving a portrait slot and rotated cards would have overlapped
+ * their neighbours. Measured before adding this: image painted 105x75, wrapper still 75x105. */
+.image-div:has(> img.rotate) {
+    width: 105px;
+    height: 75px;
+}

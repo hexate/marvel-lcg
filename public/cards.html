@@ -421,6 +421,11 @@ function createCard(card_id, from_peek) {
         img.src = new_card_id
     }
 
+    // Landscape-printed cards arrive lying on their side; `rotate` turns them back (J29).
+    if( cardStatistics.const_card_dict[card_id]?.rotate ) {
+        img.classList.add('rotate')
+    }
+
     div.classList.add('image-div')
     div.appendChild(img)
     div.setAttribute('data-card-id', card_id)
