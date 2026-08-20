@@ -320,3 +320,31 @@
         height: 224px;
     }
 }
+
+
+/* The modular and encounter set thumbnails.
+ *
+ * Same treatment as the scenario cards above and the same reason, but these needed their own rule
+ * because they are `#modular-sets button > img` rather than `.image-div img`, so neither the shared
+ * grid rule in `menu/style.css` nor the `#set-content` one reaches them. Tagging alone did nothing:
+ * the class was set and `rotate` still computed to `none`.
+ *
+ * These are where encounter side schemes live, which is 326 cards and the largest group of all. They
+ * were invisible to this until the flag itself was fixed, because `card_info.js` was matching on
+ * "EncounterSideScheme" and the type is actually "SideScheme".
+ */
+#modular-sets button:has(> img.rotate),
+#encounter-sets button:has(> img.rotate) {
+    width: var(--card--height);
+    height: var(--card--width);
+    align-items: center;
+    justify-content: center;
+}
+
+#modular-sets button > img.rotate,
+#encounter-sets button > img.rotate {
+    width: var(--card--width);
+    height: var(--card--height);
+    flex: none;
+    rotate: 90deg;
+}

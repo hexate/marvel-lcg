@@ -974,6 +974,13 @@ async function createSets() {
 (async () => {
     await createScenarios()
     await createSets()
+    // Tag the set thumbnails once they exist. The dictionary may land before this or after it, so
+    // both sides sweep: the publish site in the module script below covers "sets built first", and
+    // this covers "dictionary first". `MarkLandscapeCards` toggles rather than adds, so whichever
+    // runs second is a no-op on anything already correct.
+    if (typeof MarkLandscapeCards === 'function') {
+        MarkLandscapeCards(document)
+    }
 })()
 
 </script>
@@ -1240,6 +1247,19 @@ p:has(#timeout_text) {
             // Published so `CardHover` can ask whether a card is printed landscape. It is
             // loaded here and nowhere else, and the hover panel is built outside module scope.
             window.__const_card_dict = cardStatistics.const_card_dict;
+            // Sweep whatever is already on screen.
+            //
+            // This resolves a few seconds after the page is usable, and a pack can be opened in
+            // that window. `MarkLandscapeCards` runs at click time, so an early click tagged its
+            // thumbnails against an empty dictionary and they stayed sideways until the pack was
+            // opened again. Re-tagging once here closes that; the function is idempotent, and it
+            // toggles rather than adds, so a second pass over already-correct cards is a no-op.
+            //
+            // Only this page needs it. `deck.html` and `cards.html` both render their cards after
+            // awaiting the same load, so they never see an empty dictionary.
+            if (typeof MarkLandscapeCards === 'function') {
+                MarkLandscapeCards(document);
+            }
 
             let challenge_names = cardStatistics.sets_json["Weekly Challenges"].scenarios
             let challenges = {}

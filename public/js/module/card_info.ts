@@ -169,7 +169,22 @@ export class Card {
                 this.sch = desc.SCH;
             }
         }
-        this.rotate = ["PlayerSideScheme", "EncounterSideScheme", "MainScheme", "Status", "Insert"].includes(type);
+        // Which cards are PRINTED landscape, and therefore arrive lying on their side.
+        //
+        // "SideScheme" is the encounter one, and it was missing. The list said
+        // "EncounterSideScheme", which is not a type any card has, so all 326 encounter side
+        // schemes were treated as portrait and shown sideways everywhere this flag is used (J29).
+        // The dead name is kept out rather than left in, since it only looked like coverage.
+        //
+        // Checked against the art rather than reasoned about. The images the server sends are all
+        // portrait, so they cannot answer this, but the originals cached in `assets/cache` keep
+        // their true orientation. Of the 77 landscape files there: 35 MainScheme, 37 SideScheme and
+        // 5 PlayerSideScheme, and nothing else. So Attachment, Environment, Minion and the rest are
+        // genuinely portrait and must not be added here.
+        //
+        // "Status" and "Insert" stay. Neither appears among those 77 because status faces are drawn
+        // from `assets/textures`, not cached card art, and they are already correct on the board.
+        this.rotate = ["MainScheme", "SideScheme", "PlayerSideScheme", "Status", "Insert"].includes(type);
         this.set_name = setName;
         this.traits = traits;
     }
