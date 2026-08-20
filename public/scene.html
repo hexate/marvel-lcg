@@ -1272,7 +1272,12 @@ async function createSets() {
             <div>
                 <button type="button" onclick="document.querySelector('#deck-library').classList.toggle('show-deck-name')">Names</button>
             </div>
-            <details id="deck-group-starter" open>
+            <!-- Custom open, starter shut. Open together the two grids are 87 cards and push the
+                 rest of the setup screen well below the fold, and the starter half is the one you
+                 are least likely to want: it is one precon per hero, always the same, while the
+                 custom folder is what you have built. The count in each summary says what is in
+                 there without opening it. -->
+            <details id="deck-group-starter">
                 <summary>Starter Decks <span class="deck-count"></span></summary>
                 <div class="deck-group-list"></div>
             </details>
