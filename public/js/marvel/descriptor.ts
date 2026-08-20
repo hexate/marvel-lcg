@@ -430,7 +430,7 @@ class PlayerDescriptor {
         this.supports                   = toPlayerCardDescriptorList(control_player, obj['supports'], "player-all-supports", {is_in_play: true});
         this.player_deck                = toPlayerCardDescriptorList(control_player, obj['player_deck'], null);
         this.player_discard_pile        = toPlayerCardDescriptorList(control_player, obj['player_discard_pile'], null);
-        this.dealt_encounter_cards      = toPlayerCardDescriptorList(control_player, obj['dealt_encounter_cards'], "player-all-area-hero", {is_dealt_card: true});
+        this.dealt_encounter_cards      = toPlayerCardDescriptorList(control_player, obj['dealt_encounter_cards'], `player-${control_player}-dealt-encounter-cards`, {is_dealt_card: true});
         this.hand_cards                 = toPlayerCardDescriptorList(control_player, obj['hand_cards'], "player-all-hand-cards", {is_in_hand: true});
         this.engaged_enemies            = toPlayerCardDescriptorList(control_player, obj['engaged_enemies'], "player-all-engaged-minions", {is_in_play: true});
         this.set_aside_nemesis_sets     = toPlayerCardDescriptorList(control_player, obj['set_aside_nemesis_sets'], "nemesis-pool");

@@ -54,21 +54,25 @@ class CardRender {
         'player-0-player-discard-pile',
         'player-0-additional-deck',
         'player-0-additional-discard-pile',
+        'player-0-dealt-encounter-cards',
         
         'player-1-player-deck',
         'player-1-player-discard-pile',
         'player-1-additional-deck',
         'player-1-additional-discard-pile',
+        'player-1-dealt-encounter-cards',
         
         'player-2-player-deck',
         'player-2-player-discard-pile',
         'player-2-additional-deck',
         'player-2-additional-discard-pile',
+        'player-2-dealt-encounter-cards',
         
         'player-3-player-deck',
         'player-3-player-discard-pile',
         'player-3-additional-deck',
         'player-3-additional-discard-pile',
+        'player-3-dealt-encounter-cards',
         
         'area-rule',
         
@@ -427,7 +431,7 @@ class CardRender {
             'area-schemes-main', 'area-schemes-side', 'area-villain',
             'area-environment', 'area-play', 'player-all-area-hero',
             'player-all-allies', 'player-all-supports', 'player-all-engaged-minions'
-        ].includes(areaName);
+        ].includes(areaName) || areaName.endsWith('dealt-encounter-cards');
     }
     
     private static updateParentCardCounts(parent: HTMLElement, areaCards: CardDescriptor[], visibleCards: CardDescriptor[]) {
@@ -575,7 +579,6 @@ class CardRender {
         for( let i=0; i<Game.world_descriptor.players.length; i++ ) {
             CardRender.print_cards_objs[`player-all-hand-cards`].push          (...Game.world_descriptor.players[i].hand_cards)
             CardRender.print_cards_objs[`player-all-area-hero`].push           (...Game.world_descriptor.players[i].area_hero)
-            CardRender.print_cards_objs[`player-all-area-hero`].push           (...Game.world_descriptor.players[i].dealt_encounter_cards)
             CardRender.print_cards_objs[`player-all-area-hero`].push           (...Game.world_descriptor.players[i].environment_area)
             CardRender.print_cards_objs[`player-all-area-hero`].push           (...Game.world_descriptor.players[i].obligations_area)
             CardRender.print_cards_objs[`player-all-supports`].push            (...Game.world_descriptor.players[i].supports)
@@ -588,6 +591,7 @@ class CardRender {
             CardRender.print_cards_objs[`player-${i}-player-discard-pile`]        = Game.world_descriptor.players[i].player_discard_pile
             CardRender.print_cards_objs[`player-${i}-additional-deck`]            = Game.world_descriptor.players[i].additional_deck
             CardRender.print_cards_objs[`player-${i}-additional-discard-pile`]    = Game.world_descriptor.players[i].additional_discard_pile
+            CardRender.print_cards_objs[`player-${i}-dealt-encounter-cards`]      = Game.world_descriptor.players[i].dealt_encounter_cards
         }
 
     }
