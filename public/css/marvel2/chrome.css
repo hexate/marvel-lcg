@@ -169,3 +169,106 @@
     outline: 2px solid rgba(255, 255, 255, .75);
     outline-offset: 2px;
 }
+
+/******************************************************************************
+* The step readout, which the panel above broke
+*
+* `option-page.css:21` gives `#current-round` `color: rgb(24, 24, 24)`, near black, and bold. That
+* was chosen against the old `rgba(128,128,128,.75)` grey panel, where it measured 3.15:1: already
+* under the 4.5:1 floor, but legible. Darkening `#ex-buttons` above took it to 1.06:1, which is
+* invisible. That is a regression this file caused, so this file fixes it.
+*
+* `#dcdce0` to match the log and the menu above, giving 16.2:1 on the new fill. Its sibling
+* `output.slider` is pure white and is left alone: it was never broken, and the difference between
+* the two at this size is not visible.
+*/
+#current-round {
+    color: #dcdce0;
+}
+
+/******************************************************************************
+* Range sliders (N18)
+*
+* Six of them, all browser default: `#anime-time` and four hidden siblings in the right side bar,
+* and `#goto-id` in the panel above. They draw as a white track with a blue thumb, which was the
+* loudest thing left on the board once the two panels around them went dark.
+*
+* `accent-color` alone is what `menu/controls.css:227` uses, and it is not enough here. It tints the
+* filled portion and the thumb and leaves the rest of the track the platform's near-white, which is
+* exactly the bright bar being complained about. Same conclusion `controls.css` reached one section
+* below its own range rule, where the checkboxes had to be drawn because `accent-color` only reaches
+* the checked state. So these are drawn too.
+*
+* The pseudo-elements are declared in separate blocks per engine on purpose. A selector list holding
+* both `::-webkit-slider-runnable-track` and `::-moz-range-track` is invalid as a whole in both
+* engines, so grouping them would silently drop the lot.
+*
+* Fixed pixel sizes rather than `--font-size-out`, matching the scrollbar. These are hit targets
+* rather than type, and 14px stays grabbable at every board scale.
+*/
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+    /* Room for the thumb, which overflows the 4px track. Without this the row's line box decides,
+       and `#goto-id` was resolving to 40px for reasons that had nothing to do with the control. */
+    height: 14px;
+}
+
+input[type="range"]:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, .75);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/* Track */
+input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, .18);
+}
+
+input[type="range"]::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, .18);
+}
+
+/* Thumb. `margin-top` centres it on the track, which webkit will not do on its own once the track
+   is a plain box: (4 - 14) / 2. Firefox centres it for us, so its block has no margin. */
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -5px;
+    border-radius: 50%;
+    background-color: #dcdce0;
+    /* Separates the handle from the track where the two overlap, and from a pale card behind a
+       translucent panel. */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    /* Firefox draws its own border on the thumb; without this the circle gains a grey ring. */
+    border: none;
+    border-radius: 50%;
+    background-color: #dcdce0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+}
+
+input[type="range"]:hover::-webkit-slider-thumb {
+    background-color: #f2f2f5;
+}
+
+input[type="range"]:hover::-moz-range-thumb {
+    background-color: #f2f2f5;
+}
+
+/* Deliberately not done: `::-moz-range-progress`, which would fill the track up to the thumb in
+   Firefox. There is no webkit equivalent without a JS-updated gradient, so taking it would make the
+   two engines disagree about what the control looks like. Both show the value in the `output` next
+   to them anyway. */
