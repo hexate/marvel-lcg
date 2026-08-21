@@ -1,9 +1,12 @@
 /******************************************************************************
 * v2 chrome
 *
-* Everything that floats over the board rather than sitting on it: the prompt box for now, and the
-* rest of N8 when it gets done. Loaded only by `marvel2.html`, so v1 is untouched and stays the
-* reference.
+* Everything that floats over the board rather than sitting on it: the prompt box, the buttons, the
+* right-click menu and the extra button panel. Loaded only by `marvel2.html`, so v1 is untouched and
+* stays the reference.
+*
+* Loaded after `marvel/history.css`, which is where the last two are declared. Both are overridden
+* here on equal specificity and win on source order.
 */
 
 /******************************************************************************
@@ -81,6 +84,88 @@
 /* There was no keyboard focus style at all, so tabbing through the buttons showed nothing. Only
    `:focus-visible`, so it stays out of the way of the mouse. */
 .button:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, .75);
+    outline-offset: 2px;
+}
+
+/******************************************************************************
+* The right-click menu on a card name
+*
+* Right-clicking a card in the log or the prompt offers to open it on Marvelcdb. The menu is a white
+* box with a `1px solid #ccc` border, square corners and black Arial text, sitting on a dark felt
+* board. It is not broken and it is not low contrast: measured at 21:1, because a `button` takes the
+* UA's black rather than the `#a7a7a7` the body would have given it. It simply belongs to a
+* different program than everything around it, which is what N8 is about.
+*
+* Same fill, blur, border and lift as the prompt box above, so the two read as the same surface. A
+* little more opaque than the prompt at .82 against .68: this one is a menu you are aiming at rather
+* than a panel you are reading past, and the board showing through a list of choices is noise.
+*
+* `#dcdce0` for the label rather than white, matching the log after J31.
+*/
+#contextMenu {
+    background-color: rgba(10, 12, 18, .82);
+    /* `saturate` for the same reason as the prompt box: a plain blur over a dark board goes grey. */
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    backdrop-filter: blur(12px) saturate(1.4);
+
+    border: 1px solid rgba(255, 255, 255, .25);
+    border-radius: .5rem;
+    box-shadow: 0 .5rem 1.4rem rgba(0, 0, 0, .55);
+
+    /* Inset so a hovered item's fill never reaches the panel's rounded corner, which saves an
+       `overflow: hidden` and the stacking context that comes with it. */
+    padding: .25rem;
+}
+
+#contextMenu button {
+    color: #dcdce0;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-out);
+
+    /* Was `2px`, which is smaller than the gap between two lines of text and gave the one item in
+       here no room at all. */
+    padding: .35rem .6rem;
+    border-radius: .3rem;
+    cursor: pointer;
+}
+
+/* Was `rgb(225, 225, 225)`, a near-white fill that was readable only because the label was black.
+   Under a light label it would be the J31 defect again, so the fill lifts instead of inverting. */
+#contextMenu button:hover {
+    background-color: rgba(255, 255, 255, .18);
+}
+
+#contextMenu button:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, .75);
+    /* Inside the button, so the ring is not clipped by the panel's padding. */
+    outline-offset: -2px;
+}
+
+/******************************************************************************
+* The extra button panel
+*
+* `#ex-buttons` is the row of tools under the log: save slots, replay controls, the step slider.
+* `history.css` fills it `rgba(128, 128, 128, 0.75)`, a flat mid grey with no border and no shadow,
+* which on this board is the brightest thing on screen and reads as a hole cut in it rather than as
+* a panel over it. That is the same diagnosis the prompt box got at the top of this file, and it
+* gets the same treatment.
+*
+* Its buttons are already half in the system: they carry `--color: #333` and pick up the
+* `.button` border and hover rules above. What they do not carry is a focus ring, because
+* `history.css` sets `outline: none` on them at (1,1,0), which outranks the `.button:focus-visible`
+* rule above at (0,2,0). So tabbing through this panel showed nothing. Restated at (1,2,0).
+*/
+#ex-buttons {
+    background-color: rgba(10, 12, 18, .68);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    backdrop-filter: blur(12px) saturate(1.4);
+
+    border: 1px solid rgba(255, 255, 255, .22);
+    box-shadow: 0 .5rem 1.4rem rgba(0, 0, 0, .55);
+}
+
+#ex-buttons .button:focus-visible {
     outline: 2px solid rgba(255, 255, 255, .75);
     outline-offset: 2px;
 }
