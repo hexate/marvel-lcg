@@ -43,11 +43,12 @@
     box-shadow: calc(4 * var(--su)) calc(12 * var(--su)) calc(16 * var(--su)) rgba(0, 0, 0, .58);
 }
 
-/* `card-face.css` transitions the shadow on `.face`, which no longer has one. Same timing, moved
-   to the element that does, so the lift and its shadow arrive together. */
-#scene .card .face .image {
-    transition: box-shadow var(--anime-move-time) linear;
-}
+/* `card-face.css` transitions the shadow on `.face`, which no longer has one. It has to move to
+   the element that does, so the lift and its shadow arrive together, and it used to be declared
+   here. It is not any more, because declaring the `transition` shorthand on this element deleted
+   the `scale` and `background-color` transitions `card-face-image.css` had already put on it and
+   nobody noticed. `motion.css` section 3 now owns `transition` for this element and states all
+   three, box-shadow included, on the same timing this rule used. */
 
 /******************************************************************************
 * The number a boost card actually adds (N2, option 6)

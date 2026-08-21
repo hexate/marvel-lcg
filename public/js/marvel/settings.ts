@@ -60,7 +60,7 @@ export class Setting {
         const no_animation = search_params.has('disable_animations')
         if( no_animation ) {
             Setting.no_tilt = true
-            Lib.loader.loadCSS('./public/css/disable-animation.css')
+            Lib.loader.loadCSS('./public/css/marvel/disable-animation.css')
         }
     }
 

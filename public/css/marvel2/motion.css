@@ -1,0 +1,148 @@
+/******************************************************************************
+* v2 motion
+*
+* One theme, four defects. The board's movement is either not eased, or eased in one direction
+* only, or silently deleted, or impossible to turn off. Loaded last of the v2 sheets so it owns
+* `transition` on the card chain outright, which matters because `transition` is a shorthand and
+* the third defect below is one shorthand quietly erasing another's property list.
+*
+* No duration changes anywhere in this file. `--anime-time` and its multiples are left exactly as
+* they are, so this is curves and coverage only and the two layouts stay comparable on the same
+* timings.
+*/
+
+/******************************************************************************
+* 1. Cards move at a constant speed
+*
+* `marvel/card.css:78-81` transitions `transform`, `opacity` and `scale` `linear` over
+* `--anime-move-time`, 0.3s. `.card` is positioned by `translate3d(var(--left), var(--top),
+* var(--t-z))` at `card.css:68-73`, so that single rule carries every draw, play, discard and row
+* change on the board. It is the motion you see most and it is the only motion here that was never
+* given a curve.
+*
+* Constant velocity ending in a dead stop is the clearest tell that a movement was not designed,
+* because nothing with mass moves that way.
+*
+* The curve is `easeOutCubic`, and the project's existing `cubic-bezier(0.19, 1, 0.22, 1)`,
+* `easeOutExpo`, is deliberately not reused for this one. Sampled over 0.3s, `easeOutExpo` is
+* 69.5% travelled at 50ms and 91.8% at 100ms, so a card crossing the board arrives before you have
+* registered it leaving and then spends 200ms settling: that reads as a teleport, not as travel.
+* `easeOutCubic` over the same 0.3s is 43.7% at 50ms, 72.2% at 100ms and 95.4% at 200ms, so the
+* card is visibly moving for most of the budget and decelerates into place. `easeOutExpo` is kept
+* for `scale` in section 3, where the whole distance is 15% of a card and arriving fast is the
+* point.
+*
+* `opacity` stays `linear`. A fade has no position and no momentum, so there is nothing for an
+* ease to model.
+*/
+#scene .card {
+    transition:
+        transform var(--anime-move-time) cubic-bezier(0.215, 0.61, 0.355, 1),
+        opacity var(--anime-move-time) linear,
+        scale var(--anime-move-time) cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+/******************************************************************************
+* 2. The side bars slam open and slide shut
+*
+* `side-bar.css:16` and `:22` give the two drawers `.15s linear left` and `.15s linear right`.
+* Then `:46-52` override the hovered state with `transition: none`. The declared transition
+* therefore only ever applies to the return: the drawer appears instantly under the cursor and
+* takes 150ms to leave. That is backwards, and asymmetric either way.
+*
+* Restoring the declared transition on hover is the whole fix. Equal specificity to the rule that
+* cancels it, so it wins on source order, which is the reason this file is linked last.
+*
+* `linear` is correct here and is left alone. This is a 150ms slide of a flat panel with no
+* arrival to land; at that length a curve is not perceptible and the honest choice is the one
+* already written.
+*/
+#left-side-bar:hover {
+    transition: .15s linear left;
+}
+
+#right-side-bar:hover {
+    transition: .15s linear right;
+}
+
+/******************************************************************************
+* 3. v2 deleted the card's scale transition
+*
+* This one is v2's own and it is the largest of the four.
+*
+* `card-face-image.css:19-23` gives `.card .face .image` and its `::after`
+* `transition: scale .8s cubic-bezier(0.19, 1, 0.22, 1), background-color .8s <same>`. That is
+* what animates the 1.15x hover lift at `card.css:108-110` and the activation pulse at
+* `card-active.css:1-3`. Both drive `--this-scale`, which is consumed on this element at
+* `card-face-image.css:56-57`.
+*
+* `cards.css` then wrote `#scene .card .face .image { transition: box-shadow ... }` to animate the
+* shadow it had just moved onto that element. `transition` is a shorthand, so it did not add
+* `box-shadow` to the list, it replaced the list.
+*
+* ✓ VERIFIED in the browser on both layouts before writing this. `getComputedStyle` on that
+* element returns `scale, background-color` at `0.8s, 0.8s` with `cubic-bezier(0.19, 1, 0.22, 1)`
+* under v1, and `box-shadow` at `0.3s linear` under v2. Since that commit a hovered card and an
+* activating card have jumped to size under v2 with no transition at all, in both directions.
+*
+* The `::after` overlay escaped it, because `#scene .card .face .image` does not match
+* `.card .face .image::after`, so that kept v1's 0.8s scale. The overlay has been easing while the
+* art underneath it snapped.
+*
+* So the list is restated whole, `::after` included, and `cards.css` no longer declares its own.
+* One owner for `transition` on this element, which is the only reliable way to hold a shorthand.
+*
+* Section 1's argument against `easeOutExpo` does not apply here and v1's curve stays. The travel
+* is 15% of a card's size, there is no distance for the eye to read as speed, and a hover wants to
+* feel like it has already happened: 84.4% of the way at 200ms of the 800ms.
+*
+* This also settles the hover asymmetry that `card.css:103-105` creates by setting
+* `transition: none` on the hovered card's children. An id outranks any number of classes, so
+* `#scene .card .face .image` at (1,3,0) beats `.card:hover .face .image` at (0,4,0) and the
+* transition survives the hover in both directions. The `animation: none` in that same block is a
+* different property and is untouched, so card effects still hold still under the cursor, which is
+* what it was there for.
+*
+* Deliberately not touched: `.card:hover .face`, which the same block also freezes. That one costs
+* the `rotate` transition on a card flipping while hovered, which is a rarer event and a separate
+* argument.
+*/
+#scene .card .face .image,
+#scene .card .face .image::after {
+    transition:
+        scale var(--anime-time-card) cubic-bezier(0.19, 1, 0.22, 1),
+        background-color var(--anime-time-card) cubic-bezier(0.19, 1, 0.22, 1),
+        box-shadow var(--anime-move-time) linear;
+}
+
+/******************************************************************************
+* 4. Reduced motion was unreachable
+*
+* `settings.ts` has always carried an escape hatch, `?disable_animations`, and it has never once
+* worked: it asked for `./public/css/disable-animation.css` and the file is at
+* `./public/css/marvel/disable-animation.css`. `loadCSS` assigns `href` verbatim, so it 404'd and
+* the parameter only ever set `no_tilt`. Same shape as J28. That path is fixed in `settings.ts`.
+*
+* This is the other half. The operating system setting was never consulted at all, so a player who
+* has asked their machine for less motion had no way to be heard short of knowing about an
+* undocumented query parameter that did not work.
+*
+* The two properties and the `!important` match `disable-animation.css` exactly, on purpose. This
+* is the same switch, thrown by the OS instead of by the URL, so it should not be a second and
+* subtly different definition of what "off" means. `!important` is required either way to beat the
+* `transition: none !important` and `animation: none !important` that several card stylesheets
+* already carry.
+*
+* Honest limit: the specification asks for reduced motion, not for none, and this removes all of
+* it. That is a deliberate match to the existing switch rather than a judgement that none is
+* right, and it is the safer of the two for anyone whose reason for setting it is vestibular.
+*
+* v2 only, deliberately, like everything else in this directory. v1 stays the reference layout.
+* Linking this file from `marvel.html` is all it would take if that changes.
+*/
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+}
