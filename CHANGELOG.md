@@ -5,6 +5,130 @@ the Irefrixs Team and sunset on 2026-08-10. Entries describe what changed here, 
 full reasoning behind every item, including the ones deliberately not done, lives in
 [`docs/proposed_changes.md`](docs/proposed_changes.md).
 
+## 2026-08-19 to 08-21
+
+The project became its own trunk, and the look and feel got a pass end to end. 68 commits.
+
+### The project itself
+
+- The default branch is `main` and it is the work, not the mirror. It was `master`, the pinned copy
+  of upstream, so the front page of the repository showed unmodified upstream code and none of the
+  changes. That was reasonable while this was a queue of patches for someone else. It is not now.
+  `master` stays pinned, because the `compare/master...pr/x` links in the upstream issues read
+  against it.
+- The docs say what this is rather than what it forked from. The README leads with the project,
+  upstream gets a short section saying read it and do not send to it, and the reasoning for that
+  sits in [`docs/upstream_rationale.md`](docs/upstream_rationale.md).
+- `./build.sh` builds both halves from a clean clone. There are two, a Python virtualenv and a
+  TypeScript compile, and neither was scripted end to end. The compiled `.js` is gitignored, so a
+  fresh clone rendered nothing until someone worked out the second step from a stale message in
+  `play.sh` telling them to install TypeScript globally. TypeScript is a pinned devDependency now
+  rather than whatever a global install happens to give you that month, which is what broke the
+  build on 2026-08-10 when that became TypeScript 7.
+- There is no `LICENSE` file, here or upstream, so the default is all rights reserved. The original
+  maintainer said in writing that community builds are welcome, but a comment on an issue is not a
+  grant with terms. Tracked as U11.
+
+### The board reads as a table
+
+- The board has a surface. It was one flat `radial-gradient(#333, #111)` and read as an empty dark
+  rectangle. It is cool charcoal felt now, lit slightly above centre where the cards are, with a
+  fine grain over it. The seat tint that marks the current player was an opaque band with a hard
+  line across the board; it is feathered and translucent, so it tints the surface instead of holding
+  a second copy of it.
+- The rows have play zones, so the width the new layout won reads as space rather than emptiness,
+  and the two sides can be told apart.
+- Cards keep their shadow when you hover them. The lift scaled the art and left the shadow on a box
+  that did not move, so a hovered card grew out of its own shadow.
+- The player's half has room. Allies, supports, hero and hand were 19, 14 and 4 units apart, and the
+  last of those is about three real pixels.
+- The three status cards are drawn from the card data instead of upscaled. The art for Stunned,
+  Confused and Tough is 149x95, against 715x1035 for every real card, so blown up to the centre
+  preview it was a 6 to 7x upscale.
+- Typography is two deliberate stacks instead of three accidents. Bare `monospace` was the app-wide
+  default, `'Segoe UI', Tahoma, Geneva, Verdana` sat on seven card overlays and falls through to
+  Verdana off Windows, and a `Circular` that does not exist anywhere quietly did nothing. The
+  reading face is proportional now, with fixed pitch kept for debug output, and counters get
+  `tabular-nums` so digits stop jittering as they count.
+- The menu and setup pages are styled rather than shipping browser defaults, and they are on the
+  same font as the board.
+- The chrome outside the board scales with the window, in the board's own terms.
+
+### Chrome that belongs to the same program
+
+- The prompt box floats over the board instead of cutting a hole in it. It is pinned to a percentage
+  of the viewport while the board is in scene units, so any position is a guess about a layout it
+  cannot see; a translucent fill with a blur behind it makes the overlap stop mattering.
+- A hovered button no longer erases its own label. Hover threw the button's colour away for a light
+  grey with the white label left on top: 12.63:1 at rest and 1.84:1 while you point at it.
+- The game log is readable. It was black text on a `#333` panel, and the panel's `opacity: .85` faded
+  the text along with the fill, so it reached the eye at 1.53:1 against a 4.5:1 floor. It also broke
+  ordinary words mid-character, wrapping like "the villa / in attacks".
+- Hovering a card name in the log or the prompt no longer makes it unreadable. That hover filled the
+  name with `silver` under white text, 1.82:1.
+- The right-click menu and the extra button panel match the rest. One was a white box with square
+  corners on a dark felt board, the other a flat mid grey that was the brightest thing on screen.
+- Scrollbars have a shape. What was there was a web snippet with its `border-radius` lines dropped,
+  so nothing had a fill and the thumb was a soft dark smudge on a soft grey smudge. Firefox had the
+  stock scrollbar throughout, and the setup screen, deck editor and card viewer never loaded the
+  stylesheet at all.
+- The range sliders are drawn rather than left as a white track with a blue thumb.
+- Keyboard focus is visible on the buttons, the menu and the sliders. There was no focus style at
+  all, and the extra button panel actively removed the one it would have inherited.
+
+### Motion
+
+- Cards ease into place instead of moving at a constant speed and stopping dead. Every draw, play,
+  discard and row change ran on `linear`.
+- The new layout had silently deleted the card scale transition. A `transition: box-shadow` shorthand
+  replaced the property list it was added to rather than joining it, so a hovered or activating card
+  jumped to size with no transition at all.
+- Hover states arrive the way they leave. The card lift and the side bar drawers both cancelled their
+  transition on `:hover`, so they snapped in and eased out.
+- `prefers-reduced-motion` is honoured. The `?disable_animations` escape hatch had never worked: it
+  asked for a stylesheet path that does not exist, so it 404'd silently and only ever disabled the
+  card tilt.
+
+### Playing the game
+
+- A boost card is visibly different from a card entering play. The two have opposite consequences,
+  one being a permanent threat and the other a number that has already been applied, and they
+  animated and landed the same way. The number a boost adds now has a colour, a boost that does more
+  than add a number is marked, and a boost no longer lands where a revealed card lands.
+- An effect whose size comes from a quantity you choose no longer lets you choose zero, get nothing
+  and be told nothing. X costs are shown while you pay them, and Shield Toss's targets are bound to
+  its discard.
+- A facedown encounter card dealt to you gets its own place. It was landing in the shared hero row
+  among your cards in play, so it read as something entering play, which it is not.
+- The setup screen lists the decks you have. Choosing a hero was four file inputs and you had to
+  already know that decks live in `./deck/starter`.
+- Landscape-printed cards are the right way up in the setup screen, the deck editor and the card
+  viewer. Every card image the server sends is portrait, including the 76 of 914 that are printed
+  landscape, so something has to turn them back and only the board did.
+
+### Fixed
+
+- The "3D Render" setting does something. Its stylesheet path had a `public/` segment missing and a
+  dot where a slash belongs, twice, so a 3KB stylesheet had never once been applied.
+- The main scheme's threat readout no longer clips at two digits either side.
+- The side-scheme type is no longer missing, and the set grids and a dictionary race are fixed with
+  it.
+
+### Investigations that changed nothing, and why
+
+- I6 proposed skipping a CRC during replay. Measuring made it look worth doing at 9% of runtime, and
+  then the premise collapsed: the CRC is not a render artifact despite living next to one. Withdrawn
+  as unsafe.
+- G5 asked for a game played to completion in the browser, on the belief that a mid-game replay
+  cannot drive the test harness. Six of the seven replays already on disk drive it to a clean pass.
+  Dissolved rather than done.
+- F8 said cross-area targeting isolation is opt-in, and H5 sized fixing it as the largest hidden cost
+  in the document. Isolation is enforced one level up from where the row was looking. Re-scoped and
+  retracted.
+- F12 records that whether an encounter set is "standard" or modular is decided entirely by whether
+  its name starts with "standard" or "expert", re-derived independently in four places. Found while
+  explaining what the Standard Sets box does, not from anything failing.
+
 ## 2026-08-16 to 08-18
 
 A new board layout, a rebuilt setup and game over screen, and the tooling to exercise them. 13
