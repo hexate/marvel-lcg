@@ -4,7 +4,16 @@
 
     opacity: 1;
     font-size: calc(1 * var(--font-size));
-    word-break: break-all;
+    /* Was `word-break: break-all`, which breaks every word at whatever character reaches the edge,
+       so the log wrapped like "the villa / in attacks". `overflow-wrap: anywhere` only breaks a word
+       that cannot fit on a line of its own, which is the case this was reaching for: the log is full
+       of unspaced tokens like `EncounterDeck<30>` and `Spider-Man's PlayerDeck<40>`.
+       `anywhere` rather than `break-word` on purpose. The text sits in the `1fr` track of a
+       `grid-template-columns: var(--width) 1fr`, and a grid track's automatic minimum is its
+       content's min-content size. Only `anywhere` reduces that, so only `anywhere` stops a single
+       long token widening the column and pushing the panel out; `break-word` wraps the glyphs but
+       leaves the intrinsic width unchanged, which is the failure this rule exists to prevent. */
+    overflow-wrap: anywhere;
     /* Was `black`, on the `#333` below, which is 1.66:1 before the panel's own opacity is applied
        and 1.53:1 after it. The floor for text this size is 4.5:1. This is the running record of
        what happened in the game and it has been very nearly invisible. Not pure white: `#dcdce0`
