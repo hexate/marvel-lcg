@@ -5,7 +5,12 @@
     opacity: 1;
     font-size: calc(1 * var(--font-size));
     word-break: break-all;
-    color: black;
+    /* Was `black`, on the `#333` below, which is 1.66:1 before the panel's own opacity is applied
+       and 1.53:1 after it. The floor for text this size is 4.5:1. This is the running record of
+       what happened in the game and it has been very nearly invisible. Not pure white: `#dcdce0`
+       reads as paper rather than as a highlight and still clears the floor twice over at 9.6:1.
+       See the opacity note further down, which is the other half of this. */
+    color: #dcdce0;
     left: 0;
     right: 0;
     position: absolute;
@@ -27,7 +32,20 @@
     bottom: 50%;
     border: #111 solid 4px;
     padding: calc(.5 * var(--font-size));
-    opacity: .85;
+    /* Was `opacity: .85`, and that is the actual cause rather than the colour above. `opacity` on a
+       container fades everything it contains, so the panel was not translucent, the text was: black
+       text at 85% over the composited fill measures 1.53:1 against the 1.66:1 the two colours give
+       on their own. Moving the transparency into `background-color` keeps the see-through fill that
+       was clearly wanted and renders the text, the border and the id chip at full strength. Same
+       reasoning `marvel2/chrome.css` used on the prompt box, and the same mistake. */
+    background-color: rgba(51, 51, 51, .85);
+}
+
+/* The chip had 5.18:1 as black on slategray and reached the eye at 3.79:1 because of the opacity
+   above. It inherited that black from the panel, so now that the panel is light it has to say so.
+   Restated rather than redesigned: full strength, this is the 5.18:1 it was always meant to be. */
+#history-text .log-id {
+    color: black;
 }
 
 #history-text .log-id {
@@ -61,9 +79,15 @@
     position: relative;
 }
 
+/* `silver` under light text is 1.82:1, so pointing at a card name to find out what it is was the
+   moment it became unreadable. That is the same defect `marvel2/chrome.css` measured on the buttons
+   and it bites the prompt box harder than the log, because the prompt's text has always been white:
+   this rule has been destroying the contrast of the thing under the cursor there since it was
+   written. A translucent white lifts the background without touching the foreground, so it signals
+   just as clearly and costs nothing: 6.09:1 on the log, higher on the prompt's darker fill. */
 #prompt-text .log-card:hover,
 #history-text .log-card:hover {
-    background-color: silver;
+    background-color: rgba(255, 255, 255, .18);
 }
 
 #history.hide {
