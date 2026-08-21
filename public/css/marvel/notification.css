@@ -90,6 +90,19 @@
     transform: translateX(0.15rem);
 }
 
+/* A toast with no title collapses the header instead of leaving an empty strip. The vendored
+   `notifications.js` always builds a `.notititle` and always gives it this padding, so passing an
+   empty title without this rule costs about 1.05rem of dead space above the message rather than
+   removing the header. `.notidesc` has no top padding of its own, on the assumption that the title
+   above it provides the gap, so it borrows the title's when the title is gone. */
+.notititle:empty {
+    display: none;
+}
+
+.noticard:has(> .notititle:empty) > .notidesc {
+    padding-top: 0.65rem;
+}
+
 .notititle {
     color: var(--color);
     padding: 0.65rem 0.5rem 0.4rem 1.25rem;

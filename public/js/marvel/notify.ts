@@ -82,7 +82,11 @@ export class Notify {
 
         let class_name = 'statistics'
         let div_test = `<span class='${class_name}'>${text}</span>`
-        Notify.create("STATISTIC", "", div_test)
+        // No title. Every one of these toasts said "STATISTIC" over a line that already reads
+        // "<card art> Enters Play x1", so the header named the category of the message rather than
+        // telling you anything about the event. The empty string is handled in `notification.css`,
+        // which collapses an empty `.notititle` rather than leaving its padding behind.
+        Notify.create("", "", div_test)
     }
 
     static showStatistics(card_id: string, text: string, count: number) {
