@@ -1,5 +1,14 @@
 from core import *
 
+GAME_OVER_OUTCOME = Literal[
+    "games_won_villain_defeated",
+    "games_won_other",
+    "games_lost_main_scheme",
+    "games_lost_eliminated",
+    "games_lost_encounter_deck",
+    "games_lost_other",
+]
+
 @dataclass
 class Statistics:
     version: str = field(default="")
@@ -63,6 +72,20 @@ class Statistics:
     achievement_triple_kill: int = field(default=0)
     achievement_ultra_kill: int = field(default=0)
     achievement_rampage: int = field(default=0)
+
+    # Why the game ended, from `GAME_OVER_REASON` in game/world/game_over.py. `games_won` and
+    # `games_lost` count the outcome; these keep the reason, which was reaching the statistics
+    # hook on the message and being dropped there.
+    games_won_villain_defeated: int = field(default=0)
+    games_won_other: int = field(default=0)
+    games_lost_main_scheme: int = field(default=0)
+    games_lost_eliminated: int = field(default=0)
+    games_lost_encounter_deck: int = field(default=0)
+    games_lost_other: int = field(default=0)
+
+    # <scenario>: {<outcome field above>: count}. Expert and challenge runs are keyed apart from
+    # the standard ones, since they are not the same fight.
+    scenarios: Dict[str, Dict[str, int]] = field(default_factory=lambda: {})
 
     data: Dict[str, Tuple[int, int, int]] = field(default_factory=lambda: {})
 

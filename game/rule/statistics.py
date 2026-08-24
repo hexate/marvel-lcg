@@ -18,7 +18,28 @@ def GetStatisticsRule() -> List['Ability']:
     from game.operate.worlds import Worlds
     from engine import Engine
 
+    def scenario_key(message: 'Message.WhenGameOver') -> str:
+        """The scenario as it is named on screen, with what makes it a harder fight.
+
+        Expert and challenge runs are counted apart from the standard ones. Both can be on at
+        once, which the replay's own name does not allow for.
+        """
+        campaign = message.world.scene.campaign
+        marks = list(campaign.challenges)
+        if campaign.expert:
+            marks.append("Expert")
+        if not marks:
+            return campaign.name
+        return f"{campaign.name} ({', '.join(marks)})"
+
     def statistics_gameover(message: 'Message.WhenGameOver'):
+        from game.world.game_over import GAME_OVER_OUTCOME_BY_REASON
+
+        # Why the game ended, not just whether it was won. The reason arrives on the message and
+        # was read no further than `players_won` before.
+        if message.reason in GAME_OVER_OUTCOME_BY_REASON:
+            Engine.statistics.RecordGameOver(scenario_key(message), GAME_OVER_OUTCOME_BY_REASON[message.reason])
+
         if message.players_won == True:
             for face in Worlds.GetAllMainSchemes(message.world):
                 Engine.statistics.RecordCard(face, "GameOver")

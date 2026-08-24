@@ -17,7 +17,9 @@ CATEGORY_NAME = "GAME"
 
 ON_STARTUP_LOAD_SAVE_FILE   = ConfigVariables.File('on_startup_load_save_file', "")
 PAUSE_TEST_STATISTICS       = ConfigVariables.Bool('pause_test_statistics', True)
-AUTO_SAVE_AFTER_GAME_OVER   = ConfigVariables.Bool('auto_save_after_game_over', False)
+# On by default: a finished game is the only record of itself, and the statistics keep counts
+# rather than games. Replays are ~30KB each and land in `replays/`.
+AUTO_SAVE_AFTER_GAME_OVER   = ConfigVariables.Bool('auto_save_after_game_over', True)
 
 class Game:
 

@@ -3,6 +3,7 @@ from core import *
 from game.card.face.card_face import CardFace
 from game.player import *
 from game.statistics.statistics import Statistics
+from game.statistics.statistics import GAME_OVER_OUTCOME
 from engine.lib import Json, Ver
 from engine.log import Log, Notify
 from engine.file import FileManager
@@ -162,7 +163,7 @@ class GameStatistics:
         'engaged_minions',
         "games_new",
         "games_won",
-        "games_lost"], value: int):
+        "games_lost"]|GAME_OVER_OUTCOME, value: int):
         if self.IsPause():
             return
 
@@ -170,6 +171,22 @@ class GameStatistics:
         text = f"{name} -> {getattr(self.content, name)} (+{value})"
         if name != "operation":
             Notify.Statistics(text)
+
+    def RecordGameOver(self, scenario: str, outcome: 'GAME_OVER_OUTCOME'):
+        """Record why one finished game ended, once globally and once under its scenario.
+
+        Only reached for a game the rules ended. Exit and Undo never send `WhenGameOver`.
+        """
+        if self.IsPause():
+            return
+
+        self.RecordValue(outcome, 1)
+
+        counts = self.content.scenarios.setdefault(scenario, {})
+        counts[outcome] = counts.get(outcome, 0) + 1
+        self.content.scenarios = dict(sorted(self.content.scenarios.items()))
+
+        Notify.Statistics(f"{scenario}: {outcome} x{counts[outcome]}")
 
     def RecordMaximum(self, name: Literal[
         "max_single_damage_dealt",

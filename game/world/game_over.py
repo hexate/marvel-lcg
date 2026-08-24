@@ -2,6 +2,7 @@ from typing import Final
 from core import *
 from game.world import *
 from game.effect import *
+from game.statistics.statistics import GAME_OVER_OUTCOME
 
 GAME_OVER_REASON_RULE = Literal[
     "There were no cards in either the encounter deck or the encounter discard pile",
@@ -22,6 +23,31 @@ GAME_OVER_REASON_EXIT = Literal[
 ]
 
 GAME_OVER_REASON = GAME_OVER_REASON_RULE|GAME_OVER_REASON_SIMPLE|GAME_OVER_REASON_EXIT
+
+GAME_OVER_OUTCOME_MAP: Dict[GAME_OVER_REASON, 'GAME_OVER_OUTCOME|None'] = {
+    "There were no cards in either the encounter deck or the encounter discard pile": "games_lost_encounter_deck",
+    "All players were eliminated": "games_lost_eliminated",
+    "The Final Stage of the Villain was Defeated": "games_won_villain_defeated",
+    "The Final Stage of the Main Scheme was Completed": "games_lost_main_scheme",
+    # A non-final stage that ends the game when it completes, which a few scenarios have.
+    "The Main Scheme was Completed": "games_lost_main_scheme",
+    # A card or a scenario script calling the game rather than a rule, so the reason is only
+    # the outcome. Kept separate instead of folded into the rows above, which would claim to
+    # know something the game never said.
+    "Players Won": "games_won_other",
+    "Players Lost": "games_lost_other",
+    # Neither is a finished game.
+    "Exit": None,
+    "Undo": None,
+}
+
+# The same map keyed by the plain string a game-over message carries, with the two non-outcomes
+# dropped, so a caller holding a `str` does not have to prove it is a `GAME_OVER_REASON` first.
+GAME_OVER_OUTCOME_BY_REASON: Dict[str, 'GAME_OVER_OUTCOME'] = {
+    reason: outcome
+    for reason, outcome in GAME_OVER_OUTCOME_MAP.items()
+    if outcome != None
+}
 
 GAME_OVER_REASON_MAP: Dict[GAME_OVER_REASON, bool|None] = {
     "There were no cards in either the encounter deck or the encounter discard pile": False,
