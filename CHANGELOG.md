@@ -5,6 +5,27 @@ the Irefrixs Team and sunset on 2026-08-10. Entries describe what changed here, 
 full reasoning behind every item, including the ones deliberately not done, lives in
 [`docs/proposed_changes.md`](docs/proposed_changes.md).
 
+## 2026-08-23
+
+### A finished game leaves a record of itself
+
+- The statistics say why a game ended, not just whether it was won. The engine already worked out
+  one of five reasons at game over and printed it to the game log, and the statistics hook was
+  handed that reason on the message and read no further than won or lost. `statistics.json` now
+  keeps six counters split by reason, and the same breakdown per scenario, so "15 games against
+  Klaw, every one of them lost to the scheme" is a question the file can answer. Expert and
+  challenge runs are counted apart from standard ones, since they are not the same fight. An
+  existing statistics file carries over untouched: the new fields default to zero, which leaves
+  both the checksum and the legacy hash undisturbed. N19.
+- A finished game saves a replay. `auto_save_after_game_over` defaulted to off, so a completed game
+  left nothing behind at all. Counters can say how often something happens, but a replay is the
+  only thing that says what happened. About 30KB a game, into `replays/`.
+- Two command-line parsing bugs turned up while verifying the above. Both are filed rather than
+  fixed. A flag set by a config group cannot be overridden later on the same command line, and the
+  override is accepted in silence (J34). A value beginning with `/` is read as another option name,
+  so an absolute path passed to any file option silently becomes the string `"True"`, and in one
+  run wrote a statistics file to a file named `True` (A11).
+
 ## 2026-08-19 to 08-21
 
 The project became its own trunk, and the look and feel got a pass end to end. 68 commits.
