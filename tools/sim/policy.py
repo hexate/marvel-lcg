@@ -139,9 +139,13 @@ def changes_form(face):
 
 
 def summons_ally(face):
-    """Call for Aid puts an ally into play for nothing. As an Event with no damage or
-    thwart text it fell into the junk bin, which ranks it below everything."""
-    return 'ally into play' in card_text(face)
+    """Finds or deploys an ally. Call for Aid does not put one into play, it adds one to
+    hand, so matching only "ally into play" missed it and left three copies of a free
+    tutor in the junk bin."""
+    t = card_text(face)
+    if 'ally' not in t:
+        return False
+    return ('ally into play' in t or 'to your hand' in t or 'search your deck' in t)
 
 
 def form_engine(face):
