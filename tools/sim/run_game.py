@@ -1,0 +1,69 @@
+"""Play exactly one game and print a JSON result line. One game per process, on purpose:
+a policy bug then kills that game only, and no state leaks between games."""
+import sys, os, io, json, contextlib, traceback
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.dirname(HERE))
+sys.path.insert(0, HERE)
+sys.path.insert(0, REPO)
+os.chdir(REPO)
+
+import engine  # noqa: F401
+from engine import Engine
+
+# `Engine.SaveCrash` hardcodes './crash.json' (engine/engine.py:184) and then exit(-1).
+# Both are wrong for a batch run: it clobbers the user's crash repro and kills the process.
+Engine.SaveCrash = staticmethod(lambda: None)
+
+from unit_test.harness import GameFixture, decline_or_first
+from policy import Heuristic
+
+
+def main():
+    scen, hero, seed, mode = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
+    out = {"scenario": scen, "hero": hero, "seed": seed, "mode": mode,
+           "won": False, "reason": "NO_RESULT", "rounds": -1, "err": None}
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            if mode == "nothing":
+                pol, holder = decline_or_first, None
+            else:
+                pol = Heuristic(mode); holder = pol
+            fixture = GameFixture(scen, [hero], seed=seed, policy=pol)
+            if holder is not None:
+                holder.fx = fixture
+            with fixture as fx:
+                fx.game.GameLoop()
+                w = fx.world
+                won = getattr(w.game_over, "players_won", None)
+                out.update(won=bool(won) if won is not None else False,
+                           reason=str(getattr(w.game_over, "reason", None)) if won is not None
+                                  else "ENDED_WITHOUT_OUTCOME:" + str(getattr(w.game_over, "reason", None)),
+                           rounds=int(w.round_id))
+                if holder is not None:
+                    out["steps"] = holder.steps
+                    out["policy_errors"] = holder.errors
+                    out["tel"] = holder.tel
+                    out["first_error"] = holder.first_error
+                    out["stalls"] = holder.stalls
+                    try:
+                        vs = w.scenario.area_villain.Get()
+                        out["villain_stage"] = [f.paper.card_id for f in vs]
+                        out["villain_dmg"] = sum(f.GetLostHealth() for f in vs)
+                        out["villain_hp"] = sum(f.health for f in vs)
+                        st = out["villain_stage"][0] if out["villain_stage"] else ""
+                        out["total_villain_dmg"] = out["villain_dmg"] + (14 if st == "01095" else 0)
+                    except Exception:
+                        pass
+                    out["end_threat"] = getattr(holder.main(), "threat", None)
+                    out["end_hp"] = round(holder.hp_frac(), 2)
+    except BaseException as e:
+        out["err"] = f"{type(e).__name__}: {e}"[:200]
+        out["trace"] = traceback.format_exc()[-400:]
+    sys.__stdout__.write(json.dumps(out) + "\n")
+    sys.__stdout__.flush()
+    os._exit(0)
+
+
+main()
