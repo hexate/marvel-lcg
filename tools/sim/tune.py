@@ -31,8 +31,15 @@ if not os.path.exists(PY_BIN):
 
 from weights import DEFAULT_WEIGHTS  # noqa: E402
 
+# 25 training seeds overfitted badly: 6 wins of 25 on train, 1 of 25 held out. A win
+# is worth 4% of the score on a set that small, which is well inside the noise, so the
+# climber chased individual seeds. More seeds, and lean on the dense term.
 TRAIN = [11, 23, 37, 49, 61, 73, 85, 97, 109, 121, 133, 145, 157, 169, 181,
-         193, 205, 217, 229, 241, 3, 17, 29, 41, 53]
+         193, 205, 217, 229, 241, 3, 17, 29, 41, 53, 65, 77, 89, 101, 113,
+         125, 137, 149, 161, 173, 185, 197, 209, 221, 233, 5, 19, 31, 43, 57,
+         69, 81, 93, 105, 117, 129, 141, 153, 165, 177, 189, 201, 213, 225, 237]
+WIN_BONUS = 1.0
+
 TEST = [2, 8, 14, 20, 26, 32, 38, 44, 50, 56, 62, 68, 74, 80, 86,
         92, 98, 104, 110, 116, 122, 128, 134, 140, 146]
 
@@ -68,17 +75,21 @@ def evaluate(weights, scen, deck, villain_hp, seeds, pool):
         wins += 1 if r.get("won") else 0
     mean_prog = sum(prog) / len(prog)
     win_rate = wins / float(len(rows))
-    return mean_prog + 2.0 * win_rate, wins, mean_prog
+    return mean_prog + WIN_BONUS * win_rate, wins, mean_prog
 
 
 def main():
     scen, deck = sys.argv[1], sys.argv[2]
     villain_hp = float(sys.argv[3])
     iters = int(sys.argv[4]) if len(sys.argv) > 4 else 60
+    warm = sys.argv[5] if len(sys.argv) > 5 else None
     rng = random.Random(1234)
 
     keys = sorted(DEFAULT_WEIGHTS)
     best = dict(DEFAULT_WEIGHTS)
+    if warm:
+        with open(warm) as f:
+            best.update(json.load(f))
 
     with cf.ThreadPoolExecutor(max_workers=10) as pool:
         best_fit, best_wins, best_prog = evaluate(best, scen, deck, villain_hp, TRAIN, pool)
