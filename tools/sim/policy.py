@@ -123,6 +123,20 @@ def pays_off_defending(face):
             or 'retaliate' in t)
 
 
+def changes_form(face):
+    """Resize changes form and draws a card for nothing. For a hero whose kit pays out
+    on every change, that is an engine card, not a trick."""
+    t = card_text(face)
+    return 'change to your other hero form' in t or 'change to your other form' in t
+
+
+def form_engine(face):
+    """A card that pays out every time you change form compounds: Ant-Man's Helmet
+    heals 2 on each change to Giant, Giant Strength adds ATK. Classed as generic board
+    filler they were played 3 times in 49 chances."""
+    return 'after you change' in card_text(face)
+
+
 def boosts_offence(face):
     """Permanent +ATK or an extra ready is worth more than a one-shot, and compounds."""
     t = card_text(face)
@@ -693,7 +707,8 @@ class Heuristic:
                 self.tel["thwart"] += 1
                 return self.aimed(thw[0], hand, sc, ("main",))
 
-        for bucket in ("Action", "Hero_Action"):
+        for bucket in sorted(k for k in by
+                             if str(k).startswith("Action") or str(k).startswith("Hero_Action")):
             if by.get(bucket):
                 self.tel["action"] += 1
                 return self.take(by[bucket][0], hand)

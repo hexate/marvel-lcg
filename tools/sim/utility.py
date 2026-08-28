@@ -16,8 +16,9 @@ be read back out as a human decision procedure.
 import json
 
 from weights import DEFAULT_WEIGHTS
-from policy import (Heuristic, _command, card_cost, cost_of, deals_damage,
-                    disables, oid, protects, removes_threat, type_of)
+from policy import (Heuristic, _command, card_cost, changes_form, cost_of,
+                    deals_damage, disables, form_engine, oid, protects,
+                    removes_threat, type_of)
 
 # Starting point. Roughly reproduces the hand-tuned ladder so the search begins
 # somewhere sane rather than at random.
@@ -37,6 +38,15 @@ class UtilityPolicy(Heuristic):
         self.w = dict(DEFAULT_WEIGHTS)
         if weights:
             self.w.update(weights)
+
+    def danger_threat(self):
+        sch = 0
+        try:
+            for f in self.world().scenario.area_villain.Get():
+                sch = max(sch, int(getattr(f, "scheme", 0) or 0))
+        except Exception:
+            pass
+        return sch + 3
 
     # ------------------------------------------------------------------ context
     def context(self):
@@ -67,6 +77,12 @@ class UtilityPolicy(Heuristic):
         t = type_of(face)
         if t == "Ally":
             return "ally"
+        # Only permanents. Moxie also pays out on a form change, but it is a Response
+        # that belongs in the change-form window; treating it as a turn play wastes it.
+        if form_engine(face) and t in ("Upgrade", "Support"):
+            return "engine"
+        if changes_form(face):
+            return "reform"
         if disables(face):
             return "stun"
         if protects(face):
@@ -115,7 +131,10 @@ class UtilityPolicy(Heuristic):
         if name == "Alter-Ego_Action":
             return (w["ae_action"], "ae_action")
 
-        if name in ("Action", "Hero_Action"):
+        # A card with two abilities numbers them: Hero_Action and Hero_Action_1. Matching
+        # the bare name only left the second ability on Wrist Gauntlets unused 24 times
+        # in ten games.
+        if name.startswith("Action") or name.startswith("Hero_Action"):
             return (w["hero_action"], "action")
 
         form = self.option_form(name)
@@ -142,6 +161,17 @@ class UtilityPolicy(Heuristic):
     def turn_inner(self, options):
         hand = self.hand()
         ctx = self.context()
+        # Hard floor, not a weight. A dense damage fitness never punishes losing to the
+        # scheme, so the tuner will happily race past the point of no return: 0.1 thwarts
+        # a game while four losses in ten were the main scheme completing.
+        # One villain phase can add acceleration plus the villain's scheme value plus a
+        # boost card, so the scheme jumps by about four. Waiting until headroom is 2
+        # means the floor never fires: threat goes 3 -> completed between decisions.
+        if self.headroom() <= self.danger_threat():
+            thw = [o for o in options if o.get("name") == "Thwart"]
+            if thw:
+                self.tel["thwart"] += 1
+                return self.aimed(thw[0], hand, self.schemes(), ("main", "side"))
         best = None
         for o in options:
             score, kind = self.score_option(o, hand, ctx)

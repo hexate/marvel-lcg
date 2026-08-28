@@ -83,8 +83,17 @@ def main():
     villain_hp = float(sys.argv[3])
     iters = int(sys.argv[4]) if len(sys.argv) > 4 else 60
     warm = sys.argv[5] if len(sys.argv) > 5 else None
-    rng = random.Random(1234)
+    # Small evaluations for nimbleness. 10 losses out of 10 is already enough signal to
+    # change a rule; precision only matters for the final verification run.
+    train_n = int(os.environ.get("TRAIN_N") or len(TRAIN))
+    # Chained short runs are the point of this tool, and a fixed seed made every run
+    # explore the identical candidate sequence, so continuing from a warm start found
+    # nothing new. Vary it, and print it so a run can be reproduced.
+    search_seed = int(os.environ.get("TUNE_SEED") or random.SystemRandom().randrange(1 << 30))
+    print("search seed", search_seed, flush=True)
+    rng = random.Random(search_seed)
 
+    out = os.path.join(HERE, "weights_%s_%s.json" % (scen, deck))
     keys = sorted(DEFAULT_WEIGHTS)
     best = dict(DEFAULT_WEIGHTS)
     if warm:
@@ -92,8 +101,9 @@ def main():
             best.update(json.load(f))
 
     with cf.ThreadPoolExecutor(max_workers=10) as pool:
-        best_fit, best_wins, best_prog = evaluate(best, scen, deck, villain_hp, TRAIN, pool)
-        print(f"start        fit={best_fit:.3f} wins={best_wins}/{len(TRAIN)} prog={best_prog:.3f}",
+        train = TRAIN[:train_n]
+        best_fit, best_wins, best_prog = evaluate(best, scen, deck, villain_hp, train, pool)
+        print(f"start        fit={best_fit:.3f} wins={best_wins}/{len(train)} prog={best_prog:.3f}",
               flush=True)
 
         temp = 1.0
@@ -101,11 +111,15 @@ def main():
             cand = dict(best)
             for k in rng.sample(keys, rng.randint(1, 4)):
                 cand[k] = round(cand[k] + rng.gauss(0, 2.0 * temp), 2)
-            fit, wins, prog = evaluate(cand, scen, deck, villain_hp, TRAIN, pool)
+            fit, wins, prog = evaluate(cand, scen, deck, villain_hp, train, pool)
             mark = ""
             if fit > best_fit:
                 best, best_fit, best_wins, best_prog = cand, fit, wins, prog
                 mark = "  <- kept"
+                # checkpoint immediately: short runs get interrupted, and losing an
+                # improvement to a kill wastes the whole cycle
+                with open(out, "w") as f:
+                    json.dump(best, f, indent=1, sort_keys=True)
             temp = max(0.35, temp * 0.97)
             print(f"iter {it:3d}    fit={fit:.3f} wins={wins} prog={prog:.3f}"
                   f"   best={best_fit:.3f}{mark}", flush=True)
@@ -115,10 +129,9 @@ def main():
 
     # one file per matchup: weights tuned for one hero against one villain do not
     # transfer, and a shared filename silently overwrites the last run's result
-    out = os.path.join(HERE, "weights_%s_%s.json" % (scen, deck))
     with open(out, "w") as f:
         json.dump(best, f, indent=1, sort_keys=True)
-    print(f"\nTRAIN best fit={best_fit:.3f} wins={best_wins}/{len(TRAIN)} prog={best_prog:.3f}")
+    print(f"\nTRAIN best fit={best_fit:.3f} wins={best_wins}/{len(train)} prog={best_prog:.3f}")
     print(f"HELD-OUT tuned    wins={test_wins}/{len(TEST)} prog={test_prog:.3f} fit={test_fit:.3f}")
     print(f"HELD-OUT baseline wins={base_wins}/{len(TEST)} prog={base_prog:.3f} fit={base_fit:.3f}")
     print("weights ->", out)

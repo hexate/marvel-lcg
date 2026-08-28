@@ -16,6 +16,8 @@ DEFAULT_WEIGHTS = {
     # --- playing cards
     "play_ally": 6.0,
     "play_stun": 6.5,
+    "play_reform": 6.0,     # Resize: change form and draw, for nothing
+    "play_engine": 7.0,     # pays out on every future form change, so it compounds
     "play_damage": 5.0,
     "play_protect": 5.0,
     "play_board": 3.0,
