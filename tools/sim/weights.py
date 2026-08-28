@@ -17,11 +17,13 @@ DEFAULT_WEIGHTS = {
     "play_ally": 6.0,
     "play_stun": 6.5,
     "play_reform": 6.0,     # Resize: change form and draw, for nothing
-    "play_engine": 7.0,     # pays out on every future form change, so it compounds
+    "play_engine": 7.0,
+    "play_allybuff": 6.0,   # keeps allies alive, and allies are the activation budget     # pays out on every future form change, so it compounds
     "play_damage": 5.0,
     "play_protect": 5.0,
     "play_board": 3.0,
     "play_other": 1.0,
+    "play_build_x_early": 0.0,  # measured worse on 50 seeds; kept as a knob, off
     "play_x_cost": -0.8,            # cheaper is better, hand size is the budget
     # --- form
     "flip_ae": -2.0,

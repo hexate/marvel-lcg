@@ -1,0 +1,67 @@
+[
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "util:/private/tmp/claude-501/-Users-blake-Repos-marvel-lcg/47faaa87-bf50-450e-ade5-d609002d512a/scratchpad/ae_ae_0.json",
+  "n": 50,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 5.0,
+  "reasons": {
+   "All players were eliminated": 30,
+   "The Main Scheme was Completed": 20
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "util:/private/tmp/claude-501/-Users-blake-Repos-marvel-lcg/47faaa87-bf50-450e-ade5-d609002d512a/scratchpad/ae_ae_neg2.json",
+  "n": 50,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 4.7,
+  "reasons": {
+   "All players were eliminated": 43,
+   "The Main Scheme was Completed": 7
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "util:/private/tmp/claude-501/-Users-blake-Repos-marvel-lcg/47faaa87-bf50-450e-ade5-d609002d512a/scratchpad/ae_ae_never.json",
+  "n": 50,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 4.4,
+  "reasons": {
+   "All players were eliminated": 48,
+   "The Main Scheme was Completed": 2
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "util:/private/tmp/claude-501/-Users-blake-Repos-marvel-lcg/47faaa87-bf50-450e-ade5-d609002d512a/scratchpad/ae_ae_pos3.json",
+  "n": 50,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 5.0,
+  "reasons": {
+   "The Main Scheme was Completed": 38,
+   "All players were eliminated": 12
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "util:/private/tmp/claude-501/-Users-blake-Repos-marvel-lcg/47faaa87-bf50-450e-ade5-d609002d512a/scratchpad/ae_ae_pos8.json",
+  "n": 50,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 5.5,
+  "reasons": {
+   "The Main Scheme was Completed": 41,
+   "All players were eliminated": 9
+  }
+ }
+]

@@ -18,7 +18,7 @@ import json
 from weights import DEFAULT_WEIGHTS
 from policy import (Heuristic, _command, card_cost, changes_form, cost_of,
                     deals_damage, disables, form_engine, oid, protects,
-                    removes_threat, summons_ally, type_of)
+                    removes_threat, summons_ally, type_of, buffs_ally)
 
 # Starting point. Roughly reproduces the hand-tuned ladder so the search begins
 # somewhere sane rather than at random.
@@ -60,7 +60,16 @@ class UtilityPolicy(Heuristic):
             exhausted = not ident.IsReady()
         except Exception:
             exhausted = False
+        try:
+            rnd = int(getattr(self.world(), "round_id", 1) or 1)
+        except Exception:
+            rnd = 1
         return {
+            # Damage per round was measured collapsing from 3.4 at round four to 1.0 by
+            # round ten: the board never compounds, because a greedy scorer always
+            # prefers immediate damage to a permanent. Without a sense of when it is,
+            # the policy cannot tell building from cashing in.
+            "early": max(0.0, 1.0 - (rnd - 1) / 4.0),
             "hp": self.hp_frac(),
             "hurt": 1.0 - self.hp_frac(),
             "press": self.threat_pressure(),
@@ -81,6 +90,8 @@ class UtilityPolicy(Heuristic):
         # that belongs in the change-form window; treating it as a turn play wastes it.
         if form_engine(face) and t in ("Upgrade", "Support"):
             return "engine"
+        if buffs_ally(face):
+            return "allybuff"
         if changes_form(face):
             return "reform"
         if disables(face):
@@ -108,6 +119,8 @@ class UtilityPolicy(Heuristic):
             face = hand.get(o.get("bind_id"))
             cat = self.card_category(face)
             base = w.get("play_" + cat, w["play_other"])
+            if cat in ("ally", "board", "engine", "allybuff"):
+                base += w["play_build_x_early"] * ctx["early"]
             return (base + w["play_x_cost"] * cost_of(o), "play")
 
         if name == "Attack":

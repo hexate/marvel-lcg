@@ -1,0 +1,54 @@
+[
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "util:/private/tmp/claude-501/-Users-blake-Repos-marvel-lcg/47faaa87-bf50-450e-ade5-d609002d512a/scratchpad/ab_ab13.json",
+  "n": 50,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 4.4,
+  "reasons": {
+   "All players were eliminated": 48,
+   "The Main Scheme was Completed": 2
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "util:/private/tmp/claude-501/-Users-blake-Repos-marvel-lcg/47faaa87-bf50-450e-ade5-d609002d512a/scratchpad/ab_ab6.json",
+  "n": 50,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 4.4,
+  "reasons": {
+   "All players were eliminated": 48,
+   "The Main Scheme was Completed": 2
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "util:/private/tmp/claude-501/-Users-blake-Repos-marvel-lcg/47faaa87-bf50-450e-ade5-d609002d512a/scratchpad/ab_ab9.json",
+  "n": 50,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 4.4,
+  "reasons": {
+   "All players were eliminated": 48,
+   "The Main Scheme was Completed": 2
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "util:/private/tmp/claude-501/-Users-blake-Repos-marvel-lcg/47faaa87-bf50-450e-ade5-d609002d512a/scratchpad/ab_ab_base.json",
+  "n": 50,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 4.5,
+  "reasons": {
+   "All players were eliminated": 48,
+   "The Main Scheme was Completed": 2
+  }
+ }
+]

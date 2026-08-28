@@ -148,6 +148,14 @@ def summons_ally(face):
     return ('ally into play' in t or 'to your hand' in t or 'search your deck' in t)
 
 
+def buffs_ally(face):
+    """Attaches to an ally and makes it last. Allies take consequential damage every
+    time they act, so a 3 hit point ally is three activations; Reinforced Suit's +2
+    makes it five. Filed as generic board filler it was played twice in 22 chances."""
+    t = card_text(face)
+    return 'attach to an' in t and ('ally' in t or 'avenger' in t)
+
+
 def form_engine(face):
     """A card that pays out every time you change form compounds: Ant-Man's Helmet
     heals 2 on each change to Giant, Giant Strength adds ATK. Classed as generic board
