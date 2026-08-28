@@ -11,6 +11,7 @@ Both share every mechanic. Only the priorities differ, so a win-rate gap between
 about the strategy and not about one bot being better engineered than the other.
 """
 import os
+import re
 import sys
 
 from unit_test.harness import _command
@@ -74,10 +75,22 @@ def card_cost(face):
     return _CARD_COST.get(cid, 0)
 
 
+_DEAL_RE = re.compile(r'deal (?:\d+|x) damage')
+_DEAL_N_RE = re.compile(r'deal (\d+) damage')
+
+
+def damage_amount(face):
+    """How big the hit is. Ranking damage cards cheapest-first plays a 2-damage event
+    over Heroic Strike's 6."""
+    m = _DEAL_N_RE.search(card_text(face))
+    return int(m.group(1)) if m else 0
+
+
 def deals_damage(face):
+    """Matched 'deal 1'..'deal 5' by hand before, which silently missed Heroic Strike
+    ('deal 6 damage'), the single biggest damage card in Captain America's deck."""
     t = card_text(face)
-    return 'damage to an enemy' in t or 'damage to the villain' in t or 'deal 1' in t \
-        or 'deal 2' in t or 'deal 3' in t or 'deal 4' in t or 'deal 5' in t
+    return bool(_DEAL_RE.search(t)) or 'damage to an enemy' in t or 'damage to the villain' in t
 
 
 def disables(face):
@@ -85,6 +98,29 @@ def disables(face):
     more than a generic support, and the whole point of a stun-lock deck."""
     t = card_text(face)
     return 'stun' in t or 'confuse' in t
+
+
+def protects(face):
+    """A tough status card eats an entire attack; healing buys rounds. With three losses
+    in four by elimination, survival cards are worth as much as damage."""
+    t = card_text(face)
+    return 'tough status' in t or 'heal ' in t
+
+
+def draws_cards(face):
+    """Hand size is the real budget: about two plays a round. Anything that refills it
+    compounds over the rest of the game."""
+    t = card_text(face)
+    return 'draw 1 card' in t or 'draw 2 card' in t or 'draw a card' in t or 'draw 3 card' in t
+
+
+def pays_off_defending(face):
+    """This deck turns defending into tempo: Counter-Punch deals damage after a defence,
+    Indomitable readies the hero after one. With the hero defending every attack, these
+    are the engine rather than filler."""
+    t = card_text(face)
+    return ('your hero defends' in t or 'you would take any amount of damage' in t
+            or 'retaliate' in t)
 
 
 def boosts_offence(face):
@@ -181,7 +217,7 @@ class Heuristic:
                     "burned_ally": 0, "burned_total": 0, "defend_ally": 0,
                     "play_dmg_aimed": 0, "rounds_hero": 0, "rounds_ae": 0,
                     "form_giant": 0, "form_tiny": 0, "form_ae": 0, "mulligan": 0, "cycled": 0, "prompt_giveup": 0, "action": 0,
-                    "ready_self": 0, "forced_choice": 0}
+                    "ready_self": 0, "forced_choice": 0, "response_play": 0}
 
         self.fx = None
         self.steps = 0
@@ -316,7 +352,13 @@ class Heuristic:
                 if face is None:
                     return 0          # the identity itself: free resource, always use first
                 t = type_of(face)
-                return {"Resource": 1, "Event": 3, "Upgrade": 4, "Support": 4, "Ally": 6}.get(t, 3)
+                base = {"Resource": 1, "Event": 3, "Upgrade": 4, "Support": 4, "Ally": 6}.get(t, 3)
+                # Never pay for a card by discarding the cards that actually win the game.
+                if disables(face):
+                    base += 6
+                elif deals_damage(face) or protects(face):
+                    base += 3
+                return base
             picks = sorted(entries, key=burn_cost)[:n]
         for cid, _ in picks:
             face = hand.get(cid)
@@ -551,19 +593,19 @@ class Heuristic:
                 face = hand.get(o.get("bind_id"))
                 t = type_of(face)
                 if self.mode not in ("balanced", "brawl"):
-                    return (0, cost_of(o))
+                    return (0, 0, cost_of(o))
                 if t == "Ally":
-                    return (0, cost_of(o))
+                    return (0, 0, cost_of(o))
                 # a card that actually does something to the board state beats a filing cabinet
-                if disables(face):
-                    return (0, cost_of(o))
+                if disables(face) or protects(face):
+                    return (0, 0, cost_of(o))
                 if boosts_offence(face):
-                    return (1, cost_of(o))
+                    return (1, 0, cost_of(o))
                 if deals_damage(face) or removes_threat(face):
-                    return (1, cost_of(o))
+                    return (1, 0, cost_of(o))
                 if t in ("Upgrade", "Support"):
-                    return (2, cost_of(o))
-                return (3, cost_of(o))
+                    return (2, 0, cost_of(o))
+                return (3, 0, cost_of(o))
             plays.sort(key=rank)
             afford = [o for o in plays if cost_of(o) <= max(0, len(hand) - 2)]
             if afford:
@@ -792,6 +834,20 @@ class Heuristic:
             if d is not None:
                 return d
             return _command("0")
+
+        # Response windows. Counter-Punch, Expert Defense, Shield Block and Get Behind Me!
+        # are all offered here and were all being declined, because the generic handler
+        # treats a cancellable prompt as "nothing to do". They are the deck's engine.
+        if payload.event_name in ("AfterUnitDefendEnd", "WhenUnitWouldDefend",
+                                  "WhenUnitWouldTakeDamage", "WhenPlayerRevealCard",
+                                  "WhenUnitWouldAttack", "AfterUnitChangeForm"):
+            for o in options:
+                face = hand.get(o.get("bind_id"))
+                if o.get("name") != "Play" or face is None:
+                    continue
+                if cost_of(o) == 0:
+                    self.tel["response_play"] += 1
+                    return self.take(o, hand)
 
         if payload.show_cancel:
             return _command("0")
