@@ -159,7 +159,19 @@ def pay_entries(o):
 
 
 def cost_of(o):
-    return int(((o.get("target_payment") or {}).get("0") or {}).get("cost") or 0)
+    """Costs are not always a number. A typed cost arrives as its resource letters, e.g.
+    'RRR' for three physical, and int() on that raised, which the policy caught and
+    turned into a decline. Every such option was silently thrown away."""
+    raw = ((o.get("target_payment") or {}).get("0") or {}).get("cost")
+    if raw is None or raw == "":
+        return 0
+    text = str(raw).strip()
+    if text.isdigit():
+        return int(text)
+    letters = [c for c in text.upper() if c in "RBYGCW"]
+    if letters:
+        return len(letters)
+    return 0
 
 
 class Heuristic:
@@ -217,7 +229,7 @@ class Heuristic:
                     "burned_ally": 0, "burned_total": 0, "defend_ally": 0,
                     "play_dmg_aimed": 0, "rounds_hero": 0, "rounds_ae": 0,
                     "form_giant": 0, "form_tiny": 0, "form_ae": 0, "mulligan": 0, "cycled": 0, "prompt_giveup": 0, "action": 0,
-                    "ready_self": 0, "forced_choice": 0, "response_play": 0}
+                    "ready_self": 0, "forced_choice": 0, "response_play": 0, "interrupt": 0, "ae_action": 0}
 
         self.fx = None
         self.steps = 0
@@ -554,6 +566,12 @@ class Heuristic:
         if mf is not None:
             return mf
         if ae:
+            # Alter-ego actions are free value on a turn that cannot attack anyway
+            # (Steve's Apartment draws a card and heals). They were never taken because
+            # no branch matched the option name.
+            if by.get("Alter-Ego_Action"):
+                self.tel["ae_action"] += 1
+                return self.take(by["Alter-Ego_Action"][0], hand)
             # Take the heal first. Flipping down and straight back up without recovering
             # is the worst of both: you gave the villain a scheme and healed nothing.
             if hp < 0.6 and self.threat_pressure() < 0.5 and by.get("Recover"):
@@ -847,6 +865,16 @@ class Heuristic:
                     continue
                 if cost_of(o) == 0:
                     self.tel["response_play"] += 1
+                    return self.take(o, hand)
+
+        # Interrupts that stop damage, or stop the hero dying. The audit showed these
+        # offered 23 times across ten games and taken none of them, because the response
+        # handler only matched options named "Play". "Do not be defeated" is never a
+        # prompt to decline.
+        if payload.event_name in ("WhenUnitWouldTakeDamage", "WhenUnitWouldBeDefeated"):
+            for o in options:
+                if o.get("name") == "Interrupt" and cost_of(o) == 0:
+                    self.tel["interrupt"] += 1
                     return self.take(o, hand)
 
         if payload.show_cancel:
