@@ -185,11 +185,13 @@ class UtilityPolicy(Heuristic):
             if thw:
                 self.tel["thwart"] += 1
                 return self.aimed(thw[0], hand, self.schemes(), ("main", "side"))
-        best = None
-        for o in options:
-            score, kind = self.score_option(o, hand, ctx)
-            if best is None or score > best[0]:
-                best = (score, kind, o)
+        # The engine only offers a form change when it is legal (it tracks
+        # `has_change_form` itself), so a second guard here was redundant. Worse, when it
+        # fired the turn was forfeited outright, and form changes score high for a
+        # multi-form hero, so whole turns were being thrown away.
+        ranked = sorted((self.score_option(o, hand, ctx) + (o,) for o in options),
+                        key=lambda x: -x[0])
+        best = ranked[0] if ranked else None
         if best is None or best[0] < self.w["end_turn"]:
             self.tel["end_turn"] += 1
             return _command("0")
@@ -204,9 +206,6 @@ class UtilityPolicy(Heuristic):
             self.tel["attack_minion"] += 1
 
         if kind in ("flip_ae", "flip_hero"):
-            if not self.can_flip():
-                self.tel["end_turn"] += 1
-                return _command("0")
             self.mark_flip()
             return self.take(o, hand)
         if kind == "attack":
