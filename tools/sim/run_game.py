@@ -17,6 +17,7 @@ Engine.SaveCrash = staticmethod(lambda: None)
 
 from unit_test.harness import GameFixture, decline_or_first
 from policy import Heuristic
+from utility import UtilityPolicy, load_weights
 
 
 def main():
@@ -28,6 +29,12 @@ def main():
         with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
             if mode == "nothing":
                 pol, holder = decline_or_first, None
+            elif mode.startswith("util"):
+                # "util" or "util:<weights.json>[:<base mode>]"
+                parts = mode.split(":")
+                wpath = parts[1] if len(parts) > 1 and parts[1] else None
+                base = parts[2] if len(parts) > 2 else "balanced"
+                pol = UtilityPolicy(base, load_weights(wpath)); holder = pol
             else:
                 pol = Heuristic(mode); holder = pol
             fixture = GameFixture(scen, [hero], seed=seed, policy=pol)
