@@ -125,6 +125,13 @@ class UtilityPolicy(Heuristic):
                 return (w["flip_ae"]
                         + w["flip_ae_x_hurt"] * ctx["hurt"]
                         + w["flip_ae_x_pressure"] * ctx["press"], "flip_ae")
+            if form == "giant":
+                return (w["flip_giant"]
+                        + w["flip_giant_x_safe"] * ctx["safe"]
+                        + w["flip_giant_x_hurt"] * ctx["hurt"], "flip_hero")
+            if form == "tiny":
+                return (w["flip_tiny"]
+                        + w["flip_tiny_x_pressure"] * ctx["press"], "flip_hero")
             return (w["flip_hero"]
                     + w["flip_hero_x_healthy"] * ctx["hp"]
                     + w["flip_hero_x_pressure"] * ctx["press"], "flip_hero")

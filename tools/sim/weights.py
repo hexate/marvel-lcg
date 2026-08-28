@@ -26,6 +26,14 @@ DEFAULT_WEIGHTS = {
     "flip_ae_x_hurt": 6.0,
     "flip_ae_x_pressure": -6.0,
     "flip_hero": 1.0,
+    # Multi-form heroes. Ant-Man's Giant is ATK 3 / DEF 3 but hand size 4, Tiny is
+    # THW 2 with hand size 5, and each change pays out on arrival: Giant deals 1
+    # damage, Tiny removes 1 threat. Scoring them as one "hero form" throws that away.
+    "flip_giant": 1.0,
+    "flip_giant_x_safe": 4.0,
+    "flip_giant_x_hurt": -1.0,
+    "flip_tiny": 1.0,
+    "flip_tiny_x_pressure": 6.0,
     "flip_hero_x_healthy": 4.0,
     "flip_hero_x_pressure": 4.0,
     "recover": 1.0,

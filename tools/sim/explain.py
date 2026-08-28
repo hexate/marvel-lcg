@@ -20,10 +20,15 @@ def scores(hp, press, mins, exhausted, in_ae):
             s['ATTACK minion'] = W['atk_minion'] + W['atk_minion_x_count']*m + W['atk_minion_x_hurt']*hurt
         s['THWART']           = W['thwart'] + W['thwart_x_pressure']*press
         s['flip to ALTER-EGO']= W['flip_ae'] + W['flip_ae_x_hurt']*hurt + W['flip_ae_x_pressure']*press
+        s['switch to GIANT']  = W['flip_giant'] + W['flip_giant_x_safe']*safe + W['flip_giant_x_hurt']*hurt
+        s['switch to TINY']   = W['flip_tiny'] + W['flip_tiny_x_pressure']*press
         if exhausted:
             s['READY self']   = W['ready_self']
     else:
         s['flip to HERO']     = W['flip_hero'] + W['flip_hero_x_healthy']*hp + W['flip_hero_x_pressure']*press
+        # multi-form heroes leave alter-ego into a specific form
+        s['flip to GIANT']    = W['flip_giant'] + W['flip_giant_x_safe']*safe + W['flip_giant_x_hurt']*hurt
+        s['flip to TINY']     = W['flip_tiny'] + W['flip_tiny_x_pressure']*press
         s['RECOVER']          = W['recover'] + W['recover_x_hurt']*hurt
         s['alter-ego action'] = W['ae_action']
     for cat,cost in (('stun',2),('ally',3),('damage',3),('protect',1),('board',3)):
@@ -74,10 +79,15 @@ def scores(hp, press, mins, exhausted, in_ae):
             s['ATTACK minion'] = W['atk_minion'] + W['atk_minion_x_count']*m + W['atk_minion_x_hurt']*hurt
         s['THWART']           = W['thwart'] + W['thwart_x_pressure']*press
         s['flip to ALTER-EGO']= W['flip_ae'] + W['flip_ae_x_hurt']*hurt + W['flip_ae_x_pressure']*press
+        s['switch to GIANT']  = W['flip_giant'] + W['flip_giant_x_safe']*safe + W['flip_giant_x_hurt']*hurt
+        s['switch to TINY']   = W['flip_tiny'] + W['flip_tiny_x_pressure']*press
         if exhausted:
             s['READY self']   = W['ready_self']
     else:
         s['flip to HERO']     = W['flip_hero'] + W['flip_hero_x_healthy']*hp + W['flip_hero_x_pressure']*press
+        # multi-form heroes leave alter-ego into a specific form
+        s['flip to GIANT']    = W['flip_giant'] + W['flip_giant_x_safe']*safe + W['flip_giant_x_hurt']*hurt
+        s['flip to TINY']     = W['flip_tiny'] + W['flip_tiny_x_pressure']*press
         s['RECOVER']          = W['recover'] + W['recover_x_hurt']*hurt
         s['alter-ego action'] = W['ae_action']
     for cat,cost in (('stun',2),('ally',3),('damage',3),('protect',1),('board',3)):
