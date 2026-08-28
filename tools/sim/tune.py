@@ -38,7 +38,7 @@ TRAIN = [11, 23, 37, 49, 61, 73, 85, 97, 109, 121, 133, 145, 157, 169, 181,
          193, 205, 217, 229, 241, 3, 17, 29, 41, 53, 65, 77, 89, 101, 113,
          125, 137, 149, 161, 173, 185, 197, 209, 221, 233, 5, 19, 31, 43, 57,
          69, 81, 93, 105, 117, 129, 141, 153, 165, 177, 189, 201, 213, 225, 237]
-WIN_BONUS = 1.0
+WIN_BONUS = 2.0
 
 TEST = [2, 8, 14, 20, 26, 32, 38, 44, 50, 56, 62, 68, 74, 80, 86,
         92, 98, 104, 110, 116, 122, 128, 134, 140, 146]
@@ -75,7 +75,12 @@ def evaluate(weights, scen, deck, villain_hp, seeds, pool):
         wins += 1 if r.get("won") else 0
     mean_prog = sum(prog) / len(prog)
     win_rate = wins / float(len(rows))
-    return mean_prog + WIN_BONUS * win_rate, wins, mean_prog
+    # Cubing the progress term makes a game at 0.9 worth far more than two at 0.45.
+    # Plain mean was actively harmful: a rule set that raised mean damage from 0.670 to
+    # 0.685 cut wins from 9 in 100 to 3, because wins live in the tail and averaging
+    # rewards playing safe.
+    tail = sum(p ** 3 for p in prog) / len(prog)
+    return tail + WIN_BONUS * win_rate, wins, mean_prog
 
 
 def main():

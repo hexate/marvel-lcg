@@ -148,6 +148,13 @@ def summons_ally(face):
     return ('ally into play' in t or 'to your hand' in t or 'search your deck' in t)
 
 
+def hits_all(face):
+    """Area damage. Against a swarm one card beats several single-target activations,
+    which is the stated answer to Ultron's drones and to Klaw's minion count."""
+    t = card_text(face)
+    return 'to each enemy' in t or 'to each minion' in t or 'each enemy' in t
+
+
 def buffs_ally(face):
     """Attaches to an ally and makes it last. Allies take consequential damage every
     time they act, so a 3 hit point ally is three activations; Reinforced Suit's +2

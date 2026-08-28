@@ -54,4 +54,20 @@ DEFAULT_WEIGHTS = {
     "def_ally": 1.0,
     "def_ally_x_hurt": 4.0,
     "def_decline": 1.5,
+    # Forecast-driven rules from how people describe playing. All default to zero: with
+    # them on, average damage rose and wins fell by two thirds, because a safer game
+    # raises the mean and removes the tail that actually closes. Left in as features the
+    # tuner can switch on now that fitness rewards the tail.
+    "def_x_incoming": 0.0,
+    "def_x_lethal": 0.0,
+    "def_ally_x_incoming": 0.0,
+    "def_ally_x_lethal": 0.0,
+    "flip_ae_x_lethal": 0.0,
+    "flip_ae_x_scheme_lethal": 0.0,
+    "flip_hero_x_scheme_lethal": 0.0,
+    "play_stun_x_incoming": 0.0,      # a stun cancels the attack that is coming
+    "play_protect_x_lethal": 0.0,
+    "play_aoe_x_minions": 0.0,
+    "play_aoe": 4.0,
+    "atk_minion_x_guard": 0.0,       # the villain cannot be reached past a Guard minion
 }

@@ -16,9 +16,9 @@ be read back out as a human decision procedure.
 import json
 
 from weights import DEFAULT_WEIGHTS
-from policy import (Heuristic, _command, card_cost, changes_form, cost_of,
+from policy import (Heuristic, _command, card_text, card_cost, changes_form, cost_of,
                     deals_damage, disables, form_engine, oid, protects,
-                    removes_threat, summons_ally, type_of, buffs_ally)
+                    removes_threat, summons_ally, type_of, buffs_ally, hits_all)
 
 # Starting point. Roughly reproduces the hand-tuned ladder so the search begins
 # somewhere sane rather than at random.
@@ -38,6 +38,46 @@ class UtilityPolicy(Heuristic):
         self.w = dict(DEFAULT_WEIGHTS)
         if weights:
             self.w.update(weights)
+
+    def forecast(self):
+        """What the coming villain phase does to me, which is the arithmetic players say
+        should become second nature: villain ATK plus a boost card, plus every engaged
+        minion, if I end the turn in hero form; acceleration plus the villain's scheme
+        value plus a boost if I end it in alter-ego.
+
+        Everything downstream, defending, blocking, flipping and stunning, is a decision
+        about this number, and the policy had no access to it. It used current health as
+        a proxy, which cannot tell a survivable hit from a lethal one.
+        """
+        atk = sch = 0
+        try:
+            for f in self.world().scenario.area_villain.Get():
+                atk = max(atk, int(getattr(f, "attack", 0) or 0))
+                sch = max(sch, int(getattr(f, "scheme", 0) or 0))
+        except Exception:
+            pass
+        minion_atk = 0
+        for f in self.minions():
+            try:
+                minion_atk += int(getattr(f, "attack", 0) or 0)
+            except Exception:
+                pass
+        BOOST = 1              # a boost card averages about one extra icon
+        ACCEL = 1              # main schemes here carry one acceleration per player
+        return {
+            "dmg": atk + BOOST + minion_atk,
+            "threat": ACCEL + sch + BOOST,
+        }
+
+    def has_guard(self):
+        """A Guard minion cannot be ignored: the villain cannot be attacked past it."""
+        for f in self.minions():
+            try:
+                if "guard" in (card_text(f) or ""):
+                    return True
+            except Exception:
+                pass
+        return False
 
     def danger_threat(self):
         sch = 0
@@ -64,7 +104,18 @@ class UtilityPolicy(Heuristic):
             rnd = int(getattr(self.world(), "round_id", 1) or 1)
         except Exception:
             rnd = 1
+        fc = self.forecast()
+        try:
+            cur_hp = int(getattr(self.hero_face(), "health", 99) or 99)
+        except Exception:
+            cur_hp = 99
+        head = self.headroom()
         return {
+            # rules 5 and 6: what the villain phase is about to do
+            "incoming": min(1.0, fc["dmg"] / max(1.0, float(cur_hp))),
+            "lethal": 1.0 if fc["dmg"] >= cur_hp else 0.0,
+            "scheme_lethal": 1.0 if fc["threat"] >= head else 0.0,
+            "guard": 1.0 if self.has_guard() else 0.0,
             # Damage per round was measured collapsing from 3.4 at round four to 1.0 by
             # round ten: the board never compounds, because a greedy scorer always
             # prefers immediate damage to a permanent. Without a sense of when it is,
@@ -90,6 +141,8 @@ class UtilityPolicy(Heuristic):
         # that belongs in the change-form window; treating it as a turn play wastes it.
         if form_engine(face) and t in ("Upgrade", "Support"):
             return "engine"
+        if hits_all(face):
+            return "aoe"
         if buffs_ally(face):
             return "allybuff"
         if changes_form(face):
@@ -121,6 +174,12 @@ class UtilityPolicy(Heuristic):
             base = w.get("play_" + cat, w["play_other"])
             if cat in ("ally", "board", "engine", "allybuff"):
                 base += w["play_build_x_early"] * ctx["early"]
+            if cat == "stun":
+                base += w["play_stun_x_incoming"] * ctx["incoming"]
+            if cat == "protect":
+                base += w["play_protect_x_lethal"] * ctx["lethal"]
+            if cat == "aoe":
+                base += w["play_aoe_x_minions"] * ctx["minions"]
             return (base + w["play_x_cost"] * cost_of(o), "play")
 
         if name == "Attack":
@@ -132,7 +191,8 @@ class UtilityPolicy(Heuristic):
             if "minion" in kinds:
                 return (w["atk_minion"]
                         + w["atk_minion_x_count"] * ctx["minions"]
-                        + w["atk_minion_x_hurt"] * ctx["hurt"], "attack_minion")
+                        + w["atk_minion_x_hurt"] * ctx["hurt"]
+                        + w["atk_minion_x_guard"] * ctx["guard"], "attack_minion")
             return (w["atk_villain"], "attack")
 
         if name == "Thwart":
@@ -156,7 +216,9 @@ class UtilityPolicy(Heuristic):
             if to_ae:
                 return (w["flip_ae"]
                         + w["flip_ae_x_hurt"] * ctx["hurt"]
-                        + w["flip_ae_x_pressure"] * ctx["press"], "flip_ae")
+                        + w["flip_ae_x_pressure"] * ctx["press"]
+                        + w["flip_ae_x_lethal"] * ctx["lethal"]
+                        - w["flip_ae_x_scheme_lethal"] * ctx["scheme_lethal"], "flip_ae")
             if form == "giant":
                 return (w["flip_giant"]
                         + w["flip_giant_x_safe"] * ctx["safe"]
@@ -166,7 +228,8 @@ class UtilityPolicy(Heuristic):
                         + w["flip_tiny_x_pressure"] * ctx["press"], "flip_hero")
             return (w["flip_hero"]
                     + w["flip_hero_x_healthy"] * ctx["hp"]
-                    + w["flip_hero_x_pressure"] * ctx["press"], "flip_hero")
+                    + w["flip_hero_x_pressure"] * ctx["press"]
+                    + w["flip_hero_x_scheme_lethal"] * ctx["scheme_lethal"], "flip_hero")
 
         return (w["play_other"], "other")
 
@@ -241,11 +304,15 @@ class UtilityPolicy(Heuristic):
 
         best = (w["def_decline"], None, None)
         if hero_opts:
-            s = w["def_hero"] + w["def_hero_x_hurt"] * ctx["hurt"]
+            s = (w["def_hero"] + w["def_hero_x_hurt"] * ctx["hurt"]
+                 + w["def_x_incoming"] * ctx["incoming"]
+                 + w["def_x_lethal"] * ctx["lethal"])
             if s > best[0]:
                 best = (s, "hero", hero_opts[0])
         if ally_opts:
-            s = w["def_ally"] + w["def_ally_x_hurt"] * ctx["hurt"]
+            s = (w["def_ally"] + w["def_ally_x_hurt"] * ctx["hurt"]
+                 + w["def_ally_x_incoming"] * ctx["incoming"]
+                 + w["def_ally_x_lethal"] * ctx["lethal"])
             if s > best[0]:
                 best = (s, "ally", ally_opts[0])
         if best[1] is None:
