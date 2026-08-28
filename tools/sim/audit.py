@@ -31,6 +31,7 @@ Engine.SaveCrash = staticmethod(lambda: None)
 
 from unit_test.harness import GameFixture  # noqa: E402
 from policy import Heuristic, oid  # noqa: E402
+from utility import UtilityPolicy, load_weights  # noqa: E402
 
 offered = collections.Counter()
 taken = collections.Counter()
@@ -38,7 +39,17 @@ card_offered = collections.Counter()
 card_taken = collections.Counter()
 
 
-class Auditing(Heuristic):
+def make_base(mode):
+    """Audit whatever actually plays. `util:<weights>` audits the utility policy."""
+    if mode.startswith("util"):
+        parts = mode.split(":")
+        wpath = parts[1] if len(parts) > 1 and parts[1] else None
+        base = parts[2] if len(parts) > 2 else "balanced"
+        return UtilityPolicy, (base, load_weights(wpath))
+    return Heuristic, (mode,)
+
+
+class AuditMixin:
 
     def names_in_play(self):
         n = {}
@@ -77,8 +88,10 @@ class Auditing(Heuristic):
 def main():
     scen, deck, mode = sys.argv[1], sys.argv[2], sys.argv[3]
     seeds = [int(x) for x in sys.argv[4:]] or [11, 23, 37, 49, 61, 73, 85, 97, 109, 121]
+    cls, args = make_base(mode)
+    Auditing = type("Auditing", (AuditMixin, cls), {})
     for sd in seeds:
-        pol = Auditing(mode)
+        pol = Auditing(*args)
         fx = GameFixture(scen, [deck], seed=sd, policy=pol)
         pol.fx = fx
         with fx:

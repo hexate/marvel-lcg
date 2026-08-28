@@ -229,7 +229,8 @@ class Heuristic:
                     "burned_ally": 0, "burned_total": 0, "defend_ally": 0,
                     "play_dmg_aimed": 0, "rounds_hero": 0, "rounds_ae": 0,
                     "form_giant": 0, "form_tiny": 0, "form_ae": 0, "mulligan": 0, "cycled": 0, "prompt_giveup": 0, "action": 0,
-                    "ready_self": 0, "forced_choice": 0, "response_play": 0, "interrupt": 0, "ae_action": 0}
+                    "ready_self": 0, "forced_choice": 0, "response_play": 0, "interrupt": 0, "ae_action": 0,
+                    "form_payoff": 0}
 
         self.fx = None
         self.steps = 0
@@ -856,6 +857,18 @@ class Heuristic:
         # Response windows. Counter-Punch, Expert Defense, Shield Block and Get Behind Me!
         # are all offered here and were all being declined, because the generic handler
         # treats a cancellable prompt as "nothing to do". They are the deck's engine.
+        # A form change pays out on arrival, and the payout is its own prompt: Ant-Man's
+        # Giant_Nuisance deals 1 damage, Puny_Pest removes 1 threat. They are named after
+        # the ability rather than "Play", so the response handler below skipped them and
+        # the whole point of changing form was being thrown away.
+        if payload.event_name == "AfterUnitChangeForm":
+            for o in options:
+                if str(o.get("id")) == "0" or o.get("name") == "Play":
+                    continue
+                if cost_of(o) == 0:
+                    self.tel["form_payoff"] += 1
+                    return self.take(o, hand)
+
         if payload.event_name in ("AfterUnitDefendEnd", "WhenUnitWouldDefend",
                                   "WhenUnitWouldTakeDamage", "WhenPlayerRevealCard",
                                   "WhenUnitWouldAttack", "AfterUnitChangeForm"):
