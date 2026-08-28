@@ -1,0 +1,16 @@
+[
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "util:/private/tmp/claude-501/-Users-blake-Repos-marvel-lcg/47faaa87-bf50-450e-ade5-d609002d512a/scratchpad/ant_w.json",
+  "n": 50,
+  "wins": 1,
+  "win_pct": 2.0,
+  "avg_rounds": 4.1,
+  "reasons": {
+   "All players were eliminated": 47,
+   "The Main Scheme was Completed": 2,
+   "The Final Stage of the Villain was Defeated": 1
+  }
+ }
+]

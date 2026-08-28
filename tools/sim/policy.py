@@ -25,6 +25,10 @@ def _data(name):
 BOARD = ("Ally", "Upgrade", "Support")
 
 _CARD_TEXT = {}
+# Reprints appear as a stub entry carrying only `full_link` to the real card, so a
+# lookup by the printed id returns no text and no cost. Four cards in Ant-Man's deck
+# are stubs like this, and they were landing in the junk category as a result.
+_LINKS = {}
 
 
 def card_text(face):
@@ -43,9 +47,11 @@ def card_text(face):
                     continue
                 for e in entries:
                     if isinstance(e, dict) and 'card_id' in e:
+                        if e.get('full_link'):
+                            _LINKS.setdefault(e['card_id'], e['full_link'])
                         _CARD_TEXT.setdefault(e['card_id'], (e.get('text') or '').lower())
     cid = getattr(getattr(face, 'paper', None), 'card_id', None)
-    return _CARD_TEXT.get(cid, '')
+    return _CARD_TEXT.get(_LINKS.get(cid, cid), '')
 
 
 _CARD_COST = {}
@@ -66,13 +72,15 @@ def card_cost(face):
                     continue
                 for e in entries:
                     if isinstance(e, dict) and 'card_id' in e:
+                        if e.get('full_link'):
+                            _LINKS.setdefault(e['card_id'], e['full_link'])
                         c = (e.get('desc') or {}).get('Cost')
                         try:
                             _CARD_COST.setdefault(e['card_id'], int(str(c)))
                         except Exception:
                             _CARD_COST.setdefault(e['card_id'], 0)
     cid = getattr(getattr(face, 'paper', None), 'card_id', None)
-    return _CARD_COST.get(cid, 0)
+    return _CARD_COST.get(_LINKS.get(cid, cid), 0)
 
 
 _DEAL_RE = re.compile(r'deal (?:\d+|x) damage')
@@ -128,6 +136,12 @@ def changes_form(face):
     on every change, that is an engine card, not a trick."""
     t = card_text(face)
     return 'change to your other hero form' in t or 'change to your other form' in t
+
+
+def summons_ally(face):
+    """Call for Aid puts an ally into play for nothing. As an Event with no damage or
+    thwart text it fell into the junk bin, which ranks it below everything."""
+    return 'ally into play' in card_text(face)
 
 
 def form_engine(face):

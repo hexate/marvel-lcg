@@ -18,7 +18,7 @@ import json
 from weights import DEFAULT_WEIGHTS
 from policy import (Heuristic, _command, card_cost, changes_form, cost_of,
                     deals_damage, disables, form_engine, oid, protects,
-                    removes_threat, type_of)
+                    removes_threat, summons_ally, type_of)
 
 # Starting point. Roughly reproduces the hand-tuned ladder so the search begins
 # somewhere sane rather than at random.
@@ -75,7 +75,7 @@ class UtilityPolicy(Heuristic):
         if face is None:
             return "other"
         t = type_of(face)
-        if t == "Ally":
+        if t == "Ally" or summons_ally(face):
             return "ally"
         # Only permanents. Moxie also pays out on a form change, but it is a Response
         # that belongs in the change-form window; treating it as a turn play wastes it.

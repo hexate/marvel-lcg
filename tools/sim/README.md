@@ -4,72 +4,147 @@ Plays complete games with no UI, so a strategy question can be answered by runni
 few hundred games instead of arguing about it. Built on `unit_test/harness.py`, which
 supplies an `InputDevice` that answers prompts from a Python callable.
 
-A game takes roughly half a second.
+A game takes about a second. A hundred games with ten workers takes about twelve.
 
 ## Files
 
 | File | What it does |
 | --- | --- |
-| `policy.py` | The heuristic player. Reads world state, scores the legal options, picks one. |
-| `run_game.py` | Plays exactly one game and prints a JSON result line. One game per process. |
-| `batch.py` | Runs many games in parallel from a config file and summarises them. |
-| `scenario_clock.py` | No simulation. Prints each scenario's damage and threat budget from card data. |
+| `deck_check.py` | Reports how the policy classifies every card in a deck. **Run this first.** |
+| `policy.py` | Prompt handling and card knowledge, shared by every policy. |
+| `utility.py` | Scores each legal action as a weighted sum of board features. |
+| `weights.py` | Default weights, no game imports. |
+| `tune.py` | Hill-climbs the weights against the simulator. |
+| `explain.py` | Reads a tuned weight set back out as rules a person can follow. |
+| `audit.py` | Counts what the engine offered against what the policy took. |
+| `run_game.py` | One game, one process, prints a JSON result. |
+| `batch.py` | Runs many games in parallel and summarises. |
+| `scenario_clock.py` | Each scenario's damage and threat budget, from card data. No simulation. |
 
-## Running
+## Onboarding a new deck
+
+Do these in order. Steps 1 to 3 are not optional, and skipping them is how a tuning run
+gets wasted.
+
+**1. Understand every card.**
 
 ```sh
-.venv/bin/python tools/sim/run_game.py <scenario> <deck> <seed> <mode>
-.venv/bin/python tools/sim/run_game.py rhino captain_america_stun_lock 205 balanced
-
-python3 tools/sim/batch.py <config.json>
-.venv/bin/python tools/sim/scenario_clock.py rhino klaw taskmaster
+.venv/bin/python tools/sim/deck_check.py ant_man
 ```
 
-`<scenario>` is any file in `data/scenarios/`. `<deck>` is any file in `deck/starter/`
-or `deck/custom/`.
+It prints every card with the category the scorer assigns, and flags three things:
 
-Batch config:
+* `UNCLASSIFIED` — the card fell into the junk bin and is ranked below everything.
+* `unmodelled: …` — the card uses a mechanic the scorer has no concept of.
+* `conditional` — the card is only playable in some states, which the scorer does not
+  check, so it can rank a card it cannot cast.
 
-```json
-{"scenarios": ["rhino"], "heroes": ["captain_america_stun_lock"],
- "modes": ["balanced"], "seeds": [11, 23, 37], "out": "myrun", "workers": 8}
+Resolve the unclassified ones before going further. The unmodelled list is a judgement
+call: `draw` on a minor card can wait, `retaliate` on the hero's signature upgrade
+cannot.
+
+**2. Baseline ten games and read the telemetry.**
+
+Ten losses out of ten is already enough signal to change a rule. Look for numbers that
+contradict the deck's plan: a deck built on changing form that changes form once a
+game, a hero with a thwart ability that thwarts 0.1 times a game.
+
+**3. Audit offered against taken.**
+
+```sh
+.venv/bin/python tools/sim/audit.py rhino ant_man util:weights.json
 ```
 
-It writes `<out>.json` (summary) and `<out>.raw.json` (per game, including telemetry)
-next to the scripts.
+A high offered count with a low taken count is a lead. Every large improvement in this
+work came from this table, never from tuning a number.
 
-## Modes
+**4. Only now tune.**
 
-`balanced` keeps the main scheme low, builds a board and clears minions.
-`aggro` hits the villain and thwarts only at the brink; it exists as a control, so a
-gap between the two is about the strategy rather than about engineering effort.
-`brawl` keeps the hero ready to swing and spends allies as blockers instead.
+```sh
+TRAIN_N=60 .venv/bin/python tools/sim/tune.py rhino ant_man 29 200
+```
 
-`g<NN>` / `t<NN>` are `balanced` with a preferred Ant-Man form (Giant / Tiny) and a hero
-defence threshold of NN% health. `w<NN>` is for scenarios won by clearing threat rather
-than by damage. Suffix `+a` lets allies chump-block; `+nc` disables end-of-turn cycling.
+**5. Verify on seeds the tuner never saw**, in blocks of at least 100.
+
+## Why step 1 is mandatory
+
+Ant-Man was tuned for twenty minutes before anyone checked whether the policy could see
+his cards. It could not. His form-change payoffs, `Giant_Nuisance` and `Puny_Pest`, were
+offered 43 times across ten games and taken zero, because the response handler only
+matched options named `Play`. His compounding upgrades were filed as generic board
+filler and played 3 times in 49 chances. The second ability on a two-ability card was
+invisible, because a card with two abilities numbers them `Hero_Action` and
+`Hero_Action_1`. Four cards were reprint stubs carrying only a `full_link` to the real
+card, so they had no text and no cost and landed in the junk bin.
+
+The tuner did its job perfectly on that broken hero and concluded he should stop
+changing form, which is the opposite of how Ant-Man is played. A tuner cannot tell you
+a card is invisible to it. It quietly routes around the card and hands you a confident
+set of weights.
+
+After fixing those, he alternates Giant and Tiny across 88% of his turns, which is the
+rhythm the deck is built for, and he won his first game.
+
+## Measuring
+
+Small evaluations mislead, and they have misled this work twice. A configuration that
+won 1 game in 10 won 1 in 100 once the seeds changed. Later, a held-out set of 25 read
+1 win and looked like total overfitting, and two fresh blocks of 100 disagreed with it.
+
+Use 10 games to catch a broken rule. Use 100 fresh seeds before believing a number.
+Train and test seeds must be disjoint, and picking them odd/even is not a real split.
+
+Fitness is deliberately dense, because wins are far too rare at this level of play to
+steer a search:
+
+    fitness = mean(damage_done / villain_hp) + 1.0 * win_rate
+
+That has one known failure: a damage-based score never punishes losing to the scheme, so
+the tuner will race past the point of no return. `utility.py` carries a hard thwart
+floor that weights cannot override, set at the villain's scheme value plus three,
+because one villain phase moves threat by about four.
+
+## Weights do not transfer
+
+Tuned weights are per hero, per deck, per villain, which is why the files are named
+`weights_<scenario>_<deck>.json`. Captain America's tuned strategy blocks every attack
+from 70% health down; Ant-Man's never blocks at all. Both are correct. Cap's
+"I Can Do This All Day!" readies him after a block so it costs nothing, and Ant-Man has
+no such ability, so a block costs his whole next activation.
 
 ## Things that cost a day each, written down so they cost nobody else one
 
 * **Cards ready at the END of the player phase** (`Faces.ReadyAll` in
   `game/player/element/player_phase.py:93`), before the villain phase. A hero who
-  defends is therefore still exhausted on its next turn and loses that activation
-  entirely. A policy that defends every attack never attacks at all.
-* **`End Phase` is the discard-and-redraw step**
-  (`MayDiscardHandCardsAndDrawUpToMax`). Declining it leaves a dead hand dead for the
-  rest of the game. This was worth roughly +80% card plays once answered.
-* **Multi-form heroes do not use `Change_Form`.** Ant-Man offers
-  `Change_To_AVENGER_GIANT`, `Change_To_AVENGER_TINY`, `Change_To_Scott_Lang`. Matching
-  only on `Change_Form` leaves him in alter-ego for the whole game.
+  defends is still exhausted on its next turn and loses that activation entirely. A
+  policy that defends every attack never attacks at all.
+* **`End Phase` is the discard-and-redraw step** (`MayDiscardHandCardsAndDrawUpToMax`).
+  Declining it leaves a dead hand dead for the rest of the game.
+* **An Attack or Thwart can list legal targets while asking for none of them**
+  (`target_num_range [0, 0]`). Supplying one is rejected and the prompt repeats until
+  the turn is wasted.
+* **A forced prompt accepts id 0 only when a single option needs no targets**
+  (`engine/controller/controller.py:271`). On a two-option forced choice, declining
+  loops.
+* **Multi-form heroes never offer `Change_Form`.** Ant-Man uses
+  `Change_To_AVENGER_GIANT` and friends, so matching the common name leaves him in
+  alter-ego for the whole game.
 * **Turn options are named by ACTION, not by card** (`Attack`, `Play`, `Thwart`). The
-  card is identified by `bind_id`, which is `face.card.object_id`.
+  card is `bind_id`, which is `face.card.object_id`.
 * **A `Play` option's legal target is usually the player**, not the card's ability
-  target; damage cards are aimed at a later prompt.
+  target, which is asked at a later prompt.
+* **Costs are not always numbers.** A typed cost arrives as its resource letters, `RRR`
+  for three physical, and `int()` on that raises.
+* **Reprints are stub entries with only `full_link`**, so a lookup by the printed id
+  returns no text and no cost.
 * **`GameOverReason.players_won` is only a type annotation** until the game ends in a
-  win or loss. Read it with `getattr`, or an exit-ended game raises.
+  win or loss. Read it with `getattr`.
 * **`Engine.SaveCrash` hard-codes `./crash.json`** and calls `exit(-1)`. `run_game.py`
-  neuters it so a batch run does not clobber a real crash repro.
-* **Statistics are off under `-test`** (the group expands to include `-no_statistics`),
-  so simulated games never touch `statistics.json`.
-* Some scenarios are won by clearing threat, not by damage: Batroc resets when he would
+  neuters it so a batch cannot clobber a real crash repro.
+* **Statistics are off under `-test`**, so simulated games never touch
+  `statistics.json`.
+* **The policy catches its own exceptions**, so a NameError in scoring looks exactly
+  like bad play: cards stop being played and the bot cycles its hand. `run_game.py`
+  reports `policy_errors` and `first_error`; check them before believing a regression.
+* Some scenarios are won by clearing threat, not by damage. Batroc resets when he would
   be defeated, and MaGog is decided on ratings counters.
