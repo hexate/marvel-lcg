@@ -113,7 +113,9 @@ def main():
         test_fit, test_wins, test_prog = evaluate(best, scen, deck, villain_hp, TEST, pool)
         base_fit, base_wins, base_prog = evaluate(DEFAULT_WEIGHTS, scen, deck, villain_hp, TEST, pool)
 
-    out = os.path.join(HERE, "weights_tuned.json")
+    # one file per matchup: weights tuned for one hero against one villain do not
+    # transfer, and a shared filename silently overwrites the last run's result
+    out = os.path.join(HERE, "weights_%s_%s.json" % (scen, deck))
     with open(out, "w") as f:
         json.dump(best, f, indent=1, sort_keys=True)
     print(f"\nTRAIN best fit={best_fit:.3f} wins={best_wins}/{len(TRAIN)} prog={best_prog:.3f}")

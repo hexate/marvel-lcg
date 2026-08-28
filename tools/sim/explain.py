@@ -10,7 +10,7 @@ Usage:
     .venv/bin/python tools/sim/explain.py [weights.json]
 """
 import json, itertools, sys
-W=json.load(open(sys.argv[1] if len(sys.argv)>1 else __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.abspath(__file__)),"weights_tuned.json")))
+W=json.load(open(sys.argv[1] if len(sys.argv)>1 else __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.abspath(__file__)),"weights_rhino_captain_america_stun_lock.json")))
 def scores(hp, press, mins, exhausted, in_ae):
     hurt=1-hp; safe=1-press; m=min(1.0, mins/2.0)
     s={}
@@ -64,7 +64,7 @@ for hp in (1.0,0.7,0.4,0.2):
     top=sorted(d.items(), key=lambda x:-x[1])
     print(f"  hp={hp:.0%}: " + " > ".join(f"{k} ({v:.1f})" for k,v in top))
 import json, itertools, sys
-W=json.load(open(sys.argv[1] if len(sys.argv)>1 else __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.abspath(__file__)),"weights_tuned.json")))
+W=json.load(open(sys.argv[1] if len(sys.argv)>1 else __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.abspath(__file__)),"weights_rhino_captain_america_stun_lock.json")))
 def scores(hp, press, mins, exhausted, in_ae):
     hurt=1-hp; safe=1-press; m=min(1.0, mins/2.0)
     s={}
