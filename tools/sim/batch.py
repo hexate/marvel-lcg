@@ -4,7 +4,8 @@ import sys, os, json, subprocess, collections, concurrent.futures as cf
 S = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(S))
 PY_BIN = os.path.join(REPO, '.venv', 'bin', 'python')
-# A game takes about 2s. Anything past this is a stuck policy, not a long game.
+# A scoring game takes about 2s, so anything past this is a stuck policy. A search game
+# spawns rollouts and legitimately takes much longer, so configs can raise it.
 TIMEOUT_S = 45
 if not os.path.exists(PY_BIN):
     PY_BIN = sys.executable
@@ -53,6 +54,8 @@ def summarise(rows):
 
 if __name__ == "__main__":
     cfg = json.load(open(sys.argv[1]))
+    if cfg.get("timeout"):
+        globals()["TIMEOUT_S"] = cfg["timeout"]
     jobs = [(s, h, seed, m)
             for s in cfg["scenarios"] for h in cfg["heroes"]
             for m in cfg["modes"] for seed in cfg["seeds"]]

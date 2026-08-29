@@ -34,10 +34,10 @@ def main():
                 from search import RolloutPolicy
                 parts = mode.split(":")
                 wpath = parts[1] if len(parts) > 1 and parts[1] else None
-                cand = int(parts[2]) if len(parts) > 2 else 3
-                rolls = int(parts[3]) if len(parts) > 3 else 2
+                variants = int(parts[2]) if len(parts) > 2 else 3
+                every = int(parts[3]) if len(parts) > 3 else 1
                 pol = RolloutPolicy("balanced", load_weights(wpath),
-                                    candidates=cand, rollouts=rolls); holder = pol
+                                    variants=variants, every=every); holder = pol
             elif mode.startswith("util"):
                 # "util" or "util:<weights.json>[:<base mode>]"
                 parts = mode.split(":")

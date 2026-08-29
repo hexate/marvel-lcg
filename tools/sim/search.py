@@ -45,8 +45,7 @@ searched, since that is where the shape of the turn is set, and only the top few
 candidates by utility score are tried. Everything else falls through to the scoring
 policy, which is also what plays out the rollouts.
 """
-import copy
-import json
+import random
 
 from clone import clone_world, install
 from utility import UtilityPolicy
@@ -83,25 +82,39 @@ class _CloneFixture:
 
 
 class RolloutPolicy(UtilityPolicy):
+    """Search over ways of playing the round, not over single actions.
 
-    def __init__(self, mode="balanced", weights=None, candidates=3, rollouts=2,
-                 per_round=True, villain_hp=29.0):
+    Forcing one action does not work here: `OnGameLoop` begins a round rather than
+    resuming a turn, so the action under test is consumed by whichever prompt comes
+    first and every candidate scores the same. Playing the whole rest of the game under
+    a different scorer is a question the loop can actually answer.
+
+    So at the first decision of a round, take the current weights and a few perturbations
+    of them, play each to the end of the game from this position, and adopt whichever
+    finished best for the rest of the round. Because the generator position is restored
+    around every rollout, all variants are compared against the identical future, which
+    is the common-random-numbers trick and makes small differences readable rather than
+    noise.
+    """
+
+    def __init__(self, mode="balanced", weights=None, variants=3, every=1,
+                 sigma=2.0, villain_hp=29.0, seed=7):
         super().__init__(mode, weights)
-        self.candidates = candidates
-        self.rollouts = rollouts
-        self.per_round = per_round
+        self.variants = variants
+        self.every = every
+        self.sigma = sigma
         self.villain_hp = villain_hp
+        self.rng = random.Random(seed)
         self._searched_round = -1
+        self.last_error = None
         self.tel["searched"] = 0
-        self.tel["search_changed_pick"] = 0
+        self.tel["variant_adopted"] = 0
         self.tel["rollouts_ok"] = 0
         self.tel["rollouts_failed"] = 0
         self.spread = []
-        self.last_error = None
 
     # ---------------------------------------------------------------- scoring
     def position_value(self, world):
-        """How good did that turn out. A win is worth more than any amount of progress."""
         try:
             if getattr(world.game_over, "players_won", None) is True:
                 return 2.0
@@ -111,115 +124,89 @@ class RolloutPolicy(UtilityPolicy):
             vs = world.scenario.area_villain.Get()
             stage = vs[0].paper.card_id if vs else ""
             dmg = sum(f.GetLostHealth() for f in vs)
-            if stage.endswith("5"):        # second stage of a two-stage villain
+            if stage.endswith("5"):
                 dmg += 14
             return min(1.0, dmg / self.villain_hp)
         except Exception:
             return 0.0
 
-    def rollout(self, forced_cmd):
-        """Clone, force one action, play the rest with the scoring policy, return value."""
+    def playout(self, weights):
+        """Play this position to the end under `weights`. Returns a value, or None."""
         from engine import Engine
+        from engine.lib.random import Random
         world = self.world()
         if world is None:
             return None
         try:
             clone = clone_world(world)
         except Exception as e:
-            self.last_error = "clone: %s: %s" % (type(e).__name__, str(e)[:110])
+            self.last_error = "clone: %s: %s" % (type(e).__name__, str(e)[:100])
             return None
 
-        session = Engine.game.session
-        saved_world = session.world
-
-        inner = UtilityPolicy(self.mode, self.w)
-        inner.fx = _CloneFixture(clone)
-        pending = [forced_cmd]
-
-        def rollout_policy(payload, options):
-            if pending:
-                return pending.pop()
-            return inner(payload, options)
-
-        # The clone has its own device manager now, so the rollout answers its own
-        # prompts on its own object. Setting the policy on that instance shadows the
-        # class attribute, which means the outer game's pending prompt is never touched.
-        # Sharing one manager and repairing it afterwards corrupted the game one way and
-        # deadlocked it the other.
         try:
             clone_manager = clone.controller_manager.device_manager
         except Exception:
-            clone_manager = None
+            return None
         if clone_manager is None or clone_manager is Engine.device_manager:
             return None
-        clone_manager.policy = rollout_policy
 
-        # The generator is global. A rollout draws its own encounter cards and boost
-        # cards from it, which advances the position the real game will draw from, so
-        # even a rollout that changes no decision changed the game: identical play ran
-        # seven rounds instead of six. `Random.PushState` records the position and
-        # `Undo` restores it.
-        from engine.lib.random import Random
+        inner = UtilityPolicy(self.mode, weights)
+        inner.fx = _CloneFixture(clone)
+        clone_manager.policy = inner
+
+        session = Engine.game.session
+        saved_world = session.world
         depth = len(Random.states)
-        Random.PushState()
+        if _RNG_UNDO:
+            Random.PushState()
         try:
             session.world = clone
             clone.OnGameLoop()
             return self.position_value(clone)
         except Exception as e:
-            import traceback
-            self.last_error = "loop: %s: %s | %s" % (
-                type(e).__name__, str(e)[:90], traceback.format_exc()[-220:])
+            self.last_error = "loop: %s: %s" % (type(e).__name__, str(e)[:100])
             return None
         finally:
             session.world = saved_world
             if _RNG_UNDO:
                 while len(Random.states) > depth + 1:
-                    Random.states.pop()        # drop what the rollout pushed
+                    Random.states.pop()
                 if len(Random.states) > depth:
-                    Random.Undo()              # restore the position we recorded
+                    Random.Undo()
+
+    def perturb(self):
+        cand = dict(self.w)
+        for k in self.rng.sample(sorted(cand), self.rng.randint(2, 5)):
+            cand[k] = round(cand[k] + self.rng.gauss(0, self.sigma), 2)
+        return cand
 
     # ------------------------------------------------------------------ turn
     def turn_inner(self, options):
         world = self.world()
         rnd = getattr(world, "round_id", -1) if world is not None else -1
-        if self.per_round and rnd == self._searched_round:
-            return super().turn_inner(options)
-        if world is None or len(options) < 2:
+        if world is None or rnd == self._searched_round or rnd % self.every:
             return super().turn_inner(options)
         self._searched_round = rnd
 
-        hand = self.hand()
-        ctx = self.context()
-        ranked = sorted((self.score_option(o, hand, ctx) + (o,) for o in options),
-                        key=lambda x: -x[0])[:self.candidates]
-        greedy_cmd = super().turn_inner(options)
-
-        best_cmd, best_val = greedy_cmd, None
         self.tel["searched"] += 1
-        for _score, _kind, o in ranked:
-            cmd = self.command_for(o, hand)
-            raw = [self.rollout(cmd) for _ in range(self.rollouts)]
-            vals = [v for v in raw if v is not None]
-            self.tel["rollouts_ok"] += len(vals)
-            self.tel["rollouts_failed"] += len(raw) - len(vals)
-            if not vals:
-                continue
-            val = sum(vals) / len(vals)
-            self.spread.append(round(val, 3))
-            if best_val is None or val > best_val:
-                best_val, best_cmd = val, cmd
-        if best_val is not None and best_cmd != greedy_cmd:
-            self.tel["search_changed_pick"] += 1
-        return best_cmd
+        best_w, best_v = self.w, self.playout(self.w)
+        if best_v is None:
+            self.tel["rollouts_failed"] += 1
+            return super().turn_inner(options)
+        self.tel["rollouts_ok"] += 1
+        self.spread.append(round(best_v, 3))
 
-    def command_for(self, o, hand):
-        """The command this option would produce, without executing it."""
-        kind = self.score_option(o, hand, self.context())[1]
-        if kind == "attack":
-            return self.aimed(o, hand, self.enemies(), ("villain", "minion"))
-        if kind == "attack_minion":
-            return self.aimed(o, hand, self.enemies(), ("minion", "villain"))
-        if kind == "thwart":
-            return self.aimed(o, hand, self.schemes(), ("main", "side"))
-        return self.take(o, hand)
+        for _ in range(max(0, self.variants - 1)):
+            cand = self.perturb()
+            v = self.playout(cand)
+            if v is None:
+                self.tel["rollouts_failed"] += 1
+                continue
+            self.tel["rollouts_ok"] += 1
+            self.spread.append(round(v, 3))
+            if v > best_v:
+                best_v, best_w = v, cand
+        if best_w is not self.w:
+            self.w = best_w
+            self.tel["variant_adopted"] += 1
+        return super().turn_inner(options)
