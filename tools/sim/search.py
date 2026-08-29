@@ -1,11 +1,29 @@
 """Rollout policy: decide by playing the future out instead of by scoring the present.
 
-STATUS: the forward model works, this does not yet. Cloning a position and playing it to
-its own ending is verified and cheap (`clone.py`, about 0.04s a copy). Driving a rollout
-from inside a live game is the unfinished half: the clone shares the device manager, so a
-rollout answers dozens of prompts through the same object the outer game is blocked on,
-and the outer game resumes into a corrupted position. Games that should last five rounds
-end in two. Saving and restoring that prompt state deadlocks instead.
+STATUS: the forward model is finished and correct. Action-level search on top of it is
+blocked on one thing, described below.
+
+What works, and is verified rather than assumed. A position clones in about 0.04s. The
+clone has its own controller manager and its own device manager, so a rollout answers its
+own prompts and never touches the prompt the outer game is blocked on. The global
+generator position is recorded and restored around each rollout, so a rollout no longer
+consumes the real game's draws. The check that matters: running with one candidate, so
+the search evaluates only the action the scoring policy would have taken anyway,
+reproduces the greedy game exactly, six rounds and the same ending. Before the generator
+fix the same test ran seven rounds, which is what a leak looks like.
+
+What blocks it. `World.OnGameLoop` is `while not is_game_over: game_round()`. It begins a
+round; it does not resume a turn that is already in progress. A clone taken mid-decision
+therefore replays from the round boundary, and the action being tested is consumed by
+whichever prompt happens to come first, so every candidate returns the same value: 0.483
+for all 24 rollouts in one measured game. The search runs, costs about 5s a game, and
+discriminates nothing.
+
+Two ways forward, neither attempted. Re-enter the phase machinery at the point the clone
+was taken, which needs an entry point the engine does not currently expose. Or give up on
+forcing a single action and search over policies instead, playing the rest of the round
+under a varied scorer and keeping the variant that finishes better, which fits the
+existing loop as it stands.
 
 The fix is to give the rollout its own `ScriptedDeviceManager` and point the cloned
 controllers at it, rather than sharing one and trying to undo the damage afterwards.
@@ -34,6 +52,23 @@ from clone import clone_world, install
 from utility import UtilityPolicy
 
 install()
+
+
+def _enable_rng_undo():
+    """`Random.PushState` is a no-op unless `enable_random_undo` is configured, and
+    `Undo` asserts on it, so recording the generator position silently did nothing and
+    a rollout kept consuming the real game's draws. It is off by default because it
+    copies the Mersenne buffer on every draw; a rollout policy is exactly the case that
+    wants it."""
+    try:
+        from engine.lib.random import ENABLE_RANDOM_UNDO
+        ENABLE_RANDOM_UNDO.value = True
+        return True
+    except Exception:
+        return False
+
+
+_RNG_UNDO = _enable_rng_undo()
 
 
 class _CloneFixture:
@@ -95,15 +130,8 @@ class RolloutPolicy(UtilityPolicy):
             return None
 
         session = Engine.game.session
-        manager = Engine.device_manager
         saved_world = session.world
-        saved_policy = type(manager).policy
-        # The device manager is shared with the clone, and it holds the prompt the outer
-        # game is currently blocked on. A rollout answers dozens of its own prompts
-        # through the same object, which overwrites that state and leaves the real game
-        # resuming into someone else's question.
-        saved_ask = dict(getattr(manager, "ask_options", {}) or {})
-        saved_asking = list(getattr(manager, "asking_players", []) or [])
+
         inner = UtilityPolicy(self.mode, self.w)
         inner.fx = _CloneFixture(clone)
         pending = [forced_cmd]
@@ -113,9 +141,29 @@ class RolloutPolicy(UtilityPolicy):
                 return pending.pop()
             return inner(payload, options)
 
+        # The clone has its own device manager now, so the rollout answers its own
+        # prompts on its own object. Setting the policy on that instance shadows the
+        # class attribute, which means the outer game's pending prompt is never touched.
+        # Sharing one manager and repairing it afterwards corrupted the game one way and
+        # deadlocked it the other.
+        try:
+            clone_manager = clone.controller_manager.device_manager
+        except Exception:
+            clone_manager = None
+        if clone_manager is None or clone_manager is Engine.device_manager:
+            return None
+        clone_manager.policy = rollout_policy
+
+        # The generator is global. A rollout draws its own encounter cards and boost
+        # cards from it, which advances the position the real game will draw from, so
+        # even a rollout that changes no decision changed the game: identical play ran
+        # seven rounds instead of six. `Random.PushState` records the position and
+        # `Undo` restores it.
+        from engine.lib.random import Random
+        depth = len(Random.states)
+        Random.PushState()
         try:
             session.world = clone
-            type(manager).policy = staticmethod(rollout_policy)
             clone.OnGameLoop()
             return self.position_value(clone)
         except Exception as e:
@@ -125,10 +173,11 @@ class RolloutPolicy(UtilityPolicy):
             return None
         finally:
             session.world = saved_world
-            type(manager).policy = saved_policy
-            # Restoring these here deadlocks the outer game, so it is left out: the
-            # remaining isolation problem is written up at the top of this file.
-            _ = (saved_ask, saved_asking)
+            if _RNG_UNDO:
+                while len(Random.states) > depth + 1:
+                    Random.states.pop()        # drop what the rollout pushed
+                if len(Random.states) > depth:
+                    Random.Undo()              # restore the position we recorded
 
     # ------------------------------------------------------------------ turn
     def turn_inner(self, options):

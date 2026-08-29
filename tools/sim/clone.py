@@ -39,8 +39,7 @@ def _shared_classes():
     """Device plumbing only. A clone should not get its own notifier: it notifies nobody,
     and the notifier owns three of the four Conditions that refuse to copy."""
     out = []
-    for mod, name in (("engine.device.manager.notifier", "SynchronizationNotifier"),
-                      ("engine.device.manager.base", "DeviceManager")):
+    for mod, name in (("engine.device.manager.notifier", "SynchronizationNotifier"),):
         try:
             out.append(getattr(__import__(mod, fromlist=[name]), name))
         except Exception:
@@ -61,11 +60,16 @@ def _best_effort_copy(cls):
     its own counters and phase state, which is what it corrupts otherwise, and shares the
     parts it only ever reads through.
     """
-    if getattr(cls, "_sim_besteffort", False):
+    # `getattr` here would see the flag inherited from a base that was done first, so a
+    # subclass would silently reuse the base's copier and come back as the wrong class.
+    if cls.__dict__.get("_sim_besteffort"):
         return
 
     def __deepcopy__(self, memo):
-        new = cls.__new__(cls)
+        # type(self), not the captured class: a subclass inheriting this must copy as
+        # itself, or a ScriptedDeviceManager clones into a plain DeviceManager.
+        cls_ = type(self)
+        new = cls_.__new__(cls_)
         memo[id(self)] = new
         for k, v in self.__dict__.items():
             try:
@@ -115,7 +119,9 @@ def install():
         for cls in classes:
             cls.__deepcopy__ = (lambda self, memo: self)
         _isolate_gamestate()
-        for mod, name in (("engine.controller.manager", "ControllerManager"),
+        for mod, name in (("engine.device.manager.base", "DeviceManager"),
+                          ("unit_test.harness", "ScriptedDeviceManager"),
+                          ("engine.controller.manager", "ControllerManager"),
                           ("engine.controller.controller", "Controller"),
                           ("game.game", "Game"),
                           ("game.game_run.game_session", "GameSession")):
