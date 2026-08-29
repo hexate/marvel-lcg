@@ -29,6 +29,15 @@ def main():
         with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
             if mode == "nothing":
                 pol, holder = decline_or_first, None
+            elif mode.startswith("search"):
+                # "search:<weights.json>[:<candidates>:<rollouts>]"
+                from search import RolloutPolicy
+                parts = mode.split(":")
+                wpath = parts[1] if len(parts) > 1 and parts[1] else None
+                cand = int(parts[2]) if len(parts) > 2 else 3
+                rolls = int(parts[3]) if len(parts) > 3 else 2
+                pol = RolloutPolicy("balanced", load_weights(wpath),
+                                    candidates=cand, rollouts=rolls); holder = pol
             elif mode.startswith("util"):
                 # "util" or "util:<weights.json>[:<base mode>]"
                 parts = mode.split(":")
@@ -54,6 +63,10 @@ def main():
                     out["tel"] = holder.tel
                     out["first_error"] = holder.first_error
                     out["stalls"] = holder.stalls
+                    if hasattr(holder, "last_error"):
+                        out["rollout_error"] = holder.last_error
+                    if hasattr(holder, "spread"):
+                        out["rollout_values"] = holder.spread[:24]
                     try:
                         vs = w.scenario.area_villain.Get()
                         out["villain_stage"] = [f.paper.card_id for f in vs]
