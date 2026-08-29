@@ -122,6 +122,11 @@ class ScriptedOutput(OutputDevice):
     def IsSyncReady(self) -> bool:
         return True
 
+    @override
+    def IsDisplaying(self) -> bool:
+        """Nothing is watching, so the world need not build descriptors for it."""
+        return False
+
 
 class ScriptedDeviceManager(DeviceManager):
     """DeviceManager whose input comes from a policy and whose output is headless."""

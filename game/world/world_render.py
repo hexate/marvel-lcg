@@ -92,6 +92,13 @@ class WorldRender:
         else:
             self.prompt = ""
 
+        # Everything above is bookkeeping the rest of the engine reads: the render id, the
+        # prompt, and the game log line. Everything below draws. With no display attached
+        # the drawing is discarded, and it is the bulk of the cost of running a game.
+        if not self.world.controller_manager.IsAnyDisplaying():
+            Log.DebugSilent("SYNC", "Render world skip (nothing is displaying)")
+            return
+
         world = self.world
         self.descriptor = ToDescriptor.World(world, event_name, sound_name)
 

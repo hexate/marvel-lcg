@@ -15,9 +15,6 @@ from engine import Engine
 # Both are wrong for a batch run: it clobbers the user's crash repro and kills the process.
 Engine.SaveCrash = staticmethod(lambda: None)
 
-import headless
-headless.install()   # 6x, and outcomes are identical; see headless.py
-
 from unit_test.harness import GameFixture, decline_or_first
 from policy import Heuristic
 from utility import UtilityPolicy, load_weights

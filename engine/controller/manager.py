@@ -110,6 +110,16 @@ class ControllerManager:
 
     ################################################################################
     #
+    def IsAnyDisplaying(self) -> bool:
+        """False only when every output device says it is not showing the game.
+
+        Defaults to True when there are no controllers yet, so setup renders as it always
+        did rather than depending on when this is asked.
+        """
+        if not self.controllers:
+            return True
+        return any(controller.render.IsDisplaying() for controller in self.controllers)
+
     def WaitConnect(self):
         def process(controller: 'Controller'):
             controller.input.WaitConnect()
