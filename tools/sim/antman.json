@@ -1,0 +1,52 @@
+[
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "search:tools/sim/weights_rhino_ant_man.json:20:1",
+  "n": 20,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 4.6,
+  "reasons": {
+   "All players were eliminated": 20
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "search:tools/sim/weights_rhino_ant_man_multiple_man_protection.json:20:1",
+  "n": 20,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 5.5,
+  "reasons": {
+   "All players were eliminated": 19,
+   "The Main Scheme was Completed": 1
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "util:tools/sim/weights_rhino_ant_man.json",
+  "n": 20,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 4.7,
+  "reasons": {
+   "All players were eliminated": 20
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "ant_man",
+  "mode": "util:tools/sim/weights_rhino_ant_man_multiple_man_protection.json",
+  "n": 20,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 5.3,
+  "reasons": {
+   "All players were eliminated": 19,
+   "The Main Scheme was Completed": 1
+  }
+ }
+]

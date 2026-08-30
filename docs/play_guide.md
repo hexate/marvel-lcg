@@ -198,6 +198,38 @@ where the bot is far more pressed, defending 0.75 to 0.95 times per round agains
 America's 0.19, so it is a different regime and the thwarting is probably survival rather than
 preference.
 
+### Tested on a second tuned hero, and it did not reproduce
+
+The generalisation run above left one thing open: it used untuned weights, so its zero wins could
+have been the starting point rather than the search. The repo already had two hill-climbed Ant-Man
+weight sets against Rhino, so that is a direct test of tuning and search together on a second hero.
+
+It does not reproduce. 0 wins of 20 in all four arms.
+
+| weights | arm | wins | mean damage | rounds | end health |
+| --- | --- | --- | --- | --- | --- |
+| basic | greedy | 0/20 | 14.6 | 4.7 | dead |
+| basic | search | 0/20 | 14.8 | 4.6 | dead |
+| protection | greedy | 0/20 | 13.2 | 5.3 | dead |
+| protection | search | 0/20 | 14.4 | 5.5 | dead |
+
+Search barely moved the basic set (paired sign p=0.23, no effect) and moved the Protection set a
+little (13.2 to 14.4, p=0.025). Every one of the 40 games ended with the hero eliminated.
+
+**The reason is survival, not decisions.** Captain America's tuned scorer was already averaging
+20.15 damage of the 29 needed and living 5.2 rounds, so it was losing narrowly and search pushed a
+third of those over the line. Ant-Man averages 14.6 and dies at round 4.6. Search cannot
+manufacture a win from a position that is dead before the damage lands, and this is the same 15 of
+29 ceiling that the earlier tuning work kept hitting from the other direction.
+
+So the honest scope of the win result is one hero. What generalises is that search reliably
+improves damage, and that it converts near misses into wins. What does not is the idea that it
+rescues a losing matchup. If Ant-Man against Rhino feels unwinnable to you, this is evidence that
+it is a deck and matchup problem rather than a matter of playing the turns better.
+
+Also worth noting for the advice above: search defended less here too, 0.57 per round against
+0.73, which is now five matchups out of five.
+
 ### What this does not cover
 
 Four matchups, 20 seeds each, all starter decks. The searching bot also has a known defect (J42)
