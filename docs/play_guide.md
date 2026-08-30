@@ -146,8 +146,9 @@ outcomes is sharper than any other number here:
 
 Fisher one-sided p=0.0018. Every one of the seven games the search won had zero defends in it.
 
-**It thwarts exactly as much.** 0.53 per round against 0.56, which is noise. Thwarting is not the
-lever. It was not the lever in your play record either, and it is not the lever here.
+**It thwarts exactly as much.** 0.53 per round against 0.56, which is noise. In this matchup
+thwarting is not the lever, which is also what your play record said. That part turned out not to
+generalise, see below.
 
 So the shape is: the extra attacks come out of the defends, not out of the thwarts, and the
 searching bot survives *longer* while defending less (6.0 rounds against 5.2) and ends with more
@@ -169,13 +170,40 @@ what you would see if it were simply skipping a defence it needed.
 Treat it as a strong prior, not a rule: if you are reaching for a defence, check first whether
 flipping to alter-ego next turn does more for you than blocking one attack does now.
 
+### Which of it generalises, tested on three more matchups
+
+Repeated on Rhino/Spider-Man, Klaw/Doctor Strange and Taskmaster/Ant-Man, 20 shared seeds each,
+this time on the untuned default weights.
+
+**Search still helps, every time.** Paired damage against the same scorer without search:
+Spider-Man better on 16 of 20 and worse on 1 (sign p=0.0001), Doctor Strange better on 9 worse on
+2 (p=0.033), Ant-Man better on 12 worse on 4 (p=0.038). Mean damage roughly doubled in two of the
+three.
+
+**But it won nothing.** 0 wins in all six arms. The reason looks like the starting point rather
+than the search: those runs used untuned weights and reached 1.9 to 6.5 damage of the 29 needed,
+so doubling a bad number is still a loss. The Captain America run that produced the wins started
+from a hill-climbed weight set already averaging 20.15. Read that as search amplifying a decent
+policy rather than rescuing a poor one, and note that it means the win result rests on tuning and
+search together, not search alone.
+
+**Defending less is the part that holds.** Down in all four matchups tested, without exception.
+
+**Attacking more mostly holds.** Up in three of the four, flat in Klaw/Doctor Strange.
+
+**Thwarting the same does not hold.** In all three new matchups search thwarted *more*, by +0.23,
++0.07 and +0.04 per round. The flat thwart rate in the Captain America games was specific to that
+matchup, and the sentence above has been corrected accordingly. Those three are also positions
+where the bot is far more pressed, defending 0.75 to 0.95 times per round against Captain
+America's 0.19, so it is a different regime and the thwarting is probably survival rather than
+preference.
+
 ### What this does not cover
 
-One hero against one villain, 20 seeds. Whether it generalises past Rhino and Captain America is
-untested, and the searching bot itself has a known defect (J42) where its no-op control does not
-exactly reproduce the plain scorer. That does not affect the comparison above, since the searching
-arms beat that control as decisively as they beat the plain scorer, but it means the simulator is
-not yet clean.
+Four matchups, 20 seeds each, all starter decks. The searching bot also has a known defect (J42)
+where its no-op control does not exactly reproduce the plain scorer. That does not affect the
+comparisons above, since the searching arms beat that control as decisively as they beat the plain
+scorer, but it means the simulator is not yet clean.
 
 ## What I got wrong
 
