@@ -3,7 +3,10 @@
 STATUS: the forward model is finished and correct. Action-level search on top of it is
 blocked on one thing, described below.
 
-What works, and is verified rather than assumed. A position clones in about 0.04s. The
+What works, and is verified rather than assumed. The first position clones in about 0.04s,
+but only the first: see J40. A rollout leaves its graph attached to the live world, so each
+later clone copies all the earlier ones and the fifteenth takes 110s. That, not the playout,
+is what makes a budget above about five variants unaffordable. The
 clone has its own controller manager and its own device manager, so a rollout answers its
 own prompts and never touches the prompt the outer game is blocked on. The global
 generator position is recorded and restored around each rollout, so a rollout no longer
@@ -47,7 +50,7 @@ policy, which is also what plays out the rollouts.
 """
 import random
 
-from clone import clone_world, install
+from clone import clone_world, install, rollout_isolation
 from utility import UtilityPolicy
 
 install()
@@ -137,17 +140,22 @@ class RolloutPolicy(UtilityPolicy):
         world = self.world()
         if world is None:
             return None
+        guard = rollout_isolation(world)
+        guard.__enter__()
         try:
             clone = clone_world(world)
         except Exception as e:
             self.last_error = "clone: %s: %s" % (type(e).__name__, str(e)[:100])
+            guard.__exit__(None, None, None)
             return None
 
         try:
             clone_manager = clone.controller_manager.device_manager
         except Exception:
+            guard.__exit__(None, None, None)
             return None
         if clone_manager is None or clone_manager is Engine.device_manager:
+            guard.__exit__(None, None, None)
             return None
 
         inner = UtilityPolicy(self.mode, weights)
@@ -167,6 +175,7 @@ class RolloutPolicy(UtilityPolicy):
             self.last_error = "loop: %s: %s" % (type(e).__name__, str(e)[:100])
             return None
         finally:
+            guard.__exit__(None, None, None)
             session.world = saved_world
             if _RNG_UNDO:
                 while len(Random.states) > depth + 1:

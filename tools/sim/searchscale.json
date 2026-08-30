@@ -1,0 +1,71 @@
+[
+ {
+  "scenario": "rhino",
+  "hero": "captain_america",
+  "mode": "search:tools/sim/weights_rhino_captain_america_stun_lock.json:1:1",
+  "n": 20,
+  "wins": 2,
+  "win_pct": 10.0,
+  "avg_rounds": 5.3,
+  "reasons": {
+   "All players were eliminated": 11,
+   "The Main Scheme was Completed": 7,
+   "The Final Stage of the Villain was Defeated": 2
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "captain_america",
+  "mode": "search:tools/sim/weights_rhino_captain_america_stun_lock.json:20:1",
+  "n": 20,
+  "wins": 7,
+  "win_pct": 35.0,
+  "avg_rounds": 6.0,
+  "reasons": {
+   "All players were eliminated": 7,
+   "The Final Stage of the Villain was Defeated": 7,
+   "The Main Scheme was Completed": 6
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "captain_america",
+  "mode": "search:tools/sim/weights_rhino_captain_america_stun_lock.json:40:1",
+  "n": 20,
+  "wins": 6,
+  "win_pct": 30.0,
+  "avg_rounds": 6.0,
+  "reasons": {
+   "The Main Scheme was Completed": 8,
+   "The Final Stage of the Villain was Defeated": 6,
+   "All players were eliminated": 6
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "captain_america",
+  "mode": "search:tools/sim/weights_rhino_captain_america_stun_lock.json:5:1",
+  "n": 20,
+  "wins": 6,
+  "win_pct": 30.0,
+  "avg_rounds": 5.8,
+  "reasons": {
+   "The Main Scheme was Completed": 7,
+   "All players were eliminated": 7,
+   "The Final Stage of the Villain was Defeated": 6
+  }
+ },
+ {
+  "scenario": "rhino",
+  "hero": "captain_america",
+  "mode": "util:tools/sim/weights_rhino_captain_america_stun_lock.json",
+  "n": 20,
+  "wins": 0,
+  "win_pct": 0.0,
+  "avg_rounds": 5.2,
+  "reasons": {
+   "All players were eliminated": 11,
+   "The Main Scheme was Completed": 9
+  }
+ }
+]
