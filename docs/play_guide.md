@@ -122,6 +122,61 @@ Opinion, assembled from the above rather than from experience.
    find you cannot afford it.
 4. Cycle the hand you cannot use.
 
+## What the search bot found, and what it costs to believe it
+
+This section is the only part of the guide with a controlled experiment behind it rather than
+reading and inference. A rollout search that plays the position out before deciding wins 7 of 20
+Rhino games as Captain America. The same scorer without search wins 0 of 20, and loses to the
+searching version on 19 of the 20 shared seeds (sign test p=0.00002). So the two differ in ways
+worth reading, because one of them wins.
+
+They differ in three things and only three.
+
+**It attacks more.** 2.07 attacks per round against 1.83. Across all 100 games in the sweep, the
+winners averaged 2.08 attacks per round and the losers 1.86. This is the same conclusion the
+earlier record analysis reached from your statistics, arrived at independently.
+
+**It almost never defends.** 0.07 defends per round against 0.19, a two thirds cut. The split on
+outcomes is sharper than any other number here:
+
+| | games | wins |
+| --- | --- | --- |
+| never defended | 46 | 16 (35%) |
+| defended at least once | 54 | 5 (9%) |
+
+Fisher one-sided p=0.0018. Every one of the seven games the search won had zero defends in it.
+
+**It thwarts exactly as much.** 0.53 per round against 0.56, which is noise. Thwarting is not the
+lever. It was not the lever in your play record either, and it is not the lever here.
+
+So the shape is: the extra attacks come out of the defends, not out of the thwarts, and the
+searching bot survives *longer* while defending less (6.0 rounds against 5.2) and ends with more
+health, not less (0.11 of maximum against 0.08). It buys survival by flipping to alter-ego more
+often (0.18 against 0.15 per round) rather than by defending. Defending spends a card and an
+action to stop one attack. Flipping down spends a turn and recovers repeatedly.
+
+### The honest caveat
+
+Defending is partly a symptom. You defend when an attack would otherwise kill you, so a game where
+you defend is disproportionately a game that was already going badly, and some of that 35% against
+9% is the losing position causing the defend rather than the defend causing the loss.
+
+Two things stop that from explaining it away. The comparison is paired: both arms played the same
+20 seeds from the same deck, so the searching version met the same situations and chose to defend
+less in them. And it came out of those situations with more health rather than less, which is not
+what you would see if it were simply skipping a defence it needed.
+
+Treat it as a strong prior, not a rule: if you are reaching for a defence, check first whether
+flipping to alter-ego next turn does more for you than blocking one attack does now.
+
+### What this does not cover
+
+One hero against one villain, 20 seeds. Whether it generalises past Rhino and Captain America is
+untested, and the searching bot itself has a known defect (J42) where its no-op control does not
+exactly reproduce the plain scorer. That does not affect the comparison above, since the searching
+arms beat that control as decisively as they beat the plain scorer, but it means the simulator is
+not yet clean.
+
 ## What I got wrong
 
 Twice, and both are worth knowing because they were stated confidently.
