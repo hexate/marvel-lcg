@@ -230,6 +230,41 @@ it is a deck and matchup problem rather than a matter of playing the turns bette
 Also worth noting for the advice above: search defended less here too, 0.57 per round against
 0.73, which is now five matchups out of five.
 
+### How much better decisions are actually worth
+
+The Captain America and Ant-Man results look contradictory until you put a number on what search
+buys. It is worth about six damage a game: mean +5.7, median +6.0, sd 3.7, over the 20 paired
+Rhino seeds.
+
+That single number predicts both outcomes. Sorting the Captain America seeds by how close the
+plain scorer already got to the 29 damage needed:
+
+| plain scorer reached | seeds | search converted |
+| --- | --- | --- |
+| under 15 | 1 | 0 (0%) |
+| 15 to 19 | 8 | 1 (12%) |
+| 20 to 24 | 8 | 4 (50%) |
+| 25 or more | 3 | 2 (67%) |
+
+The prediction was made before looking: if closeness is what matters, the games search converts
+should be the games the plain scorer already scored highest on. It won 5 of the plain scorer's top
+7 seeds, hypergeometric one-sided p=0.022, and the seeds it converted averaged 22.4 against 18.9
+for the ones it did not.
+
+The between-hero result falls out of the same number. Tuned Captain America averages 20.1, which
+is 8.9 short of the line, so a six-damage improvement converts some of the spread and it wins a
+third of the time. Tuned Ant-Man averages 14.6, which is 14.4 short, so six damage converts
+nothing and it wins none. There is no contradiction, just one gap that six damage can close and
+one it cannot.
+
+**What this means for your own play.** Playing the turns better is worth roughly six damage a
+game, and that is a real amount, enough to flip a third of narrow losses. It is not enough to
+rescue a game you are losing by fourteen. So the useful diagnostic when you lose is not "did I
+misplay" but "how close did I get". If you are finishing consistently within about six of killing
+the villain, better decisions will start converting those, and the first thing to change is the
+defending. If you are finishing far short, no amount of turn-by-turn improvement gets there and
+the deck or the matchup is what needs to change.
+
 ### What this does not cover
 
 Four matchups, 20 seeds each, all starter decks. The searching bot also has a known defect (J42)
