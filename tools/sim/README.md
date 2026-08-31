@@ -31,6 +31,40 @@ tuned on, and that name is the only thing recording the pairing.
 `deck/custom/` is gitignored player data, so any number that depends on it cannot be reproduced
 from a clean clone. Say which deck a number came from whenever you report one.
 
+## The policy-space search is at its ceiling, and here is the measurement that says so
+
+Worth reading before trying to improve the searching bot, because the obvious next ideas have all
+been run.
+
+The search proposes candidate weight sets, plays each to the end of the game, and keeps the best.
+The natural theory of why it helps is that it finds *plans*. It does not. Measured on
+`captain_america_stun_lock` against Rhino, 60 seeds:
+
+| candidates | what they are | wins | damage |
+| --- | --- | --- | --- |
+| 7 | random gaussian noise on 2-5 of 52 weights | 13/60 | 23.62 |
+| 7 | six hand-written turn plans (aggro, combo, defend, build, control, regroup) | 14/60 | 23.68 |
+| 20 | random noise | 20/60 | 25.15 |
+
+Hand-written coherent plans, each a coordinated move across the weights that a person would
+describe in words, match random noise exactly at the same candidate count. What buys wins is the
+*number* of candidates, not their quality, and that number plateaus: 20 variants and 40 variants
+are not reliably different, and 60 wins no more than 40.
+
+So the search is not reasoning about plans, it is sampling. Sampling more helps until it does not,
+and every knob governing the sampling is already at its optimum: variants past 20, sigma at 2.0,
+and search frequency at once per round were each measured flat or worse.
+
+**What this rules out.** Better proposals, more proposals, and better settings. All three are done.
+
+**What is left.** Evaluating the actual move rather than a policy that would tend to make it. That
+is action-level search, and it is blocked by `World.OnGameLoop` being `while not is_game_over:
+game_round()`: it begins a round rather than resuming a turn in progress, so a clone taken
+mid-decision replays from the round boundary and every candidate scores the same. Giving the
+engine an entry point that re-enters the phase machinery where the clone was taken is the one
+remaining change with real headroom behind it, and it is a `game/` change rather than a simulator
+one.
+
 ## Onboarding a deck or a card: how to find what the policy cannot see
 
 The policy only knows what a predicate in `policy.py` tells it. Everything else is invisible, and
