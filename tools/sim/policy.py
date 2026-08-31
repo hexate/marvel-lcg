@@ -195,6 +195,27 @@ def type_of(face):
     return names[0] if names else "?"
 
 
+def pays_for_type(face):
+    """The resource letter a card pays a bonus for, or None.
+
+    Heroic Strike deals 6 damage and stuns "if you paid for this card using a [physical]
+    resource"; Tackle stuns and deals 3 damage on the same condition; Super-Soldier Serum
+    exhausts to make one. `R` is physical, which `cost_of` already documents when it explains
+    that a typed cost arrives as 'RRR'.
+
+    The payment picker sorted by what was cheapest to lose and threw the letter away, so on a
+    deck named Stun Lock the stun was granted only by accident.
+    """
+    t = card_text(face)
+    # The icon is bracketed in the printed text, "using a [physical] resource", so matching on
+    # "physical resource" silently never fires. That version measured as an exact no-op, which
+    # is the only reason it was caught: the search arm came back byte-identical to baseline.
+    for letter, word in (("R", "physical"), ("B", "mental"), ("Y", "energy"), ("G", "wild")):
+        if ("%s] resource" % word) in t or ("%s resource" % word) in t:
+            return letter
+    return None
+
+
 def pay_entries(o):
     """[(card_object_id, resource_letter)] this option could be paid with."""
     p = (o.get("target_payment") or {}).get("0") or {}
@@ -420,6 +441,15 @@ class Heuristic:
                     base += 3
                 return base
             picks = sorted(entries, key=burn_cost)[:n]
+        # If the card pays a bonus for being bought with a particular resource, make sure one
+        # of them is in the payment. Costs the second-cheapest card in hand and buys a stun.
+        face = hand.get(o.get("bind_id"))
+        want = pays_for_type(face) if face is not None else None
+        if want and not any(want in str(l or "") for _c, l in picks):
+            match = next(((c, l) for c, l in sorted(entries, key=burn_cost)
+                          if want in str(l or "")), None)
+            if match is not None:
+                picks = [match] + [e for e in picks if e[0] != match[0]][:max(0, n - 1)]
         for cid, _ in picks:
             face = hand.get(cid)
             if face is not None:

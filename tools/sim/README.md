@@ -31,6 +31,56 @@ tuned on, and that name is the only thing recording the pairing.
 `deck/custom/` is gitignored player data, so any number that depends on it cannot be reproduced
 from a clean clone. Say which deck a number came from whenever you report one.
 
+## Onboarding a deck or a card: how to find what the policy cannot see
+
+The policy only knows what a predicate in `policy.py` tells it. Everything else is invisible, and
+invisible is silent: the tuner will route around a card and hand you confident weights, and a
+search will optimise a plan the deck is not trying to execute. This is the procedure for finding
+those gaps, written after a session where six plausible fixes measured at zero and the seventh
+turned out to be a string that never matched.
+
+**1. Run `deck_check.py <deck>`.** It reports the category the scorer puts every card in, plus
+UNCLASSIFIED cards, unmodelled mechanics and conditional playability. Resolve what it flags before
+tuning anything. A card in the junk category is ranked last in every decision it appears in.
+
+**2. Read the printed text of every card the deck actually plays.** Not the category, the text.
+`data/cards.json` has it under `text`. This is where the deck's plan lives, and it is the step
+that found the only real gap in a whole session: Heroic Strike deals 6 damage *and stuns if you
+paid with a physical resource*, Tackle stuns *and deals 3 on the same condition*, and the payment
+picker was choosing by which card was cheapest to lose while literally discarding the resource
+letter. A deck named Stun Lock was stunning by accident.
+
+**3. Watch out for bracketed icons.** The printed text writes resource and status icons in
+brackets: `using a [physical] resource`, not `using a physical resource`. A predicate matching the
+unbracketed form compiles, runs, and never fires. Match both forms, and see step 6.
+
+**4. Run `audit.py <scenario> <deck> <mode> <seeds...>`.** It counts, per card, how often something
+was offered and how often it was taken. A high offered count with a near-zero taken count is a
+lead. **It is a lead and not a bug.** Three such leads on `captain_america_stun_lock` all measured
+at zero or worse: Super-Soldier Serum at 0 of 30 offers, defending at 1.35 a game on a deck built
+around Counter-Punch, form changes at 6 of 120. The hill climber was right and the audit only
+showed that it had made a choice.
+
+**5. Ask what the deck wins by, then ask whether any feature encodes it.** A Protection deck wins
+by surviving and grinding. `utility.py` has no feature for trading time for safety, so no weight
+vector expresses that plan and no amount of searching over those weights finds it. This is why
+search actively *harmed* `ant_man_multiple_man_protection`, dropping it from 16.7 to 15.3 damage,
+while helping every aggressive configuration.
+
+**6. Prove your predicate fires before you believe the measurement.** The resource-type fix came
+back byte-identical to baseline, 19/60 wins and 24.95 damage to two decimals. Identical numbers
+across a code change are not a null result, they mean the code did not run. Assert the predicate
+returns what you expect on a named card, or diff a game log, before concluding anything.
+
+**7. Validate on fresh seeds, always.** Pick a change on one seed block and confirm it on another
+you have not looked at. Selecting a value because it looked best on a block and then reporting
+that block is circular, and it is how a `play_econ` sweep produced a 21.1 that evaporated to a
+20.73 against 20.53 with p=1.000 on 60 fresh seeds.
+
+**8. Expect the honest answer to be zero.** Seven targeted improvements in one session, six at
+exactly zero and one at plus one win in sixty. The weights sit at a local optimum and single-action
+ranking is the wrong lever. What is left after that is structural, not parametric.
+
 ## What search is worth, and what budget to use
 
 Measured on `captain_america_stun_lock` against Rhino, the deck in `deck/custom/` with its
