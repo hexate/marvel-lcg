@@ -48,6 +48,18 @@ not reliably better than 20 (paired damage better on 14 seeds, worse on 7, tied 
 sign p=0.189) and costs two and a half times as much. On an earlier run 60 variants won no more
 games than 40. The curve is flat past 20.
 
+**The search's own settings are also at their optimum, so do not re-tune them.** Both were
+checked on 40 to 60 fresh seeds:
+
+- *Perturbation width.* `sigma` has sat at 2.0 since it was written and turns out to be right.
+  Wins by sigma: 10/40 at 0.5, 14/40 at 1.0, 14/40 at 2.0, 14/40 at 4.0, 11/40 at 8.0. Broad
+  plateau from 1 to 4, both extremes worse.
+- *Search frequency.* The search fires once per round, at the first decision, which looks like an
+  obvious limit given a round runs eight to ten decisions. Spending the same rollout budget on
+  three search points per round instead of one: 19/60 wins either way, damage 24.68 against 24.95,
+  paired two-sided sign p=0.487. The round-opening decision really is where the turn is decided.
+  The parameter that tested this was reverted, since it bought nothing.
+
 **Tuning the weights further is finished on this deck, and the audit will lie to you about that.**
 Three leads from `audit.py`, each looking like an obvious blind spot, all measured out at zero or
 worse on 60 fresh seeds:
