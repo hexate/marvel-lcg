@@ -6,6 +6,31 @@ supplies an `InputDevice` that answers prompts from a Python callable.
 
 A game takes about a second. A hundred games with ten workers takes about twelve.
 
+## Which deck plays, and why it matters
+
+**Pass the custom deck's basename as the hero name.** `captain_america_stun_lock`, not
+`captain_america`.
+
+`GameFixture` calls `SceneLoader.NewScene(scenario, None, hero_names, seed)`, and
+`FindJsonPath('Hero', ...)` searches `DECK_FOLDERS` before `STARTER_DECK_FOLDER`. So a bare
+`captain_america` silently resolves to `deck/starter/`, and nothing in the result line says which
+deck played.
+
+That silence has already cost a full session of results. Every number in one sweep was produced on
+starter decks while the tuned weight files were named for custom decks, so weights tuned against
+`deck/custom/captain_america_stun_lock.json` were being applied to the starter deck. It also
+produced a wrong conclusion, that Ant-Man losing to Rhino was a deck-building problem, when the
+deck under test was the starter deck and not the built one.
+
+The starter decks are the weak case by construction. A strategy result measured on them says
+almost nothing about a built deck, and the two are not comparable to each other.
+
+Match the weights file to the deck. `weights_rhino_<deck>.json` is named after the deck it was
+tuned on, and that name is the only thing recording the pairing.
+
+`deck/custom/` is gitignored player data, so any number that depends on it cannot be reproduced
+from a clean clone. Say which deck a number came from whenever you report one.
+
 ## Files
 
 | File | What it does |

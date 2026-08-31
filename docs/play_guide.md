@@ -122,155 +122,92 @@ Opinion, assembled from the above rather than from experience.
    find you cannot afford it.
 4. Cycle the hand you cannot use.
 
-## What the search bot found, and what it costs to believe it
+## What the search bot found, on your decks
 
-This section is the only part of the guide with a controlled experiment behind it rather than
-reading and inference. A rollout search that plays the position out before deciding wins 7 of 20
-Rhino games as Captain America. The same scorer without search wins 0 of 20, and loses to the
-searching version on 19 of the 20 shared seeds (sign test p=0.00002). So the two differ in ways
-worth reading, because one of them wins.
+Everything in this section is measured on the decks in `deck/custom/`, named per number. An
+earlier version of it was measured on starter decks by mistake and reached different conclusions,
+which is written up in J43 and summarised at the end here, because two of those conclusions were
+wrong in ways worth knowing about.
 
-They differ in three things and only three.
+The experiment: a rollout search that plays the position out before deciding, against the same
+weighted scorer without search, on the same 20 seeds.
 
-**It attacks more.** 2.07 attacks per round against 1.83. Across all 100 games in the sweep, the
-winners averaged 2.08 attacks per round and the losers 1.86. This is the same conclusion the
-earlier record analysis reached from your statistics, arrived at independently.
+### Captain America, stun lock deck, against Rhino
 
-**It almost never defends.** 0.07 defends per round against 0.19, a two thirds cut. The split on
-outcomes is sharper than any other number here:
+| arm | wins | mean damage | rounds |
+| --- | --- | --- | --- |
+| scorer alone | 1/20 | 20.1 | 5.2 |
+| with search | 6/20 | 25.4 | 5.5 |
 
-| | games | wins |
-| --- | --- | --- |
-| never defended | 46 | 16 (35%) |
-| defended at least once | 54 | 5 (9%) |
+Better damage on 18 of the 20 seeds and worse on 1, sign test p<0.0001, mean gain +5.3 against
+the 29 needed to kill Rhino.
 
-Fisher one-sided p=0.0018. Every one of the seven games the search won had zero defends in it.
+So searching the position is worth about five damage a game on this deck, and that converts one
+win in five into six. This is the strongest and most reproducible result here: the same
+comparison on the starter Captain America deck gave +5.7, so the size of the effect survives a
+complete change of deck even though other things did not.
 
-**It thwarts exactly as much.** 0.53 per round against 0.56, which is noise. In this matchup
-thwarting is not the lever, which is also what your play record said. That part turned out not to
-generalise, see below.
+### Ant-Man, Multiple Man Protection deck, against Rhino
 
-So the shape is: the extra attacks come out of the defends, not out of the thwarts, and the
-searching bot survives *longer* while defending less (6.0 rounds against 5.2) and ends with more
-health, not less (0.11 of maximum against 0.08). It buys survival by flipping to alter-ego more
-often (0.18 against 0.15 per round) rather than by defending. Defending spends a card and an
-action to stop one attack. Flipping down spends a turn and recovers repeatedly.
+| arm | wins | mean damage | rounds |
+| --- | --- | --- | --- |
+| scorer alone | 0/20 | 16.7 | 5.5 |
+| with search | 1/20 | 15.3 | 6.2 |
 
-### The honest caveat
+**Search makes this deck worse.** Damage down on 13 of 20 seeds and up on 6, mean gain -1.4.
 
-Defending is partly a symptom. You defend when an attack would otherwise kill you, so a game where
-you defend is disproportionately a game that was already going badly, and some of that 35% against
-9% is the losing position causing the defend rather than the defend causing the loss.
+That is the most interesting number in the whole investigation, because it is the opposite of
+everything else. The reason looks like the search's bias: it attacks more (+0.17 per round) and
+thwarts more (+0.11) on a deck built to defend. A Protection deck wins by surviving and grinding,
+and a searcher that keeps finding reasons to attack is optimising the wrong quantity. The scorer
+it perturbs has no feature that understands "this deck wants to trade time for safety", so no
+amount of searching over its weights finds that plan.
 
-Two things stop that from explaining it away. The comparison is paired: both arms played the same
-20 seeds from the same deck, so the searching version met the same situations and chose to defend
-less in them. And it came out of those situations with more health rather than less, which is not
-what you would see if it were simply skipping a defence it needed.
+**This is a heuristic problem, not a deck problem.** The deck is a built, community-style list and
+it reaches 16.7 damage under the plain scorer, better than the starter deck manages. What fails is
+the policy's model of what the deck is for.
 
-Treat it as a strong prior, not a rule: if you are reaching for a defence, check first whether
-flipping to alter-ego next turn does more for you than blocking one attack does now.
+### What this changes about the advice
 
-### Which of it generalises, tested on three more matchups
+**Attacking more still holds.** Up in both decks, +0.12 and +0.17 per round, and the winning arm
+attacks more in every configuration tested.
 
-Repeated on Rhino/Spider-Man, Klaw/Doctor Strange and Taskmaster/Ant-Man, 20 shared seeds each,
-this time on the untuned default weights.
+**Defending less does not hold, and I withdraw it.** On the real Captain America deck the search
+defends 0.24 times per round against the scorer's 0.25, which is no difference at all. The large
+gap that produced that advice, 0.19 down to 0.07, was measured on the starter deck. A starter deck
+defends because it has nothing better to do with the card; a built deck's defends are chosen. Do
+not cut defending on the strength of this guide.
 
-**Search still helps, every time.** Paired damage against the same scorer without search:
-Spider-Man better on 16 of 20 and worse on 1 (sign p=0.0001), Doctor Strange better on 9 worse on
-2 (p=0.033), Ant-Man better on 12 worse on 4 (p=0.038). Mean damage roughly doubled in two of the
-three.
+**Thwarting has no stable direction.** Down 0.10 per round on Captain America, up 0.11 on Ant-Man.
+It depends on the deck.
 
-**But it won nothing.** 0 wins in all six arms. The reason looks like the starting point rather
-than the search: those runs used untuned weights and reached 1.9 to 6.5 damage of the 29 needed,
-so doubling a bad number is still a loss. The Captain America run that produced the wins started
-from a hill-climbed weight set already averaging 20.15. Read that as search amplifying a decent
-policy rather than rescuing a poor one, and note that it means the win result rests on tuning and
-search together, not search alone.
+### How much better decisions are worth
 
-**Defending less is the part that holds.** Down in all four matchups tested, without exception.
+On Captain America, about five damage a game, and that is enough to convert narrow losses: the
+seeds the search won were the seeds the plain scorer already scored highest on (measured on the
+starter deck run, 5 of the top 7, hypergeometric p=0.022).
 
-**Attacking more mostly holds.** Up in three of the four, flat in Klaw/Doctor Strange.
-
-**Thwarting the same does not hold.** In all three new matchups search thwarted *more*, by +0.23,
-+0.07 and +0.04 per round. The flat thwart rate in the Captain America games was specific to that
-matchup, and the sentence above has been corrected accordingly. Those three are also positions
-where the bot is far more pressed, defending 0.75 to 0.95 times per round against Captain
-America's 0.19, so it is a different regime and the thwarting is probably survival rather than
-preference.
-
-### Tested on a second tuned hero, and it did not reproduce
-
-The generalisation run above left one thing open: it used untuned weights, so its zero wins could
-have been the starting point rather than the search. The repo already had two hill-climbed Ant-Man
-weight sets against Rhino, so that is a direct test of tuning and search together on a second hero.
-
-It does not reproduce. 0 wins of 20 in all four arms.
-
-| weights | arm | wins | mean damage | rounds | end health |
-| --- | --- | --- | --- | --- | --- |
-| basic | greedy | 0/20 | 14.6 | 4.7 | dead |
-| basic | search | 0/20 | 14.8 | 4.6 | dead |
-| protection | greedy | 0/20 | 13.2 | 5.3 | dead |
-| protection | search | 0/20 | 14.4 | 5.5 | dead |
-
-Search barely moved the basic set (paired sign p=0.23, no effect) and moved the Protection set a
-little (13.2 to 14.4, p=0.025). Every one of the 40 games ended with the hero eliminated.
-
-**The reason is survival, not decisions.** Captain America's tuned scorer was already averaging
-20.15 damage of the 29 needed and living 5.2 rounds, so it was losing narrowly and search pushed a
-third of those over the line. Ant-Man averages 14.6 and dies at round 4.6. Search cannot
-manufacture a win from a position that is dead before the damage lands, and this is the same 15 of
-29 ceiling that the earlier tuning work kept hitting from the other direction.
-
-So the honest scope of the win result is one hero. What generalises is that search reliably
-improves damage, and that it converts near misses into wins. What does not is the idea that it
-rescues a losing matchup. If Ant-Man against Rhino feels unwinnable to you, this is evidence that
-it is a deck and matchup problem rather than a matter of playing the turns better.
-
-Also worth noting for the advice above: search defended less here too, 0.57 per round against
-0.73, which is now five matchups out of five.
-
-### How much better decisions are actually worth
-
-The Captain America and Ant-Man results look contradictory until you put a number on what search
-buys. It is worth about six damage a game: mean +5.7, median +6.0, sd 3.7, over the 20 paired
-Rhino seeds.
-
-That single number predicts both outcomes. Sorting the Captain America seeds by how close the
-plain scorer already got to the 29 damage needed:
-
-| plain scorer reached | seeds | search converted |
-| --- | --- | --- |
-| under 15 | 1 | 0 (0%) |
-| 15 to 19 | 8 | 1 (12%) |
-| 20 to 24 | 8 | 4 (50%) |
-| 25 or more | 3 | 2 (67%) |
-
-The prediction was made before looking: if closeness is what matters, the games search converts
-should be the games the plain scorer already scored highest on. It won 5 of the plain scorer's top
-7 seeds, hypergeometric one-sided p=0.022, and the seeds it converted averaged 22.4 against 18.9
-for the ones it did not.
-
-The between-hero result falls out of the same number. Tuned Captain America averages 20.1, which
-is 8.9 short of the line, so a six-damage improvement converts some of the spread and it wins a
-third of the time. Tuned Ant-Man averages 14.6, which is 14.4 short, so six damage converts
-nothing and it wins none. There is no contradiction, just one gap that six damage can close and
-one it cannot.
-
-**What this means for your own play.** Playing the turns better is worth roughly six damage a
-game, and that is a real amount, enough to flip a third of narrow losses. It is not enough to
-rescue a game you are losing by fourteen. So the useful diagnostic when you lose is not "did I
-misplay" but "how close did I get". If you are finishing consistently within about six of killing
-the villain, better decisions will start converting those, and the first thing to change is the
-defending. If you are finishing far short, no amount of turn-by-turn improvement gets there and
-the deck or the matchup is what needs to change.
+The useful diagnostic when you lose is still how close you got rather than whether you misplayed.
+But the Ant-Man result adds a condition: better decisions are worth five damage *when the policy
+understands the deck*. On a deck whose plan the policy does not model, searching harder makes it
+worse, not better. If your deck wins by defending and grinding, a bot tuned to maximise damage is
+not measuring your deck.
 
 ### What this does not cover
 
-Four matchups, 20 seeds each, all starter decks. The searching bot also has a known defect (J42)
-where its no-op control does not exactly reproduce the plain scorer. That does not affect the
-comparisons above, since the searching arms beat that control as decisively as they beat the plain
-scorer, but it means the simulator is not yet clean.
+Two decks, one villain, 20 seeds each. `deck/custom/` is gitignored player data, so none of these
+numbers can be reproduced from a clean clone. The searching bot also has a known defect (J42) where
+its no-op control does not exactly reproduce the plain scorer, which does not affect the
+comparisons since the searching arms beat that control too, but means the simulator is not clean.
+
+### What the starter-deck version of this section got wrong
+
+Worth recording, because the failure was silent. The harness resolves a bare hero name to
+`deck/starter/` and never says so (J43), so a whole sweep ran on starter decks while applying
+weights tuned for the custom decks. Two conclusions did not survive the correction: that defending
+less is general advice, and that Ant-Man losing to Rhino is a deck-building problem. The second was
+exactly backwards.
+
 
 ## What I got wrong
 
