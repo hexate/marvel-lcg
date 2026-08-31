@@ -31,6 +31,40 @@ tuned on, and that name is the only thing recording the pairing.
 `deck/custom/` is gitignored player data, so any number that depends on it cannot be reproduced
 from a clean clone. Say which deck a number came from whenever you report one.
 
+## What search is worth, and what budget to use
+
+Measured on `captain_america_stun_lock` against Rhino, the deck in `deck/custom/` with its
+matching tuned weights. Seeds 800-839, so 40 games an arm.
+
+| arm | wins | mean damage | wall for 40 games |
+| --- | --- | --- | --- |
+| scorer alone | 1/40 | 20.85 | 2s |
+| `search:<w>:20:1` | 13/40 | 25.18 | 170s |
+| `search:<w>:40:1` | 15/40 | 25.82 | 421s |
+
+**Use 20 variants.** Search itself is not marginal: 1 win against 15 is Fisher one-sided
+p=0.00006, and it is worth about +5 damage a game against the 29 Rhino needs. But 40 variants is
+not reliably better than 20 (paired damage better on 14 seeds, worse on 7, tied on 19, two-sided
+sign p=0.189) and costs two and a half times as much. On an earlier run 60 variants won no more
+games than 40. The curve is flat past 20.
+
+**Tuning the weights further is finished on this deck, and the audit will lie to you about that.**
+Three leads from `audit.py`, each looking like an obvious blind spot, all measured out at zero or
+worse on 60 fresh seeds:
+
+- Super-Soldier Serum played 0 times in 30 offers, on a deck whose stun payoffs need the physical
+  resource it generates. Classifying it as an engine: 20.53 against 20.73, 45 of 60 games
+  identical, sign p=1.000.
+- Defending 1.35 times a game on a deck built around Counter-Punch and Indomitable. Forcing it to
+  4.03: damage 20.53 down to 18.57.
+- Changing form offered 120 times and taken 6. Forcing more flips: down to 16.77 at the extreme.
+
+Those are not blind spots. They are the hill climber correctly declining actions that do not pay
+against a villain this fast, and the weights sit at a local optimum where every direction is
+worse. What moves the result is search, because it changes the plan mid-game in a way one fixed
+weight vector cannot express. Read a high offered-versus-taken ratio as a hypothesis, never as a
+bug, and check it on fresh seeds before believing it.
+
 ## Files
 
 | File | What it does |
