@@ -31,6 +31,43 @@ tuned on, and that name is the only thing recording the pairing.
 `deck/custom/` is gitignored player data, so any number that depends on it cannot be reproduced
 from a clean clone. Say which deck a number came from whenever you report one.
 
+## Turn-level search (`turnplan.py`): doubles the scorer, still loses to policy search
+
+Built on `ResumeGameLoop`, and the first thing tried that discriminates at all. Where evaluating
+single moves gave one distinct outcome at five of six decisions, committing to a whole turn gave
+five distinct outcomes among ten candidates at the same decision, one of them reaching 29 damage,
+a win, where the scorer reached 17. The unit that carries information is a turn, because it is the
+first one that can say what it will *not* do.
+
+Measured on `captain_america_stun_lock` against Rhino, 60 seeds:
+
+| policy | wins | damage | wall |
+| --- | --- | --- | --- |
+| scorer alone | 6/60 | 20.35 | 2s |
+| `turnplan` | 12/60 | 22.72 | 147s |
+| `search:...:20:1` | 20/60 | 25.15 | 260s |
+
+So it doubles the scorer and loses to the policy search that already existed. Two ways of giving
+it more were measured and neither helps: hill-climbing the turn over three passes instead of one
+gives 12/60 at 206s, and widening the candidate set to 93 rollouts a game gives 11/60 at 253s. One
+pass over the neighbourhood already exhausts it.
+
+Design notes worth keeping, because the first two versions were worse than the third:
+
+- **Compare against a rollout, not against the current position.** Scoring candidates against the
+  static value of the position made every turn commit to one or two actions and end, which is far
+  less than the scorer plays and strictly worse. The baseline has to be the scorer playing the
+  turn its own way.
+- **Perturb the scorer's turn, do not enumerate short ones.** Truncating to one or two actions
+  scored 9/60. Taking the turn the scorer plays and trying it with one action dropped or one
+  declined action added scored 12/60.
+- The `TurnScript` ends the turn when its script runs out rather than handing the rest back to the
+  scorer. Handing it back is what made move-level candidates collapse to the same game.
+
+**What is left is combining them.** They work at different levels: policy search changes the
+weights for the whole continuation, turn planning commits which actions this turn contains. Nothing
+here tests both together, and that is the obvious next thing rather than more of either alone.
+
 ## Action-level search: the engine now allows it, and it still does not discriminate
 
 `World.ResumeGameLoop` (N21) removed the blocker that stopped a search evaluating a single move:
