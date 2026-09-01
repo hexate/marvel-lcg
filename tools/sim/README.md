@@ -64,9 +64,18 @@ Design notes worth keeping, because the first two versions were worse than the t
 - The `TurnScript` ends the turn when its script runs out rather than handing the rest back to the
   scorer. Handing it back is what made move-level candidates collapse to the same game.
 
-**What is left is combining them.** They work at different levels: policy search changes the
-weights for the whole continuation, turn planning commits which actions this turn contains. Nothing
-here tests both together, and that is the obvious next thing rather than more of either alone.
+**Combining them was tried and does not help.** They work at different levels, policy search
+choosing the weights for the whole continuation and turn planning choosing which actions this turn
+contains, so composing them looked like the obvious win. Order matters and was respected: weights
+first, then the turn planned against the continuation that will actually follow it.
+
+On seeds 900-959 it looked like one, 22 wins in 60 against policy search's 20. On fresh seeds
+1000-1059 it reversed: 13 in 60 against 15, paired damage better on 12 seeds and worse on 18, tie
+on 30, two-sided sign p=0.36. The first result was noise and the fresh-seed check is the only
+reason it was not reported as an improvement. The code was reverted.
+
+So `search:...:20:1` remains the best configuration measured, and turn planning is a second,
+independent way to beat the plain scorer rather than an addition to the first.
 
 ## Action-level search: the engine now allows it, and it still does not discriminate
 
