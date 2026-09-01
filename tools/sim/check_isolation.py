@@ -19,30 +19,26 @@ run both arms, suppress the rollout's own log output by saving and restoring `Lo
 around `playout`, and diff. The two logs agree for hundreds of lines and then one has an event the
 other lacks, which names the mechanism directly. That is how Retaliate went missing.
 
-What has been ruled out for the remaining 6 of 60, so nobody repeats it. Each of these was
-implemented and measured, and each left the count at exactly 6:
+Fixed as of the closure-copying change: this reports 0 of 60. It was 17 before the
+nested-container fix and 6 after it.
 
-- Every reachable object's `__dict__`, snapshotted and restored with no module filter at all,
-  not just `game.`.
-- `Engine.game` added as a snapshot root alongside the world and the ability cache.
-- Container nesting deeper than 3. Depths 5, 8 and 12 are identical to 3.
-- Closure cells. Traversing `__closure__` finds no closure dict keyed by a game object that is
-  reachable from the world or the ability cache, so `apply_faces` is not reached that way.
-- Class-level state. Only `Log.all_log_text` and `Random.counter` change across a rollout, and
-  restoring the counter changes nothing.
-- `Engine.game.controller_manager`, swapped to the clone's for the rollout.
-- The outer policy's own state: it is never called during a rollout, 0 times, and its stall
-  counters are unchanged.
-- Wall-clock dependence. `GameSession.timeout` is 0 and nothing else in `game/` reads a clock.
-- Run-to-run non-determinism from set iteration over object ids. Both arms are perfectly
-  deterministic across repeats.
+The last 6 were not a missing snapshot at all. `copy.deepcopy` treats a function as atomic and
+returns the same object, closure cells included, which is right for a module-level helper and
+wrong here: a card's live state is kept in cells. `when_this_in_play` creates `apply_faces` and
+`unapply_effects` per call and registers callbacks that capture them
+(`game/ability/factory/environment_helper2.py:105`), so a cloned world ran with the *same*
+callback objects as the live game and mutated the live card's apply-tracking through them. It
+surfaced as Captain America's Shield losing Retaliate, and as a missing "unapply" when it left
+play. `clone.py` now gives `deepcopy` a handler that rebuilds a function with copied cells, and
+shares functions that have no closure so module-level helpers are untouched.
 
-What is known about the mechanism: the live game loses a card's *applied* state. On seed 926 the
-two logs are identical in content but offset by one line, the scorer's game having an
-`unapply [Captain America's Shield]` the other lacks, and on seed 901 the same root shows up as
-Retaliate silently not firing. `apply_faces` and `unapply_effects` live as closure variables in
-`when_this_in_play` (`game/ability/factory/environment_helper2.py:105`), which is state that sits
-in a Python cell rather than on any object, but restoring cells did not move the count.
+Nine things were tried before that and none moved the count off 6, so do not repeat them:
+snapshotting every reachable object's `__dict__` with no module filter, adding `Engine.game` as a
+snapshot root, container nesting at depth 5, 8 and 12, walking closure cells to *restore* them
+rather than copy them, restoring `Random.counter`, swapping
+`Engine.game.controller_manager` to the clone's, checking whether the outer policy is called
+during a rollout (it is not), wall-clock dependence (`GameSession.timeout` is 0), and run-to-run
+non-determinism (both arms are perfectly deterministic).
 
 Traps this has already produced, all of which look like a correct fix and are not:
 

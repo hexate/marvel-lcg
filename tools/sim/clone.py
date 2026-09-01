@@ -146,11 +146,49 @@ def _isolate_gamestate():
     GameState._sim_isolated = True
 
 
+def _install_function_copier():
+    """Make `deepcopy` copy a closure instead of sharing it.
+
+    `copy.deepcopy` treats a function as atomic and hands back the same object, closure cells
+    and all. That is right for a module-level helper and wrong for this engine, because a card's
+    live state is kept in cells: `when_this_in_play` creates `apply_faces` and `unapply_effects`
+    per call and registers callbacks that capture them
+    (`game/ability/factory/environment_helper2.py:105`). A cloned world therefore ran with the
+    *same* callback objects as the live game and mutated the live card's apply-tracking through
+    them, which showed up as Captain America's Shield losing Retaliate and losing its "unapply"
+    when it left play.
+
+    Only closures are copied. A function without one is shared as before, which keeps every
+    module-level helper untouched.
+    """
+    import types
+
+    def _copy_function(f, memo):
+        if f.__closure__ is None:
+            return f
+        cells = []
+        for cell in f.__closure__:
+            try:
+                cells.append(types.CellType(copy.deepcopy(cell.cell_contents, memo)))
+            except ValueError:
+                cells.append(types.CellType())
+            except Exception:
+                cells.append(cell)
+        new_f = types.FunctionType(f.__code__, f.__globals__, f.__name__,
+                                   f.__defaults__, tuple(cells))
+        new_f.__dict__.update(f.__dict__)
+        new_f.__kwdefaults__ = f.__kwdefaults__
+        return new_f
+
+    copy._deepcopy_dispatch[types.FunctionType] = _copy_function
+
+
 def install():
     """Idempotent. Returns the classes that were made shareable."""
     global _INSTALLED
     classes = _shared_classes()
     if not _INSTALLED:
+        _install_function_copier()
         for cls in classes:
             cls.__deepcopy__ = (lambda self, memo: self)
         _isolate_gamestate()
