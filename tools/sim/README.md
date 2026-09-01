@@ -31,6 +31,44 @@ tuned on, and that name is the only thing recording the pairing.
 `deck/custom/` is gitignored player data, so any number that depends on it cannot be reproduced
 from a clean clone. Say which deck a number came from whenever you report one.
 
+## Action-level search: the engine now allows it, and it still does not discriminate
+
+`World.ResumeGameLoop` (N21) removed the blocker that stopped a search evaluating a single move:
+a position captured mid-turn can now be continued from where it was, instead of having a fresh
+round begun on top of it. The machinery is verified. Forcing the action the plain policy would
+have taken anyway reproduces its game exactly, rounds, damage and step count all identical, which
+is the control that says forcing works.
+
+It buys almost nothing, and the measurement says why. Evaluating every option at six consecutive
+decision points on `captain_america_stun_lock`:
+
+| decision | options | distinct outcomes |
+| --- | --- | --- |
+| 1 | 4 | 1 |
+| 2 | 6 | 1 |
+| 3 | 6 | 1 |
+| 4 | 5 | 1 |
+| 5 | 4 | 1 |
+| 6 | 6 | 2 |
+
+At five of six decisions every option leads to the identical final game. The continuation policy is
+order-invariant: force any action first and it still plays the same set of actions for the rest of
+the turn, so the forced choice is reordered rather than changed. That is also why policy-level
+search helps and this does not. Changing the weights changes the whole continuation; changing one
+action changes something the continuation immediately undoes.
+
+**So the useful unit is a turn, not a move.** To get signal, a candidate has to commit to *which
+actions are taken and which are not* for the whole turn, and the continuation has to respect that
+rather than re-deriving it. That is buildable on `ResumeGameLoop` and is the remaining piece.
+
+Two traps to know before building it. Forcing an action by option id cannot survive a resume,
+because `ObjectManager` allocates effect ids afresh every time options are offered, so an id from
+the original prompt names a different effect in the clone; use a stable identity such as name plus
+`bind_id`. And `player_action.py:258` does `game = Engine.game`, so a rollout drives the clone's
+board while using the *live* game's replay module, which is how a rollout empties the live
+`history_inputs` and makes a later `Pop` raise `IndexError`. That is the likely mechanism behind
+J42.
+
 ## The policy-space search is at its ceiling, and here is the measurement that says so
 
 Worth reading before trying to improve the searching bot, because the obvious next ideas have all
