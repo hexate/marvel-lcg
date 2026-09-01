@@ -350,6 +350,16 @@ class World(WorldAction, WorldFind):
 
     ################################################################################
     # Phase
+    def PlayerPhaseOrder(self) -> 'List[Player]':
+        """Turn order for the player phase. Extracted from `PlayerPhase` so that a resumed
+        round can work out which players still have a turn coming."""
+        players = self.const_players[:]
+        for player in players:
+            if player.flag.Get("YOU_TAKE_THE_FIRST_TURN_DURING_THE_PLAYER_PHASE"):
+                players.remove(player)
+                players.insert(0, player)
+        return players
+
     def PlayerPhase(self) -> None:
 
         def turn_begin():
@@ -359,15 +369,7 @@ class World(WorldAction, WorldFind):
 
         self.phase.SetState(Phase.State.PlayerTurn)
 
-        def get_player_phase_order():
-            players = self.const_players[:]
-            for player in players:
-                if player.flag.Get("YOU_TAKE_THE_FIRST_TURN_DURING_THE_PLAYER_PHASE"):
-                    players.remove(player)
-                    players.insert(0, player)
-            return players
-
-        for player in get_player_phase_order():
+        for player in self.PlayerPhaseOrder():
             self.current_player = player
             turn_begin()
             player.phase.BeginTurn()
@@ -473,105 +475,169 @@ class World(WorldAction, WorldFind):
                 return
         return
 
-    def OnGameLoop(self) -> None:
+    ################################################################################
+    # A round, in steps.
+    #
+    # These were local closures inside `OnGameLoop`, which meant the only way to advance the
+    # game was to run a whole round from its start. That is fine for playing and wrong for
+    # anything that wants to resume: a position saved part-way through a turn could only be
+    # continued by beginning a fresh round on top of it. Extracted verbatim, same order, same
+    # behaviour, so that `ResumeGameLoop` can re-enter partway. See N21 and J40.
+
+    def RoundStart(self) -> None:
+        from game.message import Message
+
+        self.phase.SetState(Phase.State.StartRound)
+        self.current_player = None
+        self.round_id += 1
+        start_message = Message.WhenRoundStart(self.round_id, self)
+        start_message.Send()
+
+        for player in self.const_players:
+            player.phase.BeginRound()
+
+        self.controller_manager.OnBeginRound()
+
+    def RoundEnd(self) -> None:
         from game.message import Message
         from game.effect.rule import GameRule
 
-        def game_round() -> None:
+        self.phase.SetState(Phase.State.EndRound)
+        self.current_player = None
+        round_message = Message.WhenRoundEnd(self)
+        round_message.Send()
+        self.stat.OnRoundEnd()
+        self.buff_manager.OnRoundEnd()
 
-            def start_round() -> None:
-                self.phase.SetState(Phase.State.StartRound)
-                self.current_player = None
-                self.round_id += 1
-                start_message = Message.WhenRoundStart(self.round_id, self)
-                start_message.Send()
+        for player in self.const_players:
+            player.phase.EndRound()
 
-                for player in self.const_players:
-                    player.phase.BeginRound()
+        # Pass the first player token clocwise to the next player.
 
-                self.controller_manager.OnBeginRound()
+        end_round_effect = GameRule(self.const_players[0].GetIdentity())
+        self.players = Types.Rotate(self.players, 1)
+        self.UpdatePlayersOrder(end_round_effect)
+        self.ProcessTemporary(end_round_effect)
 
-            def end_round() -> None:
-                self.phase.SetState(Phase.State.EndRound)
-                self.current_player = None
-                round_message = Message.WhenRoundEnd(self)
-                round_message.Send()
-                self.stat.OnRoundEnd()
-                self.buff_manager.OnRoundEnd()
+        end_message = Message.AfterRoundEnd(round_message)
+        end_message.Send()
 
-                for player in self.const_players:
-                    player.phase.EndRound()
+    def PhaseBegin(self, phase_type: 'PhaseName') -> None:
+        from game.message import Message
 
-                # Pass the first player token clocwise to the next player.
+        self.phase_id += 1
 
-                end_round_effect = GameRule(self.const_players[0].GetIdentity())
-                self.players = Types.Rotate(self.players, 1)
-                self.UpdatePlayersOrder(end_round_effect)
-                self.ProcessTemporary(end_round_effect)
+        phase_message = Message.WhenPhaseBegin(phase_type, self)
+        phase_message.Send()
 
-                end_message = Message.AfterRoundEnd(round_message)
-                end_message.Send()
+        for player in self.const_players:
+            player.phase.BeginPhase()
 
-            def phase_begin(phase_type: PhaseName) -> None:
-                self.phase_id += 1
+        self.controller_manager.OnBeginPhase()
 
-                phase_message = Message.WhenPhaseBegin(phase_type, self)
-                phase_message.Send()
+        begin_message = Message.AfterPhaseBegin(phase_message)
+        begin_message.Send()
 
-                for player in self.const_players:
-                    player.phase.BeginPhase()
+    def PhaseEnd(self, phase_type: 'PhaseName') -> None:
+        from game.message import Message
 
-                self.controller_manager.OnBeginPhase()
+        self.phase.SetState(Phase.State.EndPhase)
+        self.current_player = None
 
-                begin_message = Message.AfterPhaseBegin(phase_message)
-                begin_message.Send()
+        phase_message = Message.WhenPhaseEnd(self.phase_id, phase_type, self)
+        phase_message.Send()
 
-            def phase_end(phase_type: PhaseName) -> None:
-                from game.message import Message
+        self.stat.OnPhaseEnd()
 
-                self.phase.SetState(Phase.State.EndPhase)
-                self.current_player = None
+        end_message = Message.AfterPhaseEnd(self.phase_id, phase_type, phase_message)
+        end_message.Send()
 
-                phase_message = Message.WhenPhaseEnd(self.phase_id, phase_type, self)
-                phase_message.Send()
+    def GameRound(self) -> None:
+        self.RoundStart()
+        if self.is_game_over:
+            return
 
-                self.stat.OnPhaseEnd()
+        self.PhaseBegin("Player")
+        if self.is_game_over:
+            return
+        self.PlayerPhase()
+        if self.is_game_over:
+            return
+        self.PlayersEndPhase()
+        if self.is_game_over:
+            return
+        self.PhaseEnd("Player")
+        if self.is_game_over:
+            return
 
-                end_message = Message.AfterPhaseEnd(self.phase_id, phase_type, phase_message)
-                end_message.Send()
+        self.PhaseBegin("Villain")
+        if self.is_game_over:
+            return
+        self.VillainPhase()
+        if self.is_game_over:
+            return
+        self.PhaseEnd("Villain")
+        if self.is_game_over:
+            return
 
-            start_round()
+        self.RoundEnd()
+
+    def FinishRoundAfterPlayerPhase(self) -> None:
+        """The rest of a round once the player phase is over."""
+        for step in (self.PlayersEndPhase,
+                     lambda: self.PhaseEnd("Player"),
+                     lambda: self.PhaseBegin("Villain"),
+                     self.VillainPhase,
+                     lambda: self.PhaseEnd("Villain"),
+                     self.RoundEnd):
             if self.is_game_over:
                 return
+            step()
 
-            phase_begin("Player")
-            if self.is_game_over:
-                return
-            self.PlayerPhase()
-            if self.is_game_over:
-                return
-            self.PlayersEndPhase()
-            if self.is_game_over:
-                return
-            phase_end("Player")
-            if self.is_game_over:
-                return
+    def ResumeGameLoop(self) -> None:
+        """Continue a position saved part-way through a round, then play on normally.
 
-            phase_begin("Villain")
-            if self.is_game_over:
-                return
-            self.VillainPhase()
-            if self.is_game_over:
-                return
-            phase_end("Villain")
-            if self.is_game_over:
-                return
+        `OnGameLoop` can only *begin* a round, so a position captured mid-turn could only be
+        continued by starting a fresh round on top of it. That is why a search that tried to
+        evaluate a single action found every candidate scoring identically: the action was
+        consumed by the first prompt of the new round rather than at the point the position was
+        captured. See J40 and the search notes in `tools/sim`.
 
-            end_round()
+        Only a mid-player-turn position needs special handling, because that is the one place
+        the engine spends a long time inside a single message dispatch. Anything else falls
+        through to the ordinary loop.
+        """
+        player = self.current_player
+        if player is not None and self.phase.state == Phase.State.PlayerTurn:
+            player.phase.ResumeTurn()
+            if not self.is_game_over:
+                player.phase.EndTurn()
+                self.stat.OnTurnEnd()
 
+                order = self.PlayerPhaseOrder()
+                rest = order[order.index(player) + 1:] if player in order else []
+                for nxt in rest:
+                    if self.is_game_over:
+                        break
+                    self.current_player = nxt
+                    self.stat.OnTurnBegin()
+                    nxt.phase.BeginTurn()
+                    nxt.phase.PlayerTurn()
+                    if self.is_game_over:
+                        break
+                    nxt.phase.EndTurn()
+                    self.stat.OnTurnEnd()
 
+                if not self.is_game_over:
+                    self.phase.SetState(Phase.State.PlayerTurnEnd)
+
+            self.FinishRoundAfterPlayerPhase()
+
+        self.OnGameLoop()
+
+    def OnGameLoop(self) -> None:
         while not self.is_game_over:
-            game_round()
+            self.GameRound()
 
     def OnGameOver(self, reason: 'GameOverReason'):
         from game.message import Message

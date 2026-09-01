@@ -65,6 +65,39 @@ class PlayerPhase:
         end_message = Message.AfterPlayerTurnEnd(player, turn_end_message)
         end_message.Send()
 
+    def ResumeTurn(self) -> None:
+        """Re-enter this turn's decision loop without replaying its opening triggers.
+
+        `PlayerTurn` sends a single `WhenPlayerInTurn`, and the player's whole turn of decisions
+        happens inside that one dispatch. A position saved part-way through a turn therefore
+        lives partly in the Python call stack and cannot be restored by copying game state.
+        Re-sending that one message resumes the decisions from the board as it now stands.
+
+        The turn-begin messages are deliberately not resent. They have already fired for this
+        turn, and sending them again would re-trigger every "at the start of your turn" ability,
+        which is the difference between resuming a turn and playing a second one.
+        """
+        from game.message import Message
+
+        player = self.player
+        world = player.world
+
+        if player.is_eliminated:
+            return
+
+        message = Message.WhenPlayerInTurn(player, world.round_id)
+        message.Send()
+        if player.is_eliminated:
+            return
+
+        turn_end_message = Message.WhenPlayerTurnEnd(player, world.round_id)
+        turn_end_message.Send()
+        if player.is_eliminated:
+            return
+        player.res_pool.Reset()
+        end_message = Message.AfterPlayerTurnEnd(player, turn_end_message)
+        end_message.Send()
+
     def EndTurn(self):
         player = self.player
         player.stat.OnEndTurn()
