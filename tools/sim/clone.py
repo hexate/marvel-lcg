@@ -210,6 +210,33 @@ def _position_objects(root):
     return out
 
 
+def _nested_containers(value, depth, out, seen):
+    """Every container inside `value`, down to `depth`.
+
+    A shallow snapshot of an object's own attributes is not enough. Keywords live two levels
+    down: `GainKeyword` stores `self.keywords[keyword][face] = diff` (`card_face.py:231`), so
+    restoring the outer `keywords` dict puts back the same inner dict the rollout mutated. That
+    is what left Captain America's Shield without its Retaliate after a rollout, and the missing
+    "deal 1 damage to Rhino" is exactly where a variants=1 game first diverges from the scorer's.
+    """
+    if depth < 0:
+        return
+    i = id(value)
+    if i in seen:
+        return
+    if isinstance(value, dict):
+        seen.add(i)
+        out.append(value)
+        for k, v in list(value.items()):
+            _nested_containers(k, depth - 1, out, seen)
+            _nested_containers(v, depth - 1, out, seen)
+    elif isinstance(value, (list, set)):
+        seen.add(i)
+        out.append(value)
+        for v in list(value):
+            _nested_containers(v, depth - 1, out, seen)
+
+
 @contextlib.contextmanager
 def rollout_isolation(world):
     """Leave the live position exactly as the rollout found it.
@@ -277,7 +304,10 @@ def rollout_isolation(world):
         # pointing at the rollout (a live `EffectContext` holding a clone message, which drags
         # the clone's whole `World` in behind it). Restoring only `__dict__` leaves in-place
         # mutation intact, because the copy is shallow and hands back the same list.
-        conts = [(v, copy.copy(v)) for v in d.values() if isinstance(v, (list, dict, set))]
+        found, seen_c = [], set()
+        for v in d.values():
+            _nested_containers(v, 3, found, seen_c)
+        conts = [(c, copy.copy(c)) for c in found]
         saved.append((o, d.copy(), conts))
     try:
         yield
