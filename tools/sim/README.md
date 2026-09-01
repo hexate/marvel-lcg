@@ -149,6 +149,48 @@ engine an entry point that re-enters the phase machinery where the clone was tak
 remaining change with real headroom behind it, and it is a `game/` change rather than a simulator
 one.
 
+## Keeping the forward model honest, and how to debug it when it is not
+
+A rollout must not change the game it is predicting. That invariant has been broken three
+separate times, each time silently: the games still finish, the numbers still look plausible, and
+nothing raises. Everything measured while it is broken is measured against a different game from
+the one being played.
+
+**Check it with one command, after touching anything a rollout drives.**
+
+    .venv/bin/python tools/sim/check_isolation.py rhino captain_america_stun_lock
+
+`search:<w>:1:1` perturbs nothing and adopts nothing, so it must replay `util:<w>` exactly. Any
+disagreement is a leak. It was 17 of 60 seeds before the nested-container fix and is 6 of 60 now.
+Zero has never been reached, so treat the number as a ratchet: never let it rise.
+
+**When it is non-zero, diff the logs, not the state.** This matters because state diffing failed
+repeatedly and convincingly. A content-aware fingerprint of everything reachable from `Engine.game`
+reported that nothing had changed, across every rollout, while the games demonstrably diverged. The
+fingerprints could not see it.
+
+What works: run both arms, suppress the rollout's own output by saving and restoring
+`Log.all_log_text` around `playout`, and diff the results. The two logs agree for hundreds of lines
+and then one contains an event the other lacks, which names the mechanism outright. That is how
+Retaliate was found going missing, from three lines of "Captain America would deal 1 damage to
+Rhino" present in one game and absent in the other.
+
+**Four traps, each of which looks like a correct fix and is not:**
+
+1. *A shallow snapshot is not enough.* Keywords live two levels down,
+   `self.keywords[keyword][face] = diff` (`card_face.py:231`), so restoring an object's own
+   attributes hands back the very inner dict the rollout mutated. Restore containers recursively.
+   Depth 3 is enough; 5 and 8 change nothing.
+2. *Restoring bindings and restoring contents are different things.* `__dict__.copy()` is shallow,
+   so it puts attribute references back while leaving in-place mutation intact. Both are needed.
+3. *Engine code reaches state through `Engine.game`, not through the world.* `player_action.py:258`
+   does `game = Engine.game`, so a rollout drives the clone's board with the live replay module.
+   That is a genuine cross-contamination and it was **not** the cause of J42: swapping it left the
+   count at exactly 17. Fix it for its own sake, not as a theory about this.
+4. *Identical results across a code change mean the change did not run.* Twice. Once a predicate
+   matched `physical resource` against text reading `[physical] resource`, once a search arm came
+   back matching baseline to two decimals. Neither was a null result.
+
 ## Onboarding a deck or a card: how to find what the policy cannot see
 
 The policy only knows what a predicate in `policy.py` tells it. Everything else is invisible, and
