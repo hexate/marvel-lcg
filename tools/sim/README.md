@@ -279,6 +279,38 @@ strategy. Ant-Man's scorer is 11.8 damage short of the 29 needed and search adds
 Captain America's is 9.0 short and search adds about 5.8, which reaches the threshold often enough
 to convert. Same mechanism, different starting point.
 
+**Risk-seeking evaluation was tried and does not work.** Worth recording because the reasoning is
+appealing and the naive implementation is a silent no-op.
+
+Winning is a threshold: nothing is paid for 24 of the 29 needed, so when the mean sits below the
+line, variance is an asset and the search should prefer a line that might reach 29 over one that
+comfortably reaches 24. `position_value` is linear in damage, which makes the search risk-neutral,
+and `tune.py` already learned the same lesson in the other direction, cubing progress because
+"wins live in the tail and averaging rewards playing safe".
+
+**A convex value function changes nothing.** The search evaluates one rollout per candidate under
+common random numbers and takes an argmax, so any increasing function of damage gives the same
+ordering and the same decisions. Rewarding the tail needs a distribution, not a transform, which
+means several futures per candidate aggregated convexly.
+
+Measured on `ant_man_multiple_man_protection`, 100 seeds, futures paired across candidates:
+
+| arm | wins | damage |
+| --- | --- | --- |
+| 20 candidates, 1 future (current) | 8/100 | 20.42 |
+| 7 candidates, 3 futures, plain mean | 5/100 | 19.08 |
+| 7 candidates, 3 futures, cubed | 6/100 | 19.06 |
+| 20 candidates, 3 futures, cubed (3x budget) | 7/100 | 20.16 |
+
+The mechanism is real and visible: cubing beats its own plain-mean control, 6 against 5, with mean
+damage flat at 19.06 against 19.08, which is exactly the signature of trading expected value for
+threshold-crossing. It just does not pay. Taking candidates to afford futures costs more than it
+returns, and adding futures at 3x budget still loses to the baseline.
+
+The likely reason is that common random numbers already make the single-sample comparison paired
+and low-variance, so extra futures buy little estimator quality while candidates remain the thing
+that buys wins. The code was reverted.
+
 **Use 200 seeds for a win-rate claim.** Villain HP is 29 and the scorer averages 20.0 with sd 5.2,
 so a win is roughly a 1.7-sigma event and win counts swing hard between small blocks. Two 60-seed
 blocks disagreed about the same change, 20-to-30 on one and 15-to-13 on the other, purely from
