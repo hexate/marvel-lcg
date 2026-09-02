@@ -17,7 +17,7 @@ import json
 
 from weights import DEFAULT_WEIGHTS
 from policy import (Heuristic, _command, card_text, card_cost, changes_form, cost_of,
-                    deals_damage, disables, form_engine, oid, protects,
+                    deals_damage, defence_payoff, disables, form_engine, oid, protects,
                     removes_threat, summons_ally, type_of, buffs_ally, hits_all)
 
 # Starting point. Roughly reproduces the hand-tuned ladder so the search begins
@@ -149,6 +149,8 @@ class UtilityPolicy(Heuristic):
             return "reform"
         if disables(face):
             return "stun"
+        if defence_payoff(face):
+            return "defence"
         if protects(face):
             return "protect"
         if deals_damage(face) or removes_threat(face):

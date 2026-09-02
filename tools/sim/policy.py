@@ -170,6 +170,27 @@ def form_engine(face):
     return 'after you change' in card_text(face)
 
 
+def defence_payoff(face):
+    """A card that pays you for defending, which makes defending an engine and not a cost.
+
+    `deck_check` on `ant_man_multiple_man_protection` is what forced this. Desperate Defense is a
+    three-copy card in a forty-card deck and the scorer filed it as "other", ranking it near junk:
+    it gives +2 DEF and readies your hero if the attack does nothing, so defending costs no action.
+    Unflappable draws a card on the same trigger, Electrostatic Armor deals 1 to the attacker, and
+    on the Captain America list Counter-Punch deals damage equal to your ATK and Indomitable
+    readies you. None of that was expressible: the defend score had terms for how hurt you are and
+    how big the hit is, and nothing for whether defending pays.
+    """
+    t = card_text(face)
+    if "defend" not in t:
+        return False
+    return ("ready your hero" in t
+            or "draw 1 card" in t
+            or "deal damage" in t
+            or "deal 1 damage" in t
+            or "def for that attack" in t)
+
+
 def boosts_offence(face):
     """Permanent +ATK or an extra ready is worth more than a one-shot, and compounds."""
     t = card_text(face)
@@ -954,7 +975,12 @@ class Heuristic:
                 face = hand.get(o.get("bind_id"))
                 if o.get("name") != "Play" or face is None:
                     continue
-                if cost_of(o) == 0:
+                # Free responses, plus anything that pays you for defending even if it costs.
+                # The free-only rule quietly excluded the card a whole deck is built around:
+                # Desperate Defense costs 1, and the audit found it offered at the defence
+                # window 6 times and played 0, on a deck carrying three copies. Indomitable on
+                # the Captain America list is the same shape and the same exclusion.
+                if cost_of(o) == 0 or defence_payoff(face):
                     self.tel["response_play"] += 1
                     return self.take(o, hand)
 

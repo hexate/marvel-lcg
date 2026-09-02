@@ -279,6 +279,31 @@ strategy. Ant-Man's scorer is 11.8 damage short of the 29 needed and search adds
 Captain America's is 9.0 short and search adds about 5.8, which reaches the threshold often enough
 to convert. Same mechanism, different starting point.
 
+**A deck's engine card can be structurally unplayable, and that is worth checking before tuning.**
+`deck_check` on `ant_man_multiple_man_protection` showed Desperate Defense, a three-copy card in a
+forty-card deck, filed as "other" and so ranked near junk. Reading it explains the deck: +2 DEF
+when you defend, and if the attack does nothing, ready your hero. Unflappable draws on the same
+trigger, Electrostatic Armor deals 1 to the attacker. Defending is this deck's engine, not its
+cost, and nothing in the scorer could express that.
+
+`audit.py` then found the real problem, which was not the weights. `WhenUnitWouldDefend/Play` was
+offered 6 times and taken 0, and Desperate Defense was offered 6 times and played 0. The response
+handler only accepted options with `cost_of(o) == 0`, and Desperate Defense costs 1, so the card
+the deck is built around was structurally excluded from the one window it works at. Indomitable on
+the Captain America list is the same shape. Allowing paid responses when the card pays you for
+defending takes it to 6 of 6.
+
+**It changes nothing measurable, and the weight that looked obvious makes things worse.** Over 200
+seeds, greedy: Ant-Man 3/200 at 17.19 damage before, 4/200 at 17.16 after; Captain America 16/200
+at 20.00 both before and after, identical. Adding a `def_hero_x_payoff` term so the scorer defends
+more when the payoffs are in hand raised defends per round from 0.69 to 0.83 and *cost* wins:
+Ant-Man to 2/200, Captain America to 9/200 at 18.75 damage. That term was removed.
+
+The likely reason the payoff never pays: +2 DEF has to reduce the hit to zero for the ready and the
+draw to trigger, and Rhino hits for 3 to 6. The card is right for the deck and wrong for this
+matchup. Kept anyway, on correctness grounds rather than performance, because a bot that never
+plays a three-copy card is not playing the deck.
+
 **Risk-seeking evaluation was tried and does not work.** Worth recording because the reasoning is
 appealing and the naive implementation is a silent no-op.
 

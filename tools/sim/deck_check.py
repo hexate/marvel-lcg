@@ -28,7 +28,7 @@ os.chdir(REPO)
 
 import engine  # noqa: F401,E402
 from policy import (card_text, changes_form, deals_damage, disables,  # noqa: E402
-                    form_engine, protects, removes_threat)
+                    defence_payoff, form_engine, protects, removes_threat)
 
 # Mechanics the policy has no model of. A card carrying one of these is doing something
 # the scorer cannot value, which is a blind spot whether or not the card looks minor.
@@ -81,6 +81,8 @@ def category(face, ctype):
         return "reform"
     if disables(face):
         return "stun"
+    if defence_payoff(face):
+        return "defence"
     if protects(face):
         return "protect"
     if deals_damage(face) or removes_threat(face):
