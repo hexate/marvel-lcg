@@ -241,6 +241,33 @@ that block is circular, and it is how a `play_econ` sweep produced a 21.1 that e
 exactly zero and one at plus one win in sixty. The weights sit at a local optimum and single-action
 ranking is the wrong lever. What is left after that is structural, not parametric.
 
+## Benchmark (authoritative): 200 fresh seeds, fixed forward model
+
+Everything below this section was measured before J42 was closed, with a forward model that was
+silently corrupting live keyword state. These are the numbers to quote.
+
+`captain_america_stun_lock` against Rhino, seeds 2000-2199, its matching tuned weights.
+
+| policy | wins | rate | mean damage | sd | wall for 200 games |
+| --- | --- | --- | --- | --- | --- |
+| scorer alone (`util`) | 16/200 | 8.0% | 20.00 | 5.19 | 10s |
+| `turnplan` | 35/200 | 17.5% | 23.16 | 4.90 | 661s |
+| `search:<w>:20:1` | **74/200** | **37.0%** | 25.84 | 4.41 | 881s |
+
+Fisher one-sided: search against the scorer p≈1e-12, turn planning against the scorer p=0.0033,
+search against turn planning p≈8.5e-06. All three orderings are real at this sample size, which
+60 seeds could not establish.
+
+**Use 200 seeds for a win-rate claim.** Villain HP is 29 and the scorer averages 20.0 with sd 5.2,
+so a win is roughly a 1.7-sigma event and win counts swing hard between small blocks. Two 60-seed
+blocks disagreed about the same change, 20-to-30 on one and 15-to-13 on the other, purely from
+that. Mean damage has far lower variance and moves consistently; treat it as the primary signal
+and win rate as the headline.
+
+Note the standard deviation falling as the policies improve, 5.19 to 4.90 to 4.41. The better
+policies are not only reaching further, they are reaching more reliably, which is what a search
+that can recover from a bad opening should look like.
+
 ## What search is worth, and what budget to use
 
 Measured on `captain_america_stun_lock` against Rhino, the deck in `deck/custom/` with its
