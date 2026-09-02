@@ -191,6 +191,42 @@ Rhino" present in one game and absent in the other.
    matched `physical resource` against text reading `[physical] resource`, once a search arm came
    back matching baseline to two decimals. Neither was a null result.
 
+## Three-form heroes are modelled as two, and it poisons their tuning
+
+Ant-Man is Giant, Tiny and Scott Lang. `deck/custom` holds two Ant-Man decks and a Ms. Marvel
+deck, so this is not one hero's problem.
+
+`option_form` names only the *destination*, so the scorer cannot tell these apart:
+
+- Giant to Tiny, a lateral hero-form switch
+- Scott Lang to Tiny, the trip home from alter-ego
+
+Both score `flip_tiny`. Coming back up therefore competes with playing a card and usually loses.
+Measured with flipping forced on, the bot spent **4.83 of 5.9 rounds in alter-ego** with
+`ae_action` at exactly 0.00. It goes down and cannot find its way back.
+
+**That poisons the weights.** `flip_ae` is tuned to -16.29 on the Protection deck, so the bot
+never flips at all: 92 offers, 0 taken. That is not a bad weight, it is the hill climber correctly
+concluding that going downstairs is a trap while the bot cannot come back. Every experiment run on
+top of those weights inherits the assumption. It also explains the shape of the failure: Ant-Man
+dies in 85% of games, against Captain America's 59%.
+
+**An attempted fix made it worse, and the reason is worth knowing.** Scoring the trip home with
+its own flat `flip_up` weight dropped mean damage from 17.16 to 14.77, because the lateral weights
+it replaced carry context terms: `flip_tiny + flip_tiny_x_pressure * press` reaches about 7 under
+pressure, where a flat 2.0 does not. Retuning with `flip_up` available did not rescue it; the
+tuner left `flip_ae` at -16.29 and never explored the new weight. Both changes were reverted.
+
+Two things checked and ruled out while chasing this, so nobody repeats them: health is *not*
+misreported in alter-ego (12/12 then 10/12, correct), and Recover is *not* unreachable (it is
+offered; at 10 of 12 health it scores 1.33 and loses to everything, so the bot only values healing
+once Rhino can kill it in two hits from full).
+
+**What it actually needs.** The alter-ego cycle is a multi-turn plan, go down, recover, come back
+up, and a scorer that ranks one action at a time cannot represent it. Any real fix wants the whole
+cycle evaluated as a unit, and a replacement for `flip_up` that keeps the context sensitivity the
+lateral weights already have.
+
 ## Onboarding a deck or a card: how to find what the policy cannot see
 
 The policy only knows what a predicate in `policy.py` tells it. Everything else is invisible, and
