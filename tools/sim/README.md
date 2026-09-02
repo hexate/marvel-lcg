@@ -258,6 +258,27 @@ Fisher one-sided: search against the scorer p≈1e-12, turn planning against the
 search against turn planning p≈8.5e-06. All three orderings are real at this sample size, which
 60 seeds could not establish.
 
+The same benchmark on `ant_man_multiple_man_protection`, seeds 2000-2199, its own tuned weights,
+isolation verified clean at 0 of 40:
+
+| policy | wins | rate | mean damage | sd | defends/round |
+| --- | --- | --- | --- | --- | --- |
+| scorer alone | 3/200 | 1.5% | 17.19 | 4.23 | 0.69 |
+| `turnplan` | 12/200 | 6.0% | 19.84 | 4.86 | 0.69 |
+| `search:<w>:20:1` | 13/200 | 6.5% | 20.64 | 4.82 | 0.67 |
+
+Search against the scorer: p=0.0094 on wins, and paired damage better on 152 seeds against 13,
+p≈3e-31. **This reverses an earlier finding.** On 20 seeds with the broken forward model search
+appeared to make this deck worse, 16.7 damage down to 15.3, and that was written up as the scorer
+being unable to represent a defensive plan. It was the leak: rollouts were stripping keyword state,
+which costs a Protection deck more than any other kind. Defends per round barely move, 0.69 to
+0.67, so search is not fighting the deck's plan.
+
+The gap to the line explains the difference between the two decks better than anything about
+strategy. Ant-Man's scorer is 11.8 damage short of the 29 needed and search adds about 3.5.
+Captain America's is 9.0 short and search adds about 5.8, which reaches the threshold often enough
+to convert. Same mechanism, different starting point.
+
 **Use 200 seeds for a win-rate claim.** Villain HP is 29 and the scorer averages 20.0 with sd 5.2,
 so a win is roughly a 1.7-sigma event and win counts swing hard between small blocks. Two 60-seed
 blocks disagreed about the same change, 20-to-30 on one and 15-to-13 on the other, purely from

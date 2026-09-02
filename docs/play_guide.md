@@ -149,23 +149,31 @@ complete change of deck even though other things did not.
 
 ### Ant-Man, Multiple Man Protection deck, against Rhino
 
-| arm | wins | mean damage | rounds |
+Re-measured on 200 seeds after the forward model was fixed. The earlier version of this section
+said search made this deck worse and explained why at length. That was wrong, and it was wrong
+because the simulator was broken rather than because the reasoning was subtle.
+
+| arm | wins | mean damage | defends per round |
 | --- | --- | --- | --- |
-| scorer alone | 0/20 | 16.7 | 5.5 |
-| with search | 1/20 | 15.3 | 6.2 |
+| scorer alone | 3/200 (1.5%) | 17.19 | 0.69 |
+| turn planning | 12/200 (6.0%) | 19.84 | 0.69 |
+| with search | 13/200 (6.5%) | 20.64 | 0.67 |
 
-**Search makes this deck worse.** Damage down on 13 of 20 seeds and up on 6, mean gain -1.4.
+Search helps, and not marginally: paired damage is better on 152 of 200 seeds and worse on 13,
+sign test p≈3e-31, and the win difference is p=0.0094.
 
-That is the most interesting number in the whole investigation, because it is the opposite of
-everything else. The reason looks like the search's bias: it attacks more (+0.17 per round) and
-thwarts more (+0.11) on a deck built to defend. A Protection deck wins by surviving and grinding,
-and a searcher that keeps finding reasons to attack is optimising the wrong quantity. The scorer
-it perturbs has no feature that understands "this deck wants to trade time for safety", so no
-amount of searching over its weights finds that plan.
+**What I got wrong and why.** On 20 seeds with the old forward model, search appeared to drop this
+deck from 16.7 damage to 15.3. I explained that as the searching policy attacking and thwarting
+more on a deck built to defend and grind, with the scorer having no feature for trading time for
+safety. It was a tidy story and it was untrue. The forward model was silently stripping keyword
+state during rollouts, which hurts a Protection deck more than any other kind, because keywords
+and defensive triggers are its whole plan. The tell is in the last column: defends per round barely
+move, 0.69 to 0.67. Search is not abandoning the defensive plan at all.
 
-**This is a heuristic problem, not a deck problem.** The deck is a built, community-style list and
-it reaches 16.7 damage under the plain scorer, better than the starter deck manages. What fails is
-the policy's model of what the deck is for.
+**Why it still wins far less than Captain America**, 6.5% against 37%, is distance rather than
+strategy. This deck's scorer averages 17.19 against the 29 needed, so it is 11.8 short, and search
+adds about 3.5. Captain America's scorer averages 20.0, is 9.0 short, and search adds about 5.8,
+which lands close enough to the line to convert. Same mechanism, different starting point.
 
 ### What this changes about the advice
 
