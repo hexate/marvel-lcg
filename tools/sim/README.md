@@ -191,6 +191,44 @@ Rhino" present in one game and absent in the other.
    matched `physical resource` against text reading `[physical] resource`, once a search arm came
    back matching baseline to two decimals. Neither was a null result.
 
+## The alter-ego cycle as a turn plan: the fix that works
+
+Going down to alter-ego, healing, and coming back up is the one plan the scorer provably cannot
+represent. It spans turns, so a policy that ranks single actions can only price the first step,
+and flipping down looks terrible on its own because the payoff arrives two turns later. That is
+why `flip_ae` tunes to -16.29 and the bot flips 0 times in 92 offers.
+
+`CycleScript` in `turnplan.py` makes the whole cycle one decision: flip down, recover until healthy,
+flip back up, then hand control to the scorer. `TurnPlanPolicy` offers it as one candidate among the
+turn scripts, so the rollout accepts or rejects it on end-of-game value rather than turn-end value.
+
+Measured on `ant_man_multiple_man_protection`, identical settings, cycle the only difference:
+
+| seeds | arm | wins | mean damage | cycles/game | alter-ego rounds |
+| --- | --- | --- | --- | --- | --- |
+| 2000-2099 | off | 2/100 | 18.66 | 0.00 | 0.32 |
+| 2000-2099 | on | 6/100 | 20.56 | 0.42 | 0.83 |
+| 2200-2299 | off | 2/100 | 18.61 | 0.00 | 0.25 |
+| 2200-2299 | on | 7/100 | 20.81 | 0.46 | 0.87 |
+
+Paired damage: better on 50 seeds against 16 in the first block, 53 against 10 in the second, sign
+test p<0.0001 both times. **It replicates**, which almost nothing else in this simulator's history
+has done on a first fresh-seed check.
+
+Three implementation details, each of which would have made it silently useless:
+
+- The plan must **survive the per-round replan**, or the planner re-decides every round and the
+  cycle never finishes.
+- It must be able to **abort**, so that if nothing on offer goes downstairs it gives up rather than
+  stalling into the turn-burn guard.
+- It is **one candidate among the others**, not an override. The rollout declines it often, which
+  is the point: on the first smoke test it evaluated the cycle and chose two ordinary turn plans.
+
+Note also what this says about the earlier failure. Giving the trip home a flat `flip_up` weight
+made things worse, because the value of the cycle is in *knowing when* to take it, not in having it
+priced. As a scored action it is noise; as a plan chosen by playing the game out, it is worth about
+two damage a game.
+
 ## Three-form heroes are modelled as two, and it poisons their tuning
 
 Ant-Man is Giant, Tiny and Scott Lang. `deck/custom` holds two Ant-Man decks and a Ms. Marvel

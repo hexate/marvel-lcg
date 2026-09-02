@@ -36,8 +36,10 @@ def main():
                 wpath = parts[1] if len(parts) > 1 and parts[1] else None
                 variants = int(parts[2]) if len(parts) > 2 else 3
                 every = int(parts[3]) if len(parts) > 3 else 1
+                rp = parts[4] if len(parts) > 4 else "greedy"
                 pol = RolloutPolicy("balanced", load_weights(wpath),
-                                    variants=variants, every=every); holder = pol
+                                    variants=variants, every=every,
+                                    rollout_policy=rp); holder = pol
             elif mode.startswith("turnplan"):
                 # "turnplan:<weights.json>[:<width>:<pairs>]"
                 from turnplan import TurnPlanPolicy
@@ -46,8 +48,10 @@ def main():
                 width = int(parts[2]) if len(parts) > 2 else 6
                 pairs = int(parts[3]) if len(parts) > 3 else 5
                 steps = int(parts[4]) if len(parts) > 4 else 3
+                cycle = (parts[5] != "0") if len(parts) > 5 else True
                 pol = TurnPlanPolicy("balanced", load_weights(wpath),
-                                     width=width, pairs=pairs, steps=steps); holder = pol
+                                     width=width, pairs=pairs, steps=steps,
+                                     cycle=cycle); holder = pol
             elif mode.startswith("util"):
                 # "util" or "util:<weights.json>[:<base mode>]"
                 parts = mode.split(":")
