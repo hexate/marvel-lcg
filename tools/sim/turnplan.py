@@ -155,42 +155,6 @@ class CycleScript(UtilityPolicy):
         return super().turn(options)
 
 
-class CyclingPolicy(UtilityPolicy):
-    """Greedy, but takes the alter-ego cycle when hurt and safe. No nested search.
-
-    This exists to be a *rollout* policy. A search estimates a position by what its rollout policy
-    achieves from there, so a greedy rollout makes every position needing setup look worthless,
-    and the search inherits the myopia it was meant to fix. That is the ceiling behind the plateau:
-    the estimator is biased, not noisy.
-
-    Deliberately heuristic rather than the planner. `TurnPlanPolicy` inside a rollout would recurse
-    into its own rollouts and cost exponentially, so the trigger is a rule instead of a search.
-    """
-
-    def __init__(self, mode="balanced", weights=None, hp_trigger=0.55, target_hp=0.85):
-        super().__init__(mode, weights)
-        self.hp_trigger = hp_trigger
-        self.target_hp = target_hp
-        self.runner = None
-
-    def turn(self, options):
-        if self.runner is not None:
-            if self.runner.stage == "done":
-                self.runner = None
-            else:
-                return self.runner.turn(options)
-        try:
-            hurt_enough = self.hp_frac() < self.hp_trigger
-            safe = not self.minions() and self.threat_pressure() < 0.5
-        except Exception:
-            hurt_enough = safe = False
-        if hurt_enough and safe and not self.is_ae():
-            self.runner = CycleScript(self.mode, self.w, self.target_hp)
-            self.runner.fx = self.fx
-            return self.runner.turn(options)
-        return super().turn(options)
-
-
 class TurnPlanPolicy(UtilityPolicy):
     """At the first decision of each turn, pick the turn to play by playing each candidate out."""
 

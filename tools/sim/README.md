@@ -229,6 +229,28 @@ made things worse, because the value of the cycle is in *knowing when* to take i
 priced. As a scored action it is noise; as a plan chosen by playing the game out, it is worth about
 two damage a game.
 
+## Policy iteration does not work here, and the reason is the useful part
+
+The obvious next step after the cycle, and it fails significantly. A search estimates a position by
+what its rollout policy achieves from there, so greedy rollouts should systematically undervalue
+anything needing setup. Replacing the rollout policy with one that takes the alter-ego cycle on a
+rule ought to fix that bias.
+
+It makes things worse. `ant_man_multiple_man_protection`, search at 20 variants, 100 seeds: greedy
+rollouts win 4 at 19.90 damage, cycling rollouts win 3 at 18.87, and paired damage is better on 6
+seeds against **worse on 27**, sign test p=0.0003.
+
+**The same mechanism helps when chosen and hurts when imposed.** As a candidate the planner
+evaluates and usually declines, the cycle is worth about +2 damage a game and replicates on fresh
+seeds. As a rule inside the rollout it costs about 1 damage a game. The value was never in having
+the cycle available, it is in knowing when to take it, and a rule fires in exactly the positions a
+search would decline.
+
+That also warns against the intuition that a better rollout policy gives better estimates. A
+rollout policy is not trying to play well, it is trying to be an unbiased-enough sample of what
+follows. Making it opinionated makes the estimates opinionated in the same direction, and the
+search then cannot see past its own assumption. The code was removed.
+
 ## Three-form heroes are modelled as two, and it poisons their tuning
 
 Ant-Man is Giant, Tiny and Scott Lang. `deck/custom` holds two Ant-Man decks and a Ms. Marvel
