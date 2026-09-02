@@ -337,6 +337,93 @@ that block is circular, and it is how a `play_econ` sweep produced a 21.1 that e
 exactly zero and one at plus one win in sixty. The weights sit at a local optimum and single-action
 ranking is the wrong lever. What is left after that is structural, not parametric.
 
+## Benchmark (authoritative): 200 seeds, fixed forward model, with the alter-ego cycle
+
+Seeds 2000-2199, each deck with its own tuned weights, isolation verified clean.
+
+**captain_america_stun_lock vs Rhino**
+
+| policy | wins | rate | mean damage | sd | wall |
+| --- | --- | --- | --- | --- | --- |
+| scorer alone (`util`) | 16/200 | 8.0% | 20.00 | 5.19 | 10s |
+| `turnplan` | 36/200 | 18.0% | 23.16 | 4.94 | 715s |
+| `search:<w>:20:1` | **79/200** | **39.5%** | 25.93 | 4.39 | 880s |
+
+**ant_man_multiple_man_protection vs Rhino**
+
+| policy | wins | rate | mean damage | sd | wall |
+| --- | --- | --- | --- | --- | --- |
+| scorer alone (`util`) | 4/200 | 2.0% | 17.16 | 4.44 | 11s |
+| `turnplan` | **17/200** | **8.5%** | 20.75 | 4.60 | 1323s |
+| `search:<w>:20:1` | 13/200 | 6.5% | 20.30 | 4.52 | 1213s |
+
+Turn planning against the scorer is p=0.0022 on Captain America; search against the scorer is
+p=2.7e-14.
+
+**The best policy is deck-dependent, which is new.** Search dominates on Captain America, 39.5%
+against turn planning's 18.0%. On Ant-Man turn planning is ahead, 17 wins against 13, reversing the
+12-to-13 it showed before the cycle existed. The cycle is the whole difference: `turnplan` uses it
+0.47 times a game on Ant-Man and `search` cannot use it at all, because a weight vector cannot
+express a plan that spans turns. On Captain America the same planner fires it 0.02 times a game and
+correctly leaves it alone, since that deck wins in hero form.
+
+So the two mechanisms are not ranked, they are suited to different decks: search for decks that win
+by pressing an advantage, turn planning for decks that need a multi-turn manoeuvre. Run both before
+concluding which is better for a new deck.
+
+Also note the standard deviations, 5.19 to 4.94 to 4.39 on Captain America. Better policies reach
+further *and* more reliably.
+
+## Onboarding a deck or a card: how to find what the policy cannot see
+
+The policy only knows what a predicate in `policy.py` tells it. Everything else is invisible, and
+invisible is silent: the tuner will route around a card and hand you confident weights, and a
+search will optimise a plan the deck is not trying to execute. This is the procedure for finding
+those gaps, written after a session where six plausible fixes measured at zero and the seventh
+turned out to be a string that never matched.
+
+**1. Run `deck_check.py <deck>`.** It reports the category the scorer puts every card in, plus
+UNCLASSIFIED cards, unmodelled mechanics and conditional playability. Resolve what it flags before
+tuning anything. A card in the junk category is ranked last in every decision it appears in.
+
+**2. Read the printed text of every card the deck actually plays.** Not the category, the text.
+`data/cards.json` has it under `text`. This is where the deck's plan lives, and it is the step
+that found the only real gap in a whole session: Heroic Strike deals 6 damage *and stuns if you
+paid with a physical resource*, Tackle stuns *and deals 3 on the same condition*, and the payment
+picker was choosing by which card was cheapest to lose while literally discarding the resource
+letter. A deck named Stun Lock was stunning by accident.
+
+**3. Watch out for bracketed icons.** The printed text writes resource and status icons in
+brackets: `using a [physical] resource`, not `using a physical resource`. A predicate matching the
+unbracketed form compiles, runs, and never fires. Match both forms, and see step 6.
+
+**4. Run `audit.py <scenario> <deck> <mode> <seeds...>`.** It counts, per card, how often something
+was offered and how often it was taken. A high offered count with a near-zero taken count is a
+lead. **It is a lead and not a bug.** Three such leads on `captain_america_stun_lock` all measured
+at zero or worse: Super-Soldier Serum at 0 of 30 offers, defending at 1.35 a game on a deck built
+around Counter-Punch, form changes at 6 of 120. The hill climber was right and the audit only
+showed that it had made a choice.
+
+**5. Ask what the deck wins by, then ask whether any feature encodes it.** A Protection deck wins
+by surviving and grinding. `utility.py` has no feature for trading time for safety, so no weight
+vector expresses that plan and no amount of searching over those weights finds it. This is why
+search actively *harmed* `ant_man_multiple_man_protection`, dropping it from 16.7 to 15.3 damage,
+while helping every aggressive configuration.
+
+**6. Prove your predicate fires before you believe the measurement.** The resource-type fix came
+back byte-identical to baseline, 19/60 wins and 24.95 damage to two decimals. Identical numbers
+across a code change are not a null result, they mean the code did not run. Assert the predicate
+returns what you expect on a named card, or diff a game log, before concluding anything.
+
+**7. Validate on fresh seeds, always.** Pick a change on one seed block and confirm it on another
+you have not looked at. Selecting a value because it looked best on a block and then reporting
+that block is circular, and it is how a `play_econ` sweep produced a 21.1 that evaporated to a
+20.73 against 20.53 with p=1.000 on 60 fresh seeds.
+
+**8. Expect the honest answer to be zero.** Seven targeted improvements in one session, six at
+exactly zero and one at plus one win in sixty. The weights sit at a local optimum and single-action
+ranking is the wrong lever. What is left after that is structural, not parametric.
+
 ## Benchmark (authoritative): 200 fresh seeds, fixed forward model
 
 Everything below this section was measured before J42 was closed, with a forward model that was
