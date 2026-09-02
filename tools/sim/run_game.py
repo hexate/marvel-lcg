@@ -36,10 +36,8 @@ def main():
                 wpath = parts[1] if len(parts) > 1 and parts[1] else None
                 variants = int(parts[2]) if len(parts) > 2 else 3
                 every = int(parts[3]) if len(parts) > 3 else 1
-                rp = parts[4] if len(parts) > 4 else "greedy"
                 pol = RolloutPolicy("balanced", load_weights(wpath),
-                                    variants=variants, every=every,
-                                    rollout_policy=rp); holder = pol
+                                    variants=variants, every=every); holder = pol
             elif mode.startswith("turnplan"):
                 # "turnplan:<weights.json>[:<width>:<pairs>]"
                 from turnplan import TurnPlanPolicy
