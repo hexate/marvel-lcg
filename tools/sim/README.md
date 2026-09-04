@@ -229,6 +229,43 @@ made things worse, because the value of the cycle is in *knowing when* to take i
 priced. As a scored action it is noise; as a plan chosen by playing the game out, it is worth about
 two damage a game.
 
+## Deck hints help only as complete lines, and only if the line is worth something
+
+Tested on the strongest available hint, from someone who plays the deck: Ant-Man in Tiny form uses
+Army of Ants for damage. The card is "Hero Action: if you are in [[Tiny]] hero form, exhaust Army
+of Ants -> deal 1 damage", three copies, and it exhausts the *support* rather than the hero, so it
+is free damage. The audit backed the hint up: offered 74 times and taken 30, roughly seven damage a
+game unclaimed on a deck averaging 17 of the 29 it needs.
+
+Three versions were measured on `ant_man_multiple_man_protection`, 100 seeds, against turn planning
+with the cycle alone at 6/100 and 20.56 damage:
+
+| version | wins | damage |
+| --- | --- | --- |
+| no hint | 6/100 | 20.56 |
+| raise the generic `hero_action` weight | 3/200-scale, worse | 17.16 to 16.39 |
+| half the line: reach Tiny, spend the ants, stop | 3/100 | 20.18 |
+| the whole line: ants, then Resize into Giant, then attack | 5/100 | 20.35 |
+
+Paired damage for the whole line against no hint: better on 25 seeds, worse on 25, p=1.0000.
+**Exactly neutral.** All of it was reverted.
+
+Three things this establishes, and the first two are worth more than the null result:
+
+- **A hint cannot be a weight.** Raising `hero_action` made things worse, the same way a flat
+  `flip_up` weight did. Pricing an action does not create a plan.
+- **A half-line is worse than no line.** Stopping after the ants pays for a form change to collect
+  1-damage triggers and leaves the hero in Tiny where he hits weakly: 20.18 against 20.56 for not
+  bothering. Completing the line recovers most of that, 20.35, and attacks more, 2.75 against 2.41.
+- **Being right about the mechanism is not enough.** The line is real, the planner chooses it 0.72
+  times a game, and it still does not beat the alternative. Three ant triggers are worth about 3
+  damage; the tempo and the weak Tiny attack cost about the same.
+
+Contrast with the alter-ego cycle, which is the same shape and does pay, +2 damage a game,
+replicated on two fresh seed blocks. The difference is size: healing changes whether the hero
+survives to keep attacking, and 1-damage triggers do not change anything structural. A hint is
+worth encoding when the payoff is structural, not merely positive.
+
 ## Policy iteration does not work here, and the reason is the useful part
 
 The obvious next step after the cycle, and it fails significantly. A search estimates a position by
