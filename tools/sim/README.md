@@ -229,6 +229,38 @@ made things worse, because the value of the cycle is in *knowing when* to take i
 priced. As a scored action it is noise; as a plan chosen by playing the game out, it is worth about
 two damage a game.
 
+## The same fix is worthless untuned and significant tuned, which settles the theory
+
+`spider_man_and_friends` and `doctor_strange_tough_enough` were tuned (`tune.py`, 200 iterations,
+40 training seeds) and the Spider-Sense fix re-measured against those baselines. 200 seeds each.
+
+**Spider-Man, tuned.** Positive control.
+
+| | responses/game | cards played | attacks | mean damage |
+| --- | --- | --- | --- | --- |
+| without the fix | 0.60 | 8.11 | 4.83 | 10.54 |
+| with the fix | 4.91 | 9.39 | 5.25 | **11.56** |
+
+Paired damage better on 83 seeds against 50, sign test p=0.0053.
+
+**Doctor Strange, tuned.** Negative control. Byte-identical, 9.95 damage either way, 0 responses
+both times, because Spell Mastery is a costed Action rather than a free response so the fix cannot
+reach him. Tuning alone lifted him from 8.19 to 9.95.
+
+**The same change, measured twice.** On the untuned scorer it was worth nothing: 6.59 to 6.43,
+flat. On the tuned scorer it is worth about one damage a game at p=0.005. Nothing about the fix
+changed between those two measurements; only the policy receiving the cards did.
+
+So the rule stated earlier is right and now has a controlled demonstration behind it: **a hint pays
+when its output is something the policy already knows how to spend.** Card draw is worthless to a
+scorer that plays the wrong cards and valuable to one that plays better ones. That also means hint
+work and tuning are not independent, and a hint dismissed as useless against an untuned baseline
+should be re-tested after tuning rather than discarded.
+
+Neither deck wins a game at either setting, and that is the distance-to-the-line model rather than
+a failure of the hint: 11.6 damage against the 29 Rhino needs will not convert no matter what sits
+on top. For decks this far out, mean damage is the only measurement with any resolution.
+
 ## Testing the hint theory against published strategy, on two more decks
 
 The theory to test: a deck hint helps only as a complete line, and only when the payoff is
