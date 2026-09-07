@@ -253,9 +253,25 @@ changed between those two measurements; only the policy receiving the cards did.
 
 So the rule stated earlier is right and now has a controlled demonstration behind it: **a hint pays
 when its output is something the policy already knows how to spend.** Card draw is worthless to a
-scorer that plays the wrong cards and valuable to one that plays better ones. That also means hint
-work and tuning are not independent, and a hint dismissed as useless against an untuned baseline
-should be re-tested after tuning rather than discarded.
+scorer that plays the wrong cards and valuable to one that plays better ones.
+
+**Tuning is not the whole story, though, and it is easy to over-read this.** All three hints
+measured so far were tested against *tuned* scorers, and they still split:
+
+| hint | what it produces | tuned result |
+| --- | --- | --- |
+| alter-ego cycle | survival | +2 damage, replicated on two seed blocks |
+| Spider-Sense | card draw | +1.0 damage, p=0.0053 |
+| Army of Ants | 1-damage triggers | exactly neutral, p=1.0 |
+
+Ant-Man was already tuned when the ants were tested, so the untuned confound does not explain that
+null. The dividing line is what the payoff *is*. Survival and cards give the policy more of
+something it converts. Incremental damage only moves the number the scorer was already maximising,
+so there is no leverage left to gain.
+
+The untuned Spider-Man measurement stands as a separate, narrower finding: a weak enough scorer
+converts *nothing*, so a hint can measure at zero for want of a policy able to use it. Retest a
+rejected hint after tuning, but do not expect tuning to rescue a hint whose output is incremental.
 
 Neither deck wins a game at either setting, and that is the distance-to-the-line model rather than
 a failure of the hint: 11.6 damage against the 29 Rhino needs will not convert no matter what sits
