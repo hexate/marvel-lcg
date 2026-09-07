@@ -984,6 +984,28 @@ class Heuristic:
                     self.tel["response_play"] += 1
                     return self.take(o, hand)
 
+        # Free abilities printed on the hero card, offered at a response window under their own
+        # name. The handler above wants `name == "Play"` and a card in hand, and an identity
+        # ability is neither, so it fell through every filter and was declined. Spider-Man's
+        # Spider-Sense, "when the villain initiates an attack against you, draw 1 card", was
+        # offered 33 times in six games and taken 0: about five and a half cards a game, on a
+        # hero whose published guides describe card draw as the point of him.
+        if payload.event_name in ("AfterUnitDefendEnd", "WhenUnitWouldDefend",
+                                  "WhenUnitWouldTakeDamage", "WhenPlayerRevealCard",
+                                  "WhenUnitWouldAttack", "WhenUnitBeingAttack",
+                                  "AfterUnitChangeForm"):
+            for o in options:
+                name_o = str(o.get("name") or "")
+                if name_o in ("Play", "Interrupt", "Response") or str(o.get("id")) == "0":
+                    continue
+                if name_o.lower().startswith("cancel"):
+                    continue
+                if hand.get(o.get("bind_id")) is not None:
+                    continue          # a hand card is the block above's business
+                if cost_of(o) == 0:
+                    self.tel["response_play"] += 1
+                    return self.take(o, hand)
+
         # Interrupts that stop damage, or stop the hero dying. The audit showed these
         # offered 23 times across ten games and taken none of them, because the response
         # handler only matched options named "Play". "Do not be defeated" is never a

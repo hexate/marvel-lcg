@@ -229,6 +229,39 @@ made things worse, because the value of the cycle is in *knowing when* to take i
 priced. As a scored action it is noise; as a plan chosen by playing the game out, it is worth about
 two damage a game.
 
+## Testing the hint theory against published strategy, on two more decks
+
+The theory to test: a deck hint helps only as a complete line, and only when the payoff is
+structural rather than incremental. Two heroes were researched from published guides and their
+central lines implemented and measured.
+
+**Spider-Man.** Guides describe him as a card-draw hero: Spider-Sense is an Interrupt, "when the
+villain initiates an attack against you, draw 1 card", and he has the best defence in the game at
+3. The audit found it **offered 33 times and taken 0**. The response handler required
+`name == "Play"` and a card in hand, and an identity ability is neither, so every free trigger
+printed on a hero card was silently declined. Fixed, and it now fires 30 of 30.
+
+The mechanism then works end to end and buys nothing. Over 200 seeds: responses go from 0.69 a
+game to 6.80, cards played from 10.10 to 12.98, and damage from 6.59 to 6.43. The bot draws the
+cards, plays the cards, and deals the same damage.
+
+**Doctor Strange.** Guides say to land Wong and Cloak of Levitation early, then cast Invocations
+with Spell Mastery rather than flipping down. His identity ability is a costed Action rather than a
+free response, so the fix above does not touch him: 0 responses a game, damage 8.2 either way.
+
+**The refinement.** Structural is not sufficient. A payoff also has to be *convertible* by the
+policy that receives it. Card economy hands a myopic scorer more options, and it spends them the
+same way it spent the old ones. The alter-ego cycle works because survival converts directly, more
+rounds alive is more attacks, with no judgement required in between.
+
+So the rule is narrower than "structural": **a hint pays when its output is something the policy
+already knows how to spend.** Damage and survival qualify. Cards, resources and tempo do not, until
+the scorer is good enough to use them, which is the same myopia in a different coat.
+
+Worth noting the shape of the near-miss too. This looked like the strongest hint yet, 33 free card
+draws thrown away on a hero whose guides say draw is the point of him, and the fix is a genuine
+defect repair. It just does not show up in the score.
+
 ## Deck hints help only as complete lines, and only if the line is worth something
 
 Tested on the strongest available hint, from someone who plays the deck: Ant-Man in Tiny form uses
