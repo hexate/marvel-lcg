@@ -455,6 +455,319 @@ that block is circular, and it is how a `play_econ` sweep produced a 21.1 that e
 exactly zero and one at plus one win in sixty. The weights sit at a local optimum and single-action
 ranking is the wrong lever. What is left after that is structural, not parametric.
 
+## Benchmark (authoritative): four decks, three policies, 200 seeds
+
+Seeds 2000-2199 against Rhino, each deck with its own tuned weights, isolation verified clean.
+
+| deck | scorer alone | `turnplan` | `search:<w>:20:1` |
+| --- | --- | --- | --- |
+| captain_america_stun_lock | 16/200 (8.0%), 20.00 | 36/200 (18.0%), 23.16 | **79/200 (39.5%), 25.93** |
+| ant_man_multiple_man_protection | 4/200 (2.0%), 17.16 | **17/200 (8.5%), 20.75** | 13/200 (6.5%), 20.30 |
+| spider_man_and_friends | 0/200, 11.56 | 1/200 (0.5%), 15.27 | **10/200 (5.0%), 17.93** |
+| doctor_strange_tough_enough | 0/200, 9.98 | 0/200, 13.49 | **1/200 (0.5%), 15.18** |
+
+Fisher one-sided against the scorer: Captain America p=0.0022 and p=2.7e-14; Ant-Man p=0.0029 and
+p=0.022; Spider-Man p=0.5 and p=0.00087; Doctor Strange p=1 and p=0.5.
+
+**Use search unless the deck needs a multi-turn manoeuvre.** Ant-Man is the only deck where turn
+planning leads, and the cause is measurable rather than inferred: the alter-ego cycle is committed
+0.47 times a game there against 0.02 to 0.04 on the other three, none of which are built around
+alter-ego. Take the planner's advantage on Ant-Man as the cycle and nothing else.
+
+### Win rate is a function of mean damage and spread, and nothing else
+
+Sorting all twelve arms by how far the mean sits below the 29 Rhino needs, measured in standard
+deviations, orders the win rates almost exactly:
+
+| arm | mean | sd | z | win rate |
+| --- | --- | --- | --- | --- |
+| cap search | 25.93 | 4.39 | 0.70 | 39.5% |
+| cap turnplan | 23.16 | 4.94 | 1.18 | 18.0% |
+| cap greedy | 20.00 | 5.19 | 1.73 | 8.0% |
+| antman turnplan | 20.75 | 4.60 | 1.79 | 8.5% |
+| antman search | 20.30 | 4.52 | 1.92 | 6.5% |
+| spider search | 17.93 | 5.37 | 2.06 | 5.0% |
+| antman greedy | 17.16 | 4.44 | 2.67 | 2.0% |
+| strange search | 15.18 | 4.65 | 2.97 | 0.5% |
+| spider turnplan | 15.27 | 4.47 | 3.07 | 0.5% |
+| strange turnplan | 13.49 | 4.87 | 3.18 | 0.0% |
+| spider greedy | 11.56 | 4.94 | 3.53 | 0.0% |
+| strange greedy | 9.98 | 4.55 | 4.18 | 0.0% |
+
+One inversion, at z=1.73 against 1.79, which is inside noise. Otherwise the ordering is exact
+across four decks and three policies.
+
+**What follows from that.** There is no separate "plays well" quantity: a policy affects wins only
+through where it moves the mean and the spread. So mean damage is the measurement to optimise and
+to report, win rate is a threshold read off it, and a change that moves damage without moving wins
+is still a real improvement on a deck sitting three sigma out. It also sets expectations honestly.
+Spider-Man's search arm gains 6.4 damage over its scorer, a larger gain than Captain America's 5.9,
+and converts almost none of it because it starts at 11.56 rather than 20.00.
+
+## The alter-ego cycle as a turn plan: the fix that works
+
+Going down to alter-ego, healing, and coming back up is the one plan the scorer provably cannot
+represent. It spans turns, so a policy that ranks single actions can only price the first step,
+and flipping down looks terrible on its own because the payoff arrives two turns later. That is
+why `flip_ae` tunes to -16.29 and the bot flips 0 times in 92 offers.
+
+`CycleScript` in `turnplan.py` makes the whole cycle one decision: flip down, recover until healthy,
+flip back up, then hand control to the scorer. `TurnPlanPolicy` offers it as one candidate among the
+turn scripts, so the rollout accepts or rejects it on end-of-game value rather than turn-end value.
+
+Measured on `ant_man_multiple_man_protection`, identical settings, cycle the only difference:
+
+| seeds | arm | wins | mean damage | cycles/game | alter-ego rounds |
+| --- | --- | --- | --- | --- | --- |
+| 2000-2099 | off | 2/100 | 18.66 | 0.00 | 0.32 |
+| 2000-2099 | on | 6/100 | 20.56 | 0.42 | 0.83 |
+| 2200-2299 | off | 2/100 | 18.61 | 0.00 | 0.25 |
+| 2200-2299 | on | 7/100 | 20.81 | 0.46 | 0.87 |
+
+Paired damage: better on 50 seeds against 16 in the first block, 53 against 10 in the second, sign
+test p<0.0001 both times. **It replicates**, which almost nothing else in this simulator's history
+has done on a first fresh-seed check.
+
+Three implementation details, each of which would have made it silently useless:
+
+- The plan must **survive the per-round replan**, or the planner re-decides every round and the
+  cycle never finishes.
+- It must be able to **abort**, so that if nothing on offer goes downstairs it gives up rather than
+  stalling into the turn-burn guard.
+- It is **one candidate among the others**, not an override. The rollout declines it often, which
+  is the point: on the first smoke test it evaluated the cycle and chose two ordinary turn plans.
+
+Note also what this says about the earlier failure. Giving the trip home a flat `flip_up` weight
+made things worse, because the value of the cycle is in *knowing when* to take it, not in having it
+priced. As a scored action it is noise; as a plan chosen by playing the game out, it is worth about
+two damage a game.
+
+## The same fix is worthless untuned and significant tuned, which settles the theory
+
+`spider_man_and_friends` and `doctor_strange_tough_enough` were tuned (`tune.py`, 200 iterations,
+40 training seeds) and the Spider-Sense fix re-measured against those baselines. 200 seeds each.
+
+**Spider-Man, tuned.** Positive control.
+
+| | responses/game | cards played | attacks | mean damage |
+| --- | --- | --- | --- | --- |
+| without the fix | 0.60 | 8.11 | 4.83 | 10.54 |
+| with the fix | 4.91 | 9.39 | 5.25 | **11.56** |
+
+Paired damage better on 83 seeds against 50, sign test p=0.0053.
+
+**Doctor Strange, tuned.** Negative control. Byte-identical, 9.95 damage either way, 0 responses
+both times, because Spell Mastery is a costed Action rather than a free response so the fix cannot
+reach him. Tuning alone lifted him from 8.19 to 9.95.
+
+**The same change, measured twice.** On the untuned scorer it was worth nothing: 6.59 to 6.43,
+flat. On the tuned scorer it is worth about one damage a game at p=0.005. Nothing about the fix
+changed between those two measurements; only the policy receiving the cards did.
+
+So the rule stated earlier is right and now has a controlled demonstration behind it: **a hint pays
+when its output is something the policy already knows how to spend.** Card draw is worthless to a
+scorer that plays the wrong cards and valuable to one that plays better ones.
+
+**Tuning is not the whole story, though, and it is easy to over-read this.** All three hints
+measured so far were tested against *tuned* scorers, and they still split:
+
+| hint | what it produces | tuned result |
+| --- | --- | --- |
+| alter-ego cycle | survival | +2 damage, replicated on two seed blocks |
+| Spider-Sense | card draw | +1.0 damage, p=0.0053 |
+| Army of Ants | 1-damage triggers | exactly neutral, p=1.0 |
+
+Ant-Man was already tuned when the ants were tested, so the untuned confound does not explain that
+null. The dividing line is what the payoff *is*. Survival and cards give the policy more of
+something it converts. Incremental damage only moves the number the scorer was already maximising,
+so there is no leverage left to gain.
+
+The untuned Spider-Man measurement stands as a separate, narrower finding: a weak enough scorer
+converts *nothing*, so a hint can measure at zero for want of a policy able to use it. Retest a
+rejected hint after tuning, but do not expect tuning to rescue a hint whose output is incremental.
+
+Neither deck wins a game at either setting, and that is the distance-to-the-line model rather than
+a failure of the hint: 11.6 damage against the 29 Rhino needs will not convert no matter what sits
+on top. For decks this far out, mean damage is the only measurement with any resolution.
+
+## Testing the hint theory against published strategy, on two more decks
+
+The theory to test: a deck hint helps only as a complete line, and only when the payoff is
+structural rather than incremental. Two heroes were researched from published guides and their
+central lines implemented and measured.
+
+**Spider-Man.** Guides describe him as a card-draw hero: Spider-Sense is an Interrupt, "when the
+villain initiates an attack against you, draw 1 card", and he has the best defence in the game at
+3. The audit found it **offered 33 times and taken 0**. The response handler required
+`name == "Play"` and a card in hand, and an identity ability is neither, so every free trigger
+printed on a hero card was silently declined. Fixed, and it now fires 30 of 30.
+
+The mechanism then works end to end and buys nothing. Over 200 seeds: responses go from 0.69 a
+game to 6.80, cards played from 10.10 to 12.98, and damage from 6.59 to 6.43. The bot draws the
+cards, plays the cards, and deals the same damage.
+
+**Doctor Strange.** Guides say to land Wong and Cloak of Levitation early, then cast Invocations
+with Spell Mastery rather than flipping down. His identity ability is a costed Action rather than a
+free response, so the fix above does not touch him: 0 responses a game, damage 8.2 either way.
+
+**The refinement.** Structural is not sufficient. A payoff also has to be *convertible* by the
+policy that receives it. Card economy hands a myopic scorer more options, and it spends them the
+same way it spent the old ones. The alter-ego cycle works because survival converts directly, more
+rounds alive is more attacks, with no judgement required in between.
+
+So the rule is narrower than "structural": **a hint pays when its output is something the policy
+already knows how to spend.** Damage and survival qualify. Cards, resources and tempo do not, until
+the scorer is good enough to use them, which is the same myopia in a different coat.
+
+Worth noting the shape of the near-miss too. This looked like the strongest hint yet, 33 free card
+draws thrown away on a hero whose guides say draw is the point of him, and the fix is a genuine
+defect repair. It just does not show up in the score.
+
+## Deck hints help only as complete lines, and only if the line is worth something
+
+Tested on the strongest available hint, from someone who plays the deck: Ant-Man in Tiny form uses
+Army of Ants for damage. The card is "Hero Action: if you are in [[Tiny]] hero form, exhaust Army
+of Ants -> deal 1 damage", three copies, and it exhausts the *support* rather than the hero, so it
+is free damage. The audit backed the hint up: offered 74 times and taken 30, roughly seven damage a
+game unclaimed on a deck averaging 17 of the 29 it needs.
+
+Three versions were measured on `ant_man_multiple_man_protection`, 100 seeds, against turn planning
+with the cycle alone at 6/100 and 20.56 damage:
+
+| version | wins | damage |
+| --- | --- | --- |
+| no hint | 6/100 | 20.56 |
+| raise the generic `hero_action` weight | 3/200-scale, worse | 17.16 to 16.39 |
+| half the line: reach Tiny, spend the ants, stop | 3/100 | 20.18 |
+| the whole line: ants, then Resize into Giant, then attack | 5/100 | 20.35 |
+
+Paired damage for the whole line against no hint: better on 25 seeds, worse on 25, p=1.0000.
+**Exactly neutral.** All of it was reverted.
+
+Three things this establishes, and the first two are worth more than the null result:
+
+- **A hint cannot be a weight.** Raising `hero_action` made things worse, the same way a flat
+  `flip_up` weight did. Pricing an action does not create a plan.
+- **A half-line is worse than no line.** Stopping after the ants pays for a form change to collect
+  1-damage triggers and leaves the hero in Tiny where he hits weakly: 20.18 against 20.56 for not
+  bothering. Completing the line recovers most of that, 20.35, and attacks more, 2.75 against 2.41.
+- **Being right about the mechanism is not enough.** The line is real, the planner chooses it 0.72
+  times a game, and it still does not beat the alternative. Three ant triggers are worth about 3
+  damage; the tempo and the weak Tiny attack cost about the same.
+
+Contrast with the alter-ego cycle, which is the same shape and does pay, +2 damage a game,
+replicated on two fresh seed blocks. The difference is size: healing changes whether the hero
+survives to keep attacking, and 1-damage triggers do not change anything structural. A hint is
+worth encoding when the payoff is structural, not merely positive.
+
+## Policy iteration does not work here, and the reason is the useful part
+
+The obvious next step after the cycle, and it fails significantly. A search estimates a position by
+what its rollout policy achieves from there, so greedy rollouts should systematically undervalue
+anything needing setup. Replacing the rollout policy with one that takes the alter-ego cycle on a
+rule ought to fix that bias.
+
+It makes things worse. `ant_man_multiple_man_protection`, search at 20 variants, 100 seeds: greedy
+rollouts win 4 at 19.90 damage, cycling rollouts win 3 at 18.87, and paired damage is better on 6
+seeds against **worse on 27**, sign test p=0.0003.
+
+**The same mechanism helps when chosen and hurts when imposed.** As a candidate the planner
+evaluates and usually declines, the cycle is worth about +2 damage a game and replicates on fresh
+seeds. As a rule inside the rollout it costs about 1 damage a game. The value was never in having
+the cycle available, it is in knowing when to take it, and a rule fires in exactly the positions a
+search would decline.
+
+That also warns against the intuition that a better rollout policy gives better estimates. A
+rollout policy is not trying to play well, it is trying to be an unbiased-enough sample of what
+follows. Making it opinionated makes the estimates opinionated in the same direction, and the
+search then cannot see past its own assumption. The code was removed.
+
+## Three-form heroes are modelled as two, and it poisons their tuning
+
+Ant-Man is Giant, Tiny and Scott Lang. `deck/custom` holds two Ant-Man decks and a Ms. Marvel
+deck, so this is not one hero's problem.
+
+`option_form` names only the *destination*, so the scorer cannot tell these apart:
+
+- Giant to Tiny, a lateral hero-form switch
+- Scott Lang to Tiny, the trip home from alter-ego
+
+Both score `flip_tiny`. Coming back up therefore competes with playing a card and usually loses.
+Measured with flipping forced on, the bot spent **4.83 of 5.9 rounds in alter-ego** with
+`ae_action` at exactly 0.00. It goes down and cannot find its way back.
+
+**That poisons the weights.** `flip_ae` is tuned to -16.29 on the Protection deck, so the bot
+never flips at all: 92 offers, 0 taken. That is not a bad weight, it is the hill climber correctly
+concluding that going downstairs is a trap while the bot cannot come back. Every experiment run on
+top of those weights inherits the assumption. It also explains the shape of the failure: Ant-Man
+dies in 85% of games, against Captain America's 59%.
+
+**An attempted fix made it worse, and the reason is worth knowing.** Scoring the trip home with
+its own flat `flip_up` weight dropped mean damage from 17.16 to 14.77, because the lateral weights
+it replaced carry context terms: `flip_tiny + flip_tiny_x_pressure * press` reaches about 7 under
+pressure, where a flat 2.0 does not. Retuning with `flip_up` available did not rescue it; the
+tuner left `flip_ae` at -16.29 and never explored the new weight. Both changes were reverted.
+
+Two things checked and ruled out while chasing this, so nobody repeats them: health is *not*
+misreported in alter-ego (12/12 then 10/12, correct), and Recover is *not* unreachable (it is
+offered; at 10 of 12 health it scores 1.33 and loses to everything, so the bot only values healing
+once Rhino can kill it in two hits from full).
+
+**What it actually needs.** The alter-ego cycle is a multi-turn plan, go down, recover, come back
+up, and a scorer that ranks one action at a time cannot represent it. Any real fix wants the whole
+cycle evaluated as a unit, and a replacement for `flip_up` that keeps the context sensitivity the
+lateral weights already have.
+
+## Onboarding a deck or a card: how to find what the policy cannot see
+
+The policy only knows what a predicate in `policy.py` tells it. Everything else is invisible, and
+invisible is silent: the tuner will route around a card and hand you confident weights, and a
+search will optimise a plan the deck is not trying to execute. This is the procedure for finding
+those gaps, written after a session where six plausible fixes measured at zero and the seventh
+turned out to be a string that never matched.
+
+**1. Run `deck_check.py <deck>`.** It reports the category the scorer puts every card in, plus
+UNCLASSIFIED cards, unmodelled mechanics and conditional playability. Resolve what it flags before
+tuning anything. A card in the junk category is ranked last in every decision it appears in.
+
+**2. Read the printed text of every card the deck actually plays.** Not the category, the text.
+`data/cards.json` has it under `text`. This is where the deck's plan lives, and it is the step
+that found the only real gap in a whole session: Heroic Strike deals 6 damage *and stuns if you
+paid with a physical resource*, Tackle stuns *and deals 3 on the same condition*, and the payment
+picker was choosing by which card was cheapest to lose while literally discarding the resource
+letter. A deck named Stun Lock was stunning by accident.
+
+**3. Watch out for bracketed icons.** The printed text writes resource and status icons in
+brackets: `using a [physical] resource`, not `using a physical resource`. A predicate matching the
+unbracketed form compiles, runs, and never fires. Match both forms, and see step 6.
+
+**4. Run `audit.py <scenario> <deck> <mode> <seeds...>`.** It counts, per card, how often something
+was offered and how often it was taken. A high offered count with a near-zero taken count is a
+lead. **It is a lead and not a bug.** Three such leads on `captain_america_stun_lock` all measured
+at zero or worse: Super-Soldier Serum at 0 of 30 offers, defending at 1.35 a game on a deck built
+around Counter-Punch, form changes at 6 of 120. The hill climber was right and the audit only
+showed that it had made a choice.
+
+**5. Ask what the deck wins by, then ask whether any feature encodes it.** A Protection deck wins
+by surviving and grinding. `utility.py` has no feature for trading time for safety, so no weight
+vector expresses that plan and no amount of searching over those weights finds it. This is why
+search actively *harmed* `ant_man_multiple_man_protection`, dropping it from 16.7 to 15.3 damage,
+while helping every aggressive configuration.
+
+**6. Prove your predicate fires before you believe the measurement.** The resource-type fix came
+back byte-identical to baseline, 19/60 wins and 24.95 damage to two decimals. Identical numbers
+across a code change are not a null result, they mean the code did not run. Assert the predicate
+returns what you expect on a named card, or diff a game log, before concluding anything.
+
+**7. Validate on fresh seeds, always.** Pick a change on one seed block and confirm it on another
+you have not looked at. Selecting a value because it looked best on a block and then reporting
+that block is circular, and it is how a `play_econ` sweep produced a 21.1 that evaporated to a
+20.73 against 20.53 with p=1.000 on 60 fresh seeds.
+
+**8. Expect the honest answer to be zero.** Seven targeted improvements in one session, six at
+exactly zero and one at plus one win in sixty. The weights sit at a local optimum and single-action
+ranking is the wrong lever. What is left after that is structural, not parametric.
+
 ## Benchmark (authoritative): 200 seeds, fixed forward model, with the alter-ego cycle
 
 Seeds 2000-2199, each deck with its own tuned weights, isolation verified clean.
