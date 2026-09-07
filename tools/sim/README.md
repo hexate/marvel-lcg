@@ -474,6 +474,15 @@ planning leads, and the cause is measurable rather than inferred: the alter-ego 
 0.47 times a game there against 0.02 to 0.04 on the other three, none of which are built around
 alter-ego. Take the planner's advantage on Ant-Man as the cycle and nothing else.
 
+Per-seed data for every arm is in `tools/sim/benchmark.raw.json`: 2400 rows, one per game,
+carrying deck, policy, seed, won, damage, rounds, end reason, and the telemetry counters that have
+mattered in this work. Every figure in the table above recomputes from it, so the summary can be
+audited rather than trusted. The run reproduces exactly on a re-run, arm for arm including standard
+deviations, which is the determinism check.
+
+For context on where games actually end, across all 2400: 1398 by the hero being eliminated, 825 by
+the main scheme completing, 177 by the villain being defeated.
+
 ### Win rate is a function of mean damage and spread, and nothing else
 
 Sorting all twelve arms by how far the mean sits below the 29 Rhino needs, measured in standard
